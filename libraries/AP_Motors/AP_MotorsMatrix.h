@@ -17,7 +17,8 @@
 #define AP_MOTORS_MATRIX_MOTOR_CW -1
 #define AP_MOTORS_MATRIX_MOTOR_CCW 1
 
-#define AP_MOTORS_MATRIX_YAW_LOWER_LIMIT_PWM    100
+#define AP_MOTORS_MATRIX_YAW_LOWER_LIMIT_PWM   60
+#define AP_MOTORS_MATRIX_RP_LOWER_LIMIT_PWM    60
 
 /// @class      AP_MotorsMatrix
 class AP_MotorsMatrix : public AP_Motors {
@@ -26,7 +27,10 @@ public:
     /// Constructor
     AP_MotorsMatrix( RC_Channel* rc_roll, RC_Channel* rc_pitch, RC_Channel* rc_throttle, RC_Channel* rc_yaw, uint16_t speed_hz = AP_MOTORS_SPEED_DEFAULT) :
         AP_Motors(rc_roll, rc_pitch, rc_throttle, rc_yaw, speed_hz),
-        _num_motors(0) {
+        _num_motors(0),
+        _roll_musthave_percent(1.0f),
+        _pitch_musthave_percent(1.0f)
+        {
     };
 
     // init
@@ -66,7 +70,10 @@ public:
     virtual void        setup_motors() {
         remove_all_motors();
     };
-
+    
+    virtual void set_roll_musthave_pct(float);
+    virtual void set_pitch_musthave_pct(float);
+    
     // matrix
     AP_Int8         test_order[AP_MOTORS_MAX_NUM_MOTORS];               // order of the motors in the test sequence
 
@@ -82,6 +89,8 @@ protected:
     float               _roll_factor[AP_MOTORS_MAX_NUM_MOTORS]; // each motors contribution to roll
     float               _pitch_factor[AP_MOTORS_MAX_NUM_MOTORS]; // each motors contribution to pitch
     float               _yaw_factor[AP_MOTORS_MAX_NUM_MOTORS];  // each motors contribution to yaw (normally 1 or -1)
+    float _roll_musthave_percent;
+    float _pitch_musthave_percent;
 };
 
 #endif  // AP_MOTORSMATRIX
