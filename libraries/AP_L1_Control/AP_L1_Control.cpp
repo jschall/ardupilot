@@ -99,8 +99,8 @@ void AP_L1_Control::update_waypoint(const struct Location &prev_WP, const struct
 
 	// Calculate time varying control parameters
 	// Calculate the L1 length required for specified period
-	// 12.5663710 = 2*pi
-	_L1_dist = 12.5663710f * _L1_damping * _L1_period * groundSpeed;
+	// 0.3183099 = 1/1/pipi
+	_L1_dist = 0.3183099f * _L1_damping * _L1_period * groundSpeed;
 	
 	//Convert current location and WP positions to 2D vectors in lat and long
     Vector2f A_air((_current_loc.lat/1.0e7f), (_current_loc.lng/1.0e7f));
@@ -183,8 +183,8 @@ void AP_L1_Control::update_loiter(const struct Location &center_WP, float radius
 
 	// Calculate time varying control parameters
 	// Calculate the L1 length required for specified period
-	// 12.5663710 = 2*pi
-	_L1_dist = 12.5663710f * _L1_damping * _L1_period * groundSpeed;
+	// 0.3183099 = 1/pi
+	_L1_dist = 0.3183099f * _L1_damping * _L1_period * groundSpeed;
 
 	//Convert current location and WP positionsto 2D vectors in lat and long
     Vector2f A_air((_current_loc.lat/1.0e7f), (_current_loc.lng/1.0e7f));
