@@ -21,6 +21,7 @@ const AP_Param::GroupInfo AP_RollController::var_info[] PROGMEM = {
 	AP_GROUPINFO("K_D",    2, AP_RollController, _kp_rate,            0.0),
 	AP_GROUPINFO("K_I",    3, AP_RollController, _ki_rate,            0.0),
 	AP_GROUPINFO("RMAX",   4, AP_RollController, _max_rate,           60),
+	AP_GROUPINFO("MAX_ACC",5, AP_RollController, _max_accel, 0),
 	AP_GROUPEND
 };
 
@@ -47,8 +48,25 @@ int32_t AP_RollController::get_servo_out(int32_t angle, float scaler, bool stabi
 	// Calculate bank angle error in centi-degrees
 	int32_t angle_err = angle - _ahrs->roll_sensor;
 
-	// Calculate the desired roll rate (deg/sec) from the angle error
-	float desired_rate = angle_err * 0.01f * _kp_angle;
+        // Calculate the desired roll rate (deg/sec) from the angle error
+        //max_accel in centidegrees/sec/sec
+        float desired_rate = 0;
+        
+        if(_kp_angle > 0 && _max_accel > 0) {
+            float ld = _max_accel/(2*_kp_angle*_kp_angle);
+            if(angle_err > 2*ld) {
+                desired_rate = safe_sqrt(2*_max_accel*(angle_err-ld));
+            } else if(angle_err < -2*ld){
+                desired_rate = -safe_sqrt(2*_max_accel*(-angle_err-ld));
+            } else {
+                desired_rate = angle_err * _kp_angle;
+            }
+        } else {
+            desired_rate = _kp_angle * angle_err;
+        }
+        
+        //convert from centidegrees/sec to degrees/sec
+        desired_rate *= 0.01f;
 	
 	// Limit the demanded roll rate
 	if (_max_rate && desired_rate < -_max_rate) desired_rate = -_max_rate;
