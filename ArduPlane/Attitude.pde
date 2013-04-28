@@ -485,6 +485,50 @@ static bool suppress_throttle(void)
 }
 
 /*
+ * implement a software elevon mixer. There are 4 different mixing modes
+ */
+static void elevon_output_mixing(void)
+{
+    int16_t elevator, aileron;
+    int16_t e1, e2;
+    
+    elevator = g.channel_pitch.radio_out - 1500;
+    aileron = g.channel_roll.radio_out - 1500;
+    
+    e1 = (elevator - aileron)/2;
+    e2 = (elevator + aileron)/2;
+    
+    // now map to vtail output
+    switch (g.elevon_output) {
+        case ELEVON_DISABLED:
+            return;
+            
+        case ELEVON_NN:
+            break;
+            
+        case ELEVON_NR:
+            e2 = -e2;
+            break;
+            
+        case ELEVON_RN:
+            e1 = -e1;
+            break;
+            
+        case ELEVON_RR:
+            e1 = -e1;
+            e2 = -e2;
+            break;
+    }
+    
+    e1 = constrain_int16(e1, -500, 500);
+    e2 = constrain_int16(e2, -500, 500);
+    
+    // scale for a 1500 center and 1000..2000 range, symmetric
+    g.channel_roll.radio_out  = 1500 + e1;
+    g.channel_pitch.radio_out = 1500 + e2;
+}
+
+/*
   implement a software VTail mixer. There are 4 different mixing modes
  */
 static void vtail_output_mixing(void)
@@ -712,6 +756,10 @@ static void set_servos(void)
 
     if (g.vtail_output != VTAIL_DISABLED) {
         vtail_output_mixing();
+    }
+    
+    if (g.elevon_output != ELEVON_DISABLED) {
+        elevon_output_mixing();
     }
 
     // send values to the PWM timers for output

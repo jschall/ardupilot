@@ -90,6 +90,14 @@ enum VTailMixing {
     VTAIL_DNDN     = 4
 };
 
+enum ElevonMixing {
+    ELEVON_DISABLED = 0,
+    ELEVON_NN = 1,
+    ELEVON_NR = 2,
+    ELEVON_RN = 3,
+    ELEVON_RR = 4
+};
+
 // Commands - Note that APM now uses a subset of the MAVLink protocol
 // commands.  See enum MAV_CMD in the GCS_Mavlink library
 #define CMD_BLANK 0 // there is no command stored in the mem location
