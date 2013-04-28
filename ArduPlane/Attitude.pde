@@ -492,7 +492,15 @@ static void elevon_output_mixing(void)
     int16_t elevator, aileron;
     int16_t e1, e2;
     
+    static int32_t last_log;
+    bool log = false;
+    if(last_log+1000 < hal.scheduler->millis()) {
+        last_log = hal.scheduler->millis();
+        log = true;
+    }
+    
     elevator = g.channel_pitch.radio_out - g.channel_pitch.radio_trim.get();
+    if(log)hal.console->printf("g.channel_pitch.radio_out: %f, g.channel_pitch.radio_trim.get(): %f, elevator: %f", (float)g.channel_pitch.radio_out, (float)g.channel_pitch.radio_trim.get(), (float)elevator);
     aileron = g.channel_roll.radio_out - g.channel_roll.radio_trim.get();
     e1 = (elevator - aileron)/2;
     e2 = (elevator + aileron)/2;
