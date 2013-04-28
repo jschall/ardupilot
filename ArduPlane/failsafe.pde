@@ -46,6 +46,9 @@ void failsafe_check(uint32_t tnow)
         if (g.vtail_output != VTAIL_DISABLED) {
             vtail_output_mixing();
         }
+        if (g.elevon_output != ELEVON_DISABLED) {
+            vtail_output_mixing();
+        }
         if (!demoing_servos) {
             servo_write(CH_1, g.channel_roll.radio_out);
         }
