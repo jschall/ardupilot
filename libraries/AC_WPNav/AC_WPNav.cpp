@@ -562,6 +562,7 @@ void AC_WPNav::get_loiter_velocity_to_acceleration(float vel_lat, float vel_lon,
     Vector3f vel_curr = _inav->get_velocity();  // current velocity in cm/s
     Vector3f vel_error;                         // The velocity error in cm/s.
     float accel_total;                          // total acceleration in cm/s/s
+    static bool loit_accel_limited;
 
     // reset last velocity if this controller has just been engaged or dt is zero
     if( dt == 0.0 ) {
@@ -581,15 +582,25 @@ void AC_WPNav::get_loiter_velocity_to_acceleration(float vel_lat, float vel_lon,
     vel_error.x = vel_lat - vel_curr.x;
     vel_error.y = vel_lon - vel_curr.y;
 
-    // combine feed foward accel with PID outpu from velocity error
-    desired_accel.x += _pid_rate_lat->get_pid(vel_error.x, dt);
-    desired_accel.y += _pid_rate_lon->get_pid(vel_error.y, dt);
+    desired_accel.x += _pid_rate_lat->get_p(vel_error.x) + _pid_rate_lat->get_d(vel_error.x, dt);
+    desired_accel.y += _pid_rate_lon->get_p(vel_error.y) + _pid_rate_lon->get_d(vel_error.y, dt);
+    
+    if(!loit_accel_limited) {
+        desired_accel.x += _pid_rate_lat->get_i(vel_error.x, dt);
+        desired_accel.y += _pid_rate_lon->get_i(vel_error.y, dt);
+    } else {
+        desired_accel.x += _pid_rate_lat->get_integrator();
+        desired_accel.y += _pid_rate_lon->get_integrator();
+    }
 
     // scale desired acceleration if it's beyond acceptable limit
     accel_total = safe_sqrt(desired_accel.x*desired_accel.x + desired_accel.y*desired_accel.y);
     if( accel_total > WPNAV_ACCEL_MAX ) {
         desired_accel.x = WPNAV_ACCEL_MAX * desired_accel.x/accel_total;
         desired_accel.y = WPNAV_ACCEL_MAX * desired_accel.y/accel_total;
+        loit_accel_limited = true;
+    } else {
+        loit_accel_limited = false;
     }
 
     // call accel based controller with desired acceleration
