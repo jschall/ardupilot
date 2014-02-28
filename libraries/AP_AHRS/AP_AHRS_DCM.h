@@ -40,7 +40,7 @@ public:
 
     // return the smoothed gyro vector corrected for drift
     const Vector3f get_gyro(void) const {
-        return _omega + _omega_P + _omega_yaw_P;
+        return _omega + _omega_P;
     }
 
     // return rotation matrix representing rotaton from body to earth axes
@@ -91,10 +91,13 @@ private:
     void            check_matrix(void);
     bool            renorm(Vector3f const &a, Vector3f &result);
     void            drift_correction(float deltat);
-    void            drift_correction_yaw(void);
     float           yaw_error_compass();
     void            euler_angles(void);
     bool            have_gps(void) const;
+    bool            update_bf_error_gps(void);
+    bool            update_bf_error_compass(void);
+    void            update_ef_accel(float deltat);
+    float           yaw_observability(float lateral_accel);
 
     // primary representation of attitude of board used for all inertial calculations
     Matrix3f _dcm_matrix;
@@ -103,12 +106,17 @@ private:
     Matrix3f _body_dcm_matrix;
 
     Vector3f _omega_P;                          // accel Omega proportional correction
-    Vector3f _omega_yaw_P;                      // proportional yaw correction
     Vector3f _omega_I;                          // Omega Integrator correction
     Vector3f _omega_I_sum;
     float _omega_I_sum_time;
     Vector3f _omega;                            // Corrected Gyro_Vector data
-
+    
+    Vector3f _bf_error_gps;
+    float _gps_yaw_obs;
+    uint32_t _bf_error_gps_time_ms;
+    Vector3f _bf_error_compass;
+    uint32_t _bf_error_compass_time_ms;
+    
     // variables to cope with delaying the GA sum to match GPS lag
     Vector3f ra_delayed(uint8_t instance, const Vector3f &ra);
     Vector3f _ra_delay_buffer[INS_MAX_INSTANCES];
@@ -129,14 +137,10 @@ private:
     uint16_t _error_yaw_count;
     float _error_yaw_last;
 
-    // time in millis when we last got a GPS heading
-    uint32_t _gps_last_update;
-
     // state of accel drift correction
     Vector3f _ra_sum[INS_MAX_INSTANCES];
     Vector3f _last_velocity;
     float _ra_deltat;
-    uint32_t _ra_sum_start;
 
     // the earths magnetic field
     float _last_declination;
