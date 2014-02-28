@@ -596,16 +596,22 @@ bool AP_AHRS_DCM::update_bf_error_gps() {
         } else {
             GA_b[i] = _ra_sum[i];
         }
-        GA_b[i].normalize();
+        
         if (GA_b[i].is_inf()) {
             // wait for some non-zero acceleration information
             continue;
         }
         error[i] = GA_b[i] % GA_e;
+        
         float error_length = error[i].length();
         if (besti == -1 || error_length < best_error) {
             besti = i;
             best_error = error_length;
+        }
+        
+        float GA_b_length = GA_b[i].length();
+        if(GA_b_length > 1.0f) {
+            error[i] /= GA_b_length;
         }
     }
     
