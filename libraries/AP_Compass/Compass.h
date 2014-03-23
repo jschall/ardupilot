@@ -227,6 +227,8 @@ protected:
 
     AP_Int8 _orientation;
     AP_Vector3f _offset[COMPASS_MAX_INSTANCES];
+    AP_Vector3f _diagonals[COMPASS_MAX_INSTANCES];
+    AP_Vector3f _offdiagonals[COMPASS_MAX_INSTANCES];
     AP_Float _declination;
     AP_Int8 _use_for_yaw;                       ///<enable use for yaw calculation
     AP_Int8 _auto_declination;                  ///<enable automatic declination code
@@ -247,5 +249,7 @@ protected:
 
     // board orientation from AHRS
     enum Rotation _board_orientation;
+    
+    Vector3f apply_corrections(Vector3f mag, uint8_t i);
 };
 #endif

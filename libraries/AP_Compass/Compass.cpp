@@ -101,8 +101,11 @@ const AP_Param::GroupInfo Compass::var_info[] PROGMEM = {
 #if COMPASS_MAX_INSTANCES > 1
     AP_GROUPINFO("OFS2",    10, Compass, _offset[1], 0),
     AP_GROUPINFO("MOT2",    11, Compass, _motor_compensation[1], 0),
+    AP_GROUPINFO("DIA2",    12, Compass, _diagonals[1], 0),
+    AP_GROUPINFO("ODI2",    13, Compass, _offdiagonals[1], 0),
 #endif
-
+    AP_GROUPINFO("DIA",    14, Compass, _diagonals[0], 0),
+    AP_GROUPINFO("ODI",    15, Compass, _offdiagonals[0], 0),
     AP_GROUPEND
 };
 
@@ -217,4 +220,29 @@ Compass::calculate_heading(const Matrix3f &dcm_matrix) const
     return heading;
 }
 
-
+Vector3f Compass::apply_corrections(Vector3f mag, uint8_t i)
+{
+    if (_diagonals[i].get().is_zero()) {
+        _diagonals[i].set(Vector3f(1,1,1));
+    }
+    const Vector3f &offsets = _offset[i].get();
+    const Vector3f &diagonals = _diagonals[i].get();
+    const Vector3f &offdiagonals = _offdiagonals[i].get();
+    const Vector3f &mot = _motor_compensation[i].get();
+    
+    mag += offsets;
+    if(_motor_comp_type != AP_COMPASS_MOT_COMP_DISABLED && _thr_or_curr != 0.0f) {
+        _motor_offset[i] = mot * _thr_or_curr;
+        mag += _motor_offset[i];
+    }else{
+        _motor_offset[i].zero();
+    }
+    
+    mag = Vector3f(
+           diagonals.x * mag.x + offdiagonals.x * mag.y + offdiagonals.y * mag.z,
+        offdiagonals.x * mag.x +    diagonals.y * mag.y + offdiagonals.z * mag.z,
+        offdiagonals.y * mag.x + offdiagonals.z * mag.y +    diagonals.z * mag.z
+    );
+    
+    return mag;
+}
