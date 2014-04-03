@@ -117,7 +117,10 @@ public:
     void set_monitoring(uint8_t mon) { _monitoring.set(mon); }
 
     /// Battery voltage.  Initialized to 99 to prevent low voltage events at startup
-    float voltage() const { return _voltage; }
+    float voltage() const { return _voltage_pin * _volt_multiplier; }
+
+    // Pin voltage
+    float unscaled_pin_voltage() const { return _voltage_pin; }
 
     /// Battery pack instantaneous currrent draw in amperes
     float current_amps() const { return _current_amps; }
@@ -145,7 +148,7 @@ protected:
     AP_Int32    _pack_capacity;             /// battery pack capacity less reserve in mAh
 
     /// internal variables
-    float       _voltage;                   /// last read voltage
+    float       _voltage_pin;               /// last read voltage from _volt_pin
     float       _current_amps;              /// last read current drawn
     float       _current_total_mah;         /// total current drawn since startup (Amp-hours)
     uint32_t    _last_time_micros;          /// time when current was last read

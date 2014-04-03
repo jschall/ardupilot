@@ -61,7 +61,7 @@ const AP_Param::GroupInfo AP_BattMonitor::var_info[] PROGMEM = {
 // their values.
 //
 AP_BattMonitor::AP_BattMonitor(void) :
-    _voltage(0),
+    _voltage_pin(0),
     _current_amps(0),
     _current_total_mah(0),
     _last_time_micros(0)
@@ -89,7 +89,8 @@ AP_BattMonitor::read()
     if (_monitoring == AP_BATT_MONITOR_VOLTAGE_ONLY || _monitoring == AP_BATT_MONITOR_VOLTAGE_AND_CURRENT) {
         // this copes with changing the pin at runtime
         _volt_pin_analog_source->set_pin(_volt_pin);
-        _voltage = _volt_pin_analog_source->voltage_average() * _volt_multiplier;
+        
+        _voltage_pin = _volt_pin_analog_source->voltage_average();
     }
 
     // read current
@@ -125,7 +126,7 @@ bool AP_BattMonitor::exhausted(float low_voltage, float min_capacity_mah)
     uint32_t tnow = hal.scheduler->millis();
 
     // check voltage
-    if ((_voltage != 0) && (low_voltage > 0) && (_voltage < low_voltage)) {
+    if ((voltage() != 0) && (low_voltage > 0) && (voltage() < low_voltage)) {
         // this is the first time our voltage has dropped below minimum so start timer
         if (_low_voltage_start_ms == 0) {
             _low_voltage_start_ms = tnow;
