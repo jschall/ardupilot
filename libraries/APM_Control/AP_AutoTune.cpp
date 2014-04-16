@@ -132,7 +132,7 @@ void AP_AutoTune::start(void)
 
     current.rmax.set(pgm_read_float(&tuning_table[level-1].rmax));
     // D gain is scaled to a fixed ratio of P gain
-    current.D.set(   pgm_read_float(&tuning_table[level-1].Dratio) * current.P);
+    current.D.set(   pgm_read_float(&tuning_table[level-1].Dratio) * current.FF);
     current.tau.set( pgm_read_float(&tuning_table[level-1].tau));
 
     current.imax = constrain_float(current.imax, AUTOTUNE_MIN_IMAX, AUTOTUNE_MAX_IMAX);
@@ -142,7 +142,7 @@ void AP_AutoTune::start(void)
 
     next_save = current;
 
-    Debug("START P -> %.3f\n", current.P.get());
+    Debug("START P -> %.3f\n", current.FF.get());
 }
 
 /*
@@ -209,24 +209,24 @@ void AP_AutoTune::check_state_exit(uint32_t state_time_ms)
         // we increase P if we have not saturated the surfaces during
         // this state, and we have
         if (state_time_ms >= AUTOTUNE_UNDERSHOOT_TIME && !saturated_surfaces) {
-            current.P.set(current.P * (100+AUTOTUNE_INCREASE_STEP) * 0.01f);
-            if (current.P > AUTOTUNE_MAX_P) {
-                current.P = AUTOTUNE_MAX_P;
+            current.FF.set(current.FF * (100+AUTOTUNE_INCREASE_STEP) * 0.01f);
+            if (current.FF > AUTOTUNE_MAX_P) {
+                current.FF = AUTOTUNE_MAX_P;
             }
-            Debug("UNDER P -> %.3f\n", current.P.get());
+            Debug("UNDER P -> %.3f\n", current.FF.get());
         }
-        current.D.set(   pgm_read_float(&tuning_table[aparm.autotune_level-1].Dratio) * current.P);
+        current.D.set(   pgm_read_float(&tuning_table[aparm.autotune_level-1].Dratio) * current.FF);
         break;
     case DEMAND_OVER_POS:
     case DEMAND_OVER_NEG:
         if (state_time_ms >= AUTOTUNE_OVERSHOOT_TIME) {
-            current.P.set(current.P * (100-AUTOTUNE_DECREASE_STEP) * 0.01f);
-            if (current.P < AUTOTUNE_MIN_P) {
-                current.P = AUTOTUNE_MIN_P;
+            current.FF.set(current.FF * (100-AUTOTUNE_DECREASE_STEP) * 0.01f);
+            if (current.FF < AUTOTUNE_MIN_P) {
+                current.FF = AUTOTUNE_MIN_P;
             }
-            Debug("OVER P -> %.3f\n", current.P.get());
+            Debug("OVER P -> %.3f\n", current.FF.get());
         }
-        current.D.set(   pgm_read_float(&tuning_table[aparm.autotune_level-1].Dratio) * current.P);
+        current.D.set(   pgm_read_float(&tuning_table[aparm.autotune_level-1].Dratio) * current.FF);
         break;
     }
 }
@@ -247,7 +247,7 @@ void AP_AutoTune::check_save(void)
     ATGains tmp = current;
 
     save_gains(next_save);
-    Debug("SAVE P -> %.3f\n", current.P.get());
+    Debug("SAVE P -> %.3f\n", current.FF.get());
 
     // restore our current gains
     current = tmp;
@@ -315,7 +315,7 @@ void AP_AutoTune::save_gains(const ATGains &v)
 {
     current = last_save;
     save_float_if_changed(current.tau, v.tau, PSTR("TCONST"));
-    save_float_if_changed(current.P, v.P, PSTR("P"));
+    save_float_if_changed(current.FF, v.FF, PSTR("FF"));
     save_float_if_changed(current.I, v.I, PSTR("I"));
     save_float_if_changed(current.D, v.D, PSTR("D"));
     save_int16_if_changed(current.rmax, v.rmax, PSTR("RMAX"));
@@ -337,7 +337,7 @@ void AP_AutoTune::write_log(float servo, float demanded, float achieved)
         servo      : (int16_t)(servo*100),
         demanded   : demanded,
         achieved   : achieved,
-        P          : current.P.get()
+        P          : current.FF.get()
     };
     dataflash.WriteBlock(&pkt, sizeof(pkt));
 }
