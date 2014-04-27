@@ -157,8 +157,9 @@ int32_t AP_SteerController::get_steering_out_rate(float desired_rate)
             }
 			_integrator += integrator_delta;
 		}
-	} else if (ki_rate == 0) {
-        _integrator = 0;
+	} else {
+        //decay integrator to zero over about 10 seconds
+        _integrator -= _integrator * 0.1f * delta_time;
     }
 	
     // Scale the integration limit
