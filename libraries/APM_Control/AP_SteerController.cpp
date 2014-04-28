@@ -118,11 +118,11 @@ int32_t AP_SteerController::get_steering_out_rate(float desired_rate)
     float delta_time    = (float)dt * 0.001f;
     //limit acceleration:
     float max_rate_dem_change_degs = _acc_max * delta_time;
-    static float last_desired_rate = NAN;
-    if(!isnan(last_desired_rate)) {
-        desired_rate = constrain_float(desired_rate, last_desired_rate-max_rate_dem_change_degs,last_desired_rate+max_rate_dem_change_degs);
+
+    if(!isnan(_last_desired_rate_degs)) {
+        desired_rate = constrain_float(desired_rate, _last_desired_rate_degs-max_rate_dem_change_degs,_last_desired_rate_degs+max_rate_dem_change_degs);
     }
-    last_desired_rate = desired_rate;
+    _last_desired_rate_degs = desired_rate;
 
     // this is a linear approximation of the inverse steering
     // equation for a ground vehicle. It returns steering as an angle from -45 to 45
@@ -158,8 +158,8 @@ int32_t AP_SteerController::get_steering_out_rate(float desired_rate)
 			_integrator += integrator_delta;
 		}
 	} else {
-        //decay integrator to zero over about 10 seconds
-        _integrator -= _integrator * 0.1f * delta_time;
+        //decay integrator to zero over about 15 seconds
+        _integrator -= _integrator * 0.06f * delta_time;
     }
 	
     // Scale the integration limit
@@ -226,7 +226,8 @@ int32_t AP_SteerController::get_steering_out_angle_error(int32_t angle_err_cd)
 
 //return the stopping distance of the controller in radians
 float AP_SteerController::get_stopping_angle() {
-    float ang_vel = _ahrs.get_gyro().z;
+    float speed = _ahrs.groundspeed();
+    float ang_vel = constrain_float(ToRad(_last_desired_rate_degs), -speed/_K_FF, speed/_K_FF);
     float acc_max_rad_ss = ToRad((float)_acc_max);
     if(fabs(ang_vel) < acc_max_rad_ss*_tau) {
         return _tau*ang_vel;
