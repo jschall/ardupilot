@@ -11,7 +11,8 @@
 class AP_SteerController {
 public:
 	AP_SteerController(AP_AHRS &ahrs) :
-        _ahrs(ahrs)
+        _ahrs(ahrs),
+        _last_desired_rate_degs(NAN)
     { 
 		AP_Param::setup_object_defaults(this, var_info);
 	}
@@ -58,6 +59,7 @@ private:
     AP_Int16  _acc_max;
 	uint32_t _last_t;
 	float _last_out;
+    float _last_desired_rate_degs;
 
 	float _integrator;
 
