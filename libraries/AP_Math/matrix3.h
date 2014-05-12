@@ -202,6 +202,9 @@ public:
         return a.is_nan() || b.is_nan() || c.is_nan();
     }
 
+    // re-normalize a rotation matrix
+    bool normalize_rot(void);
+
     // create a rotation matrix from Euler angles
     void        from_euler(float roll, float pitch, float yaw);
 
