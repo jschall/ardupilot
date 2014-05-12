@@ -168,6 +168,30 @@ Matrix3<T> Matrix3<T>::transposed(void) const
 }
 
 template <typename T>
+bool Matrix3<T>::normalize_rot(void)
+{
+    float error = a * b;
+
+    Vector3<T> t0 = a - (b*(0.5f*error));
+    Vector3<T> t1 = b - (a*(0.5f*error));
+
+    float renorm_a = 1.0f/t0.length();
+    float renorm_b = 1.0f/t1.length();
+    float renorm_c = 1.0f/(t0 % t1).length();
+
+    if(renorm_a > 1.0e6f || renorm_a < 1.0e-6f ||
+       renorm_b > 1.0e6f || renorm_b < 1.0e-6f ||
+       renorm_c > 1.0e6f || renorm_c < 1.0e-6f) {
+        return false;
+    }
+
+    a *= renorm_a;
+    b *= renorm_b;
+    c *= renorm_c;
+    return true;
+}
+
+template <typename T>
 void Matrix3<T>::zero(void)
 {
     a.x = a.y = a.z = 0;
@@ -188,6 +212,7 @@ template Vector3<float> Matrix3<float>::mul_transpose(const Vector3<float> &v) c
 template Matrix3<float> Matrix3<float>::operator *(const Matrix3<float> &m) const;
 template Matrix3<float> Matrix3<float>::transposed(void) const;
 template Vector2<float> Matrix3<float>::mulXY(const Vector3<float> &v) const;
+template bool Matrix3<float>::normalize_rot(void);
 
 #if HAL_CPU_CLASS >= HAL_CPU_CLASS_75
 template void Matrix3<double>::zero(void);
@@ -201,4 +226,5 @@ template Vector3<double> Matrix3<double>::mul_transpose(const Vector3<double> &v
 template Matrix3<double> Matrix3<double>::operator *(const Matrix3<double> &m) const;
 template Matrix3<double> Matrix3<double>::transposed(void) const;
 template Vector2<double> Matrix3<double>::mulXY(const Vector3<double> &v) const;
+template bool Matrix3<double>::normalize_rot(void);
 #endif
