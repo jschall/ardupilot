@@ -271,6 +271,11 @@ static void report_compass()
         if( compass.motor_compensation_type() == AP_COMPASS_MOT_COMP_CURRENT ) {
             cliSerial->print_P(PSTR("Current"));
         }
+#if HAL_CPU_CLASS >= HAL_CPU_CLASS_75
+        if( compass.motor_compensation_type() == AP_COMPASS_MOT_COMP_CURRENT_LEARN ) {
+            cliSerial->print_P(PSTR("Learn"));
+        }
+#endif
         Vector3f motor_compensation = compass.get_motor_compensation();
         cliSerial->printf_P(PSTR("\nComp Vec: %4.2f, %4.2f, %4.2f\n"),
                         motor_compensation.x,
