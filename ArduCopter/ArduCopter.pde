@@ -157,6 +157,10 @@
 #endif
 #include <AP_Terrain.h>
 
+#if HAL_CPU_CLASS >= HAL_CPU_CLASS_75
+#include <AP_CompassMot.h>
+#endif
+
 // AP_HAL to Arduino compatibility layer
 #include "compat.h"
 // Configuration
@@ -1007,6 +1011,10 @@ static void fast_loop()
 
     // run the attitude controllers
     update_flight_mode();
+
+#if HAL_CPU_CLASS >= HAL_CPU_CLASS_75
+    compass.update_gyro(ins.get_gyro()+ahrs.get_gyro_drift());
+#endif
 }
 
 // rc_loops - reads user input from transmitter/receiver
