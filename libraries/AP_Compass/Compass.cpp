@@ -151,6 +151,11 @@ Compass::Compass(void) :
     _thr_or_curr(0.0f),
     _board_orientation(ROTATION_NONE)
 {
+    if(_motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT || _motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT_LEARN) {
+        for(uint8_t i=0; i<COMPASS_MAX_INSTANCES; i++) {
+            _compass_mot[i].set_motfactors(_motor_compensation[i]);
+        }
+    }
     AP_Param::setup_object_defaults(this, var_info);
 
 #if COMPASS_MAX_INSTANCES > 1
@@ -325,6 +330,11 @@ void Compass::apply_corrections(Vector3f &mag, uint8_t i)
     const Vector3f &mot = _motor_compensation[i].get();
     
     mag += offsets;
+
+    if(_compass_mot[i].update_compass(mag) && (_motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT_LEARN)) {
+        _motor_compensation[i].set_and_save(_compass_mot[i].get_motfactors());
+    }
+
     if(_motor_comp_type != AP_COMPASS_MOT_COMP_DISABLED && _thr_or_curr != 0.0f) {
         _motor_offset[i] = mot * _thr_or_curr;
         mag += _motor_offset[i];
