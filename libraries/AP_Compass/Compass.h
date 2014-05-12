@@ -7,6 +7,7 @@
 #include <AP_Param.h>
 #include <AP_Math.h>
 #include <AP_Declination.h> // ArduPilot Mega Declination Helper Library
+#include <AP_CompassMot.h>
 
 // compass product id
 #define AP_COMPASS_TYPE_UNKNOWN  0x00
@@ -17,9 +18,10 @@
 #define AP_COMPASS_TYPE_VRBRAIN  0x05
 
 // motor compensation types (for use with motor_comp_enabled)
-#define AP_COMPASS_MOT_COMP_DISABLED    0x00
-#define AP_COMPASS_MOT_COMP_THROTTLE    0x01
-#define AP_COMPASS_MOT_COMP_CURRENT     0x02
+#define AP_COMPASS_MOT_COMP_DISABLED      0x00
+#define AP_COMPASS_MOT_COMP_THROTTLE      0x01
+#define AP_COMPASS_MOT_COMP_CURRENT       0x02
+#define AP_COMPASS_MOT_COMP_CURRENT_LEARN 0x03
 
 // setup default mag orientation for each board type
 #if CONFIG_HAL_BOARD == HAL_BOARD_APM1
@@ -209,8 +211,30 @@ public:
     /// Set the current used by system in amps
     /// @param amps                 current flowing to the motors expressed in amps
     void set_current(float amps) {
+        for(uint8_t i=0; i<COMPASS_MAX_INSTANCES; i++) {
+            _compass_mot[i].update_current(amps);
+        }
+
         if(_motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT) {
             _thr_or_curr = amps;
+        }
+    }
+
+    void set_gyro_deltat(float deltat) {
+        for(uint8_t i=0; i<COMPASS_MAX_INSTANCES; i++) {
+            _compass_mot[i].set_gyro_deltat(deltat);
+        }
+    }
+
+    void update_gyro(Vector3f gyro) {
+        for(uint8_t i=0; i<COMPASS_MAX_INSTANCES; i++) {
+            _compass_mot[i].update_gyro(gyro);
+        }
+    }
+
+    void set_dataflash(DataFlash_Class *df) {
+        for(uint8_t i=0; i<COMPASS_MAX_INSTANCES; i++) {
+            _compass_mot[i].set_dataflash(df);
         }
     }
 
@@ -233,6 +257,7 @@ protected:
     AP_Int8 _use_for_yaw;                       ///<enable use for yaw calculation
     AP_Int8 _auto_declination;                  ///<enable automatic declination code
     AP_Int8 _external;                          ///<compass is external
+    AP_CompassMot _compass_mot[COMPASS_MAX_INSTANCES];
 
     bool _null_init_done;                           ///< first-time-around flag used by offset nulling
 

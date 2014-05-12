@@ -117,6 +117,11 @@ Compass::Compass(void) :
     product_id(AP_COMPASS_TYPE_UNKNOWN),
     _null_init_done(false)
 {
+    if(_motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT || _motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT_LEARN) {
+        for(uint8_t i=0; i<COMPASS_MAX_INSTANCES; i++) {
+            _compass_mot[i].set_motfactors(_motor_compensation[i]);
+        }
+    }
     AP_Param::setup_object_defaults(this, var_info);
 }
 
@@ -225,24 +230,31 @@ Vector3f Compass::apply_corrections(Vector3f mag, uint8_t i)
     if (_diagonals[i].get().is_zero()) {
         _diagonals[i].set(Vector3f(1,1,1));
     }
-    const Vector3f &offsets = _offset[i].get();
-    const Vector3f &diagonals = _diagonals[i].get();
-    const Vector3f &offdiagonals = _offdiagonals[i].get();
-    const Vector3f &mot = _motor_compensation[i].get();
+
+    const Vector3f& offsets = _offset[i].get();
+    const Vector3f& diagonals = _diagonals[i].get();
+    const Vector3f& offdiagonals = _offdiagonals[i].get();
     
     mag += offsets;
-    if(_motor_comp_type != AP_COMPASS_MOT_COMP_DISABLED && _thr_or_curr != 0.0f) {
-        _motor_offset[i] = mot * _thr_or_curr;
-        mag += _motor_offset[i];
-    }else{
-        _motor_offset[i].zero();
-    }
     
     mag = Vector3f(
            diagonals.x * mag.x + offdiagonals.x * mag.y + offdiagonals.y * mag.z,
         offdiagonals.x * mag.x +    diagonals.y * mag.y + offdiagonals.z * mag.z,
         offdiagonals.y * mag.x + offdiagonals.z * mag.y +    diagonals.z * mag.z
     );
+
+    if(_compass_mot[i].update_compass(mag) && (_motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT_LEARN)) {
+        _motor_compensation[i].set_and_save(_compass_mot[i].get_motfactors());
+    }
+
+    const Vector3f& mot = _motor_compensation[i].get();
+
+    if(_motor_comp_type != AP_COMPASS_MOT_COMP_DISABLED && _thr_or_curr != 0.0f) {
+        _motor_offset[i] = mot * _thr_or_curr;
+        mag += _motor_offset[i];
+    }else{
+        _motor_offset[i].zero();
+    }
     
     return mag;
 }
