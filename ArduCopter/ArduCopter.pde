@@ -108,7 +108,6 @@
 #include <AP_Baro.h>
 #include <AP_Baro_Glitch.h>     // Baro glitch protection library
 #include <AP_Compass.h>         // ArduPilot Mega Magnetometer Library
-#include <AP_CompassMot.h>
 #include <AP_Math.h>            // ArduPilot Mega Vector/Matrix math Library
 #include <AP_Curve.h>           // Curve used to linearlise throttle pwm to thrust
 #include <AP_InertialSensor.h>  // ArduPilot Mega Inertial Sensor (accel & gyro) Library
@@ -156,6 +155,10 @@
 #include <AP_Parachute.h>		// Parachute release library
 #endif
 #include <AP_Terrain.h>
+
+#if HAL_CPU_CLASS >= HAL_CPU_CLASS_75
+#include <AP_CompassMot.h>
+#endif
 
 // AP_HAL to Arduino compatibility layer
 #include "compat.h"
@@ -1018,8 +1021,9 @@ static void fast_loop()
         update_optical_flow();
     }
 #endif  // OPTFLOW == ENABLED
-
+#if HAL_CPU_CLASS >= HAL_CPU_CLASS_75
     compass.update_gyro(ins.get_gyro()+ahrs.get_gyro_drift());
+#endif
 }
 
 // rc_loops - reads user input from transmitter/receiver
