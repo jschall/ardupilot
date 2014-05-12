@@ -7,7 +7,9 @@
 #include <AP_Param.h>
 #include <AP_Math.h>
 #include <AP_Declination.h> // ArduPilot Mega Declination Helper Library
-#include <AP_CompassMot.h>
+#if HAL_CPU_CLASS >= HAL_CPU_CLASS_75
+    #include <AP_CompassMot.h>
+#endif
 
 // compass product id
 #define AP_COMPASS_TYPE_UNKNOWN  0x00
@@ -211,15 +213,16 @@ public:
     /// Set the current used by system in amps
     /// @param amps                 current flowing to the motors expressed in amps
     void set_current(float amps) {
+#if HAL_CPU_CLASS >= HAL_CPU_CLASS_75
         for(uint8_t i=0; i<COMPASS_MAX_INSTANCES; i++) {
             _compass_mot[i].update_current(amps);
         }
-
+#endif
         if(_motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT) {
             _thr_or_curr = amps;
         }
     }
-
+#if HAL_CPU_CLASS >= HAL_CPU_CLASS_75
     void set_gyro_deltat(float deltat) {
         for(uint8_t i=0; i<COMPASS_MAX_INSTANCES; i++) {
             _compass_mot[i].set_gyro_deltat(deltat);
@@ -237,6 +240,7 @@ public:
             _compass_mot[i].set_dataflash(df);
         }
     }
+#endif
 
     static const struct AP_Param::GroupInfo var_info[];
 
@@ -257,7 +261,9 @@ protected:
     AP_Int8 _use_for_yaw;                       ///<enable use for yaw calculation
     AP_Int8 _auto_declination;                  ///<enable automatic declination code
     AP_Int8 _external;                          ///<compass is external
+#if HAL_CPU_CLASS >= HAL_CPU_CLASS_75
     AP_CompassMot _compass_mot[COMPASS_MAX_INSTANCES];
+#endif
 
     bool _null_init_done;                           ///< first-time-around flag used by offset nulling
 

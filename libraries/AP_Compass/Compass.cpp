@@ -117,11 +117,13 @@ Compass::Compass(void) :
     product_id(AP_COMPASS_TYPE_UNKNOWN),
     _null_init_done(false)
 {
+#if HAL_CPU_CLASS >= HAL_CPU_CLASS_75
     if(_motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT || _motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT_LEARN) {
         for(uint8_t i=0; i<COMPASS_MAX_INSTANCES; i++) {
             _compass_mot[i].set_motfactors(_motor_compensation[i]);
         }
     }
+#endif
     AP_Param::setup_object_defaults(this, var_info);
 }
 
@@ -150,6 +152,9 @@ Compass::save_offsets()
 void
 Compass::set_motor_compensation(const Vector3f &motor_comp_factor, uint8_t i)
 {
+#if HAL_CPU_CLASS >= HAL_CPU_CLASS_75
+    _compass_mot[i].set_motfactors(_motor_compensation[i]);
+#endif
     _motor_compensation[i].set(motor_comp_factor);
 }
 
@@ -243,9 +248,11 @@ Vector3f Compass::apply_corrections(Vector3f mag, uint8_t i)
         offdiagonals.y * mag.x + offdiagonals.z * mag.y +    diagonals.z * mag.z
     );
 
+#if HAL_CPU_CLASS >= HAL_CPU_CLASS_75
     if(_compass_mot[i].update_compass(mag) && (_motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT_LEARN)) {
         _motor_compensation[i].set_and_save(_compass_mot[i].get_motfactors());
     }
+#endif
 
     const Vector3f& mot = _motor_compensation[i].get();
 
