@@ -338,7 +338,11 @@ void Compass::apply_corrections(Vector3f &mag, uint8_t i)
 
 #if HAL_CPU_CLASS >= HAL_CPU_CLASS_75
     if(_compass_mot[i].update_compass(mag) && (_motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT_LEARN)) {
-        _motor_compensation[i].set_and_save(_compass_mot[i].get_motfactors());
+        const Vector3f &motfactors = _compass_mot[i].get_motfactors();
+
+        if(!motfactors.is_nan() && !motfactors.is_inf() && fabs(motfactors.x) < 20 && fabs(motfactors.y) < 20 && fabs(motfactors.z) < 20) {
+            _motor_compensation[i].set_and_save(motfactors);
+        }
     }
 #endif
 
