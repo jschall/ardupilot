@@ -107,6 +107,7 @@
 #include <AP_ADC_AnalogSource.h>
 #include <AP_Baro.h>
 #include <AP_Compass.h>         // ArduPilot Mega Magnetometer Library
+#include <AP_CompassMot.h>
 #include <AP_Math.h>            // ArduPilot Mega Vector/Matrix math Library
 #include <AP_Curve.h>           // Curve used to linearlise throttle pwm to thrust
 #include <AP_InertialSensor.h>  // ArduPilot Mega Inertial Sensor (accel & gyro) Library
@@ -984,6 +985,7 @@ static void fast_loop()
     }
 #endif  // OPTFLOW == ENABLED
 
+    compass.update_gyro(ins.get_gyro()+ahrs.get_gyro_drift());
 }
 
 // rc_loops - reads user input from transmitter/receiver
