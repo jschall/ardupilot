@@ -120,6 +120,7 @@ Compass::Compass(void) :
 #if HAL_CPU_CLASS >= HAL_CPU_CLASS_75
     if(_motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT || _motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT_LEARN) {
         for(uint8_t i=0; i<COMPASS_MAX_INSTANCES; i++) {
+            _compass_mot[i].set_i(i);
             _compass_mot[i].set_motfactors(_motor_compensation[i]);
         }
     }
@@ -247,13 +248,13 @@ Vector3f Compass::apply_corrections(Vector3f mag, uint8_t i)
         offdiagonals.x * mag.x +    diagonals.y * mag.y + offdiagonals.z * mag.z,
         offdiagonals.y * mag.x + offdiagonals.z * mag.y +    diagonals.z * mag.z
     );
-
 #if HAL_CPU_CLASS >= HAL_CPU_CLASS_75
     if(_compass_mot[i].update_compass(mag) && (_motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT_LEARN)) {
         const Vector3f &motfactors = _compass_mot[i].get_motfactors();
+        const Vector3f &motfactor_param_val = _motor_compensation[i].get();
 
         if(!motfactors.is_nan() && !motfactors.is_inf() && fabs(motfactors.x) < 20 && fabs(motfactors.y) < 20 && fabs(motfactors.z) < 20) {
-            _motor_compensation[i].set_and_save(motfactors);
+            _motor_compensation[i].set(motfactor_param_val + (motfactors-motfactor_param_val)*0.01f);
         }
     }
 #endif
