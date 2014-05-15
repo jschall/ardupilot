@@ -73,7 +73,7 @@ public:
     void set_dt(float delta_sec) { _dt = delta_sec; }
 
     // init_targets - resets target angles to current angles
-    void init_targets();
+    void init_targets(bool lim_ang = false, float smoothing_gain = 2.0f);
 
     //
     // methods to be called by upper controllers to request and implement a desired attitude

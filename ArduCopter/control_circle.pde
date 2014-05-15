@@ -35,7 +35,7 @@ static void circle_run()
     // if not auto armed set throttle to zero and exit immediately
     if(!ap.auto_armed || ap.land_complete) {
         // To-Do: add some initialisation of position controllers
-        attitude_control.init_targets();
+        attitude_control.init_targets(true, get_smoothing_gain());
         attitude_control.set_throttle_out(0, false);
         return;
     }

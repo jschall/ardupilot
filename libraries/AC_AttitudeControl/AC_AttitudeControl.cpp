@@ -60,7 +60,7 @@ const AP_Param::GroupInfo AC_AttitudeControl::var_info[] PROGMEM = {
 //
 
 // init_targets - resets target angles to current angles
-void AC_AttitudeControl::init_targets()
+void AC_AttitudeControl::init_targets(bool lim_ang, float smoothing_gain)
 {
     // set earth frame angle targets to current lean angles
     _angle_ef_target.x = _ahrs.roll_sensor;
@@ -73,7 +73,105 @@ void AC_AttitudeControl::init_targets()
     // clear earth-frame and body-frame feed forward rates
     const Vector3f& gyro = _ins.get_gyro();
     _rate_bf_desired = gyro * AC_ATTITUDE_CONTROL_DEGX100;
+
     frame_conversion_bf_to_ef(_rate_bf_desired,_rate_ef_desired);
+
+    //only do this next bit if we are in an angle limited mode
+    if(!lim_ang) {
+        //constrain rates
+        if (_flags.limit_angle_to_rate_request) {
+            _rate_bf_target.x = constrain_float(_rate_bf_target.x,-_angle_rate_rp_max,_angle_rate_rp_max);
+            _rate_bf_target.y = constrain_float(_rate_bf_target.y,-_angle_rate_rp_max,_angle_rate_rp_max);
+            _rate_bf_target.z = constrain_float(_rate_bf_target.z,-_angle_rate_y_max,_angle_rate_y_max);
+        }
+
+        return;
+    }
+
+    //do stopping point calculation
+    float stop_ang_x;
+    float stop_ang_y;
+
+    if(fabsf(_rate_ef_desired.x) < _accel_rp_max * smoothing_gain) {
+        stop_ang_x = smoothing_gain * _rate_ef_desired.x;
+    } else {
+        stop_ang_x = _accel_rp_max*smoothing_gain*0.5f + 0.5f*_rate_ef_desired.x*_rate_ef_desired.x/_accel_rp_max;
+        if(_rate_ef_desired.x < 0) {
+            stop_ang_x = -stop_ang_x;
+        }
+    }
+
+    if(fabsf(_rate_ef_desired.y) < _accel_rp_max * smoothing_gain) {
+        stop_ang_y = smoothing_gain * _rate_ef_desired.y;
+    } else {
+        stop_ang_y = _accel_rp_max*smoothing_gain*0.5f + 0.5f*_rate_ef_desired.y*_rate_ef_desired.y/_accel_rp_max;
+        if(_rate_ef_desired.y < 0) {
+            stop_ang_y = -stop_ang_y;
+        }
+    }
+
+    stop_ang_x += _angle_ef_target.x;
+    stop_ang_y += _angle_ef_target.y;
+
+
+    float lean_max = lean_angle_max();
+    float angle_limit = lean_max;
+
+    // if we're already past limits, target zero tilt
+    if(_angle_ef_target.x >   lean_max+AC_ATTITUDE_RATE_STAB_ROLL_OVERSHOOT_ANGLE_MAX ||
+       _angle_ef_target.x < -(lean_max+AC_ATTITUDE_RATE_STAB_ROLL_OVERSHOOT_ANGLE_MAX) ||
+       _angle_ef_target.y >   lean_max+AC_ATTITUDE_RATE_STAB_PITCH_OVERSHOOT_ANGLE_MAX ||
+       _angle_ef_target.y < -(lean_max+AC_ATTITUDE_RATE_STAB_PITCH_OVERSHOOT_ANGLE_MAX)) {
+        angle_limit = 0.0f;
+    }
+
+    float linear_angle = _accel_rp_max/(smoothing_gain*smoothing_gain);
+
+    if(stop_ang_x > angle_limit || stop_ang_x < -angle_limit) {
+        float angle_to_max_x;
+
+        if(stop_ang_x > angle_limit) {
+            angle_to_max_x = angle_limit-_angle_ef_target.x;
+        } else if (stop_ang_x < -angle_limit) {
+            angle_to_max_x = -angle_limit-_angle_ef_target.x;
+        }
+
+        if (angle_to_max_x > linear_angle){
+            _rate_ef_desired.x = safe_sqrt(2.0f*_accel_rp_max*(fabsf(angle_to_max_x)-(linear_angle/2.0f)));
+        } else if (angle_to_max_x < -linear_angle){
+            _rate_ef_desired.x = -safe_sqrt(2.0f*_accel_rp_max*(fabsf(angle_to_max_x)-(linear_angle/2.0f)));
+        } else {
+            _rate_ef_desired.x = smoothing_gain*angle_to_max_x;
+        }
+    }
+    _angle_ef_target.x = constrain_float(_angle_ef_target.x,-angle_limit,angle_limit);
+
+    if(stop_ang_y > angle_limit || stop_ang_y < -angle_limit) {
+        float angle_to_max_y;
+
+        if(stop_ang_y > angle_limit) {
+            angle_to_max_y = angle_limit-_angle_ef_target.y;
+        } else if (stop_ang_y < -angle_limit) {
+            angle_to_max_y = -angle_limit-_angle_ef_target.y;
+        }
+
+        if (angle_to_max_y > linear_angle){
+            _rate_ef_desired.y = safe_sqrt(2.0f*_accel_rp_max*(fabsf(angle_to_max_y)-(linear_angle/2.0f)));
+        } else if (angle_to_max_y < -linear_angle){
+            _rate_ef_desired.y = -safe_sqrt(2.0f*_accel_rp_max*(fabsf(angle_to_max_y)-(linear_angle/2.0f)));
+        } else {
+            _rate_ef_desired.y = smoothing_gain*angle_to_max_y;
+        }
+    }
+    _angle_ef_target.y = constrain_float(_angle_ef_target.y,-angle_limit,angle_limit);
+
+    //constrain rates
+    if (_flags.limit_angle_to_rate_request) {
+        _rate_bf_target.x = constrain_float(_rate_bf_target.x,-_angle_rate_rp_max,_angle_rate_rp_max);
+        _rate_bf_target.y = constrain_float(_rate_bf_target.y,-_angle_rate_rp_max,_angle_rate_rp_max);
+        _rate_bf_target.z = constrain_float(_rate_bf_target.z,-_angle_rate_y_max,_angle_rate_y_max);
+    }
+
 }
 
 //
@@ -102,9 +200,9 @@ void AC_AttitudeControl::angle_ef_roll_pitch_rate_ef_yaw_smooth(float roll_angle
     // calculate earth-frame feed forward roll rate using linear response when close to the target, sqrt response when we're further away
     angle_to_target = roll_angle_ef - _angle_ef_target.x;
     if (angle_to_target > linear_angle){
-        rate_ef_desired = safe_sqrt(2.0f*_accel_rp_max*(fabs(angle_to_target)-(linear_angle/2.0f)));
+        rate_ef_desired = safe_sqrt(2.0f*_accel_rp_max*(fabsf(angle_to_target)-(linear_angle/2.0f)));
     } else if (angle_to_target < -linear_angle){
-        rate_ef_desired = -safe_sqrt(2.0f*_accel_rp_max*(fabs(angle_to_target)-(linear_angle/2.0f)));
+        rate_ef_desired = -safe_sqrt(2.0f*_accel_rp_max*(fabsf(angle_to_target)-(linear_angle/2.0f)));
     } else {
         rate_ef_desired = smoothing_gain*angle_to_target;
     }
@@ -116,9 +214,9 @@ void AC_AttitudeControl::angle_ef_roll_pitch_rate_ef_yaw_smooth(float roll_angle
     // calculate earth-frame feed forward pitch rate using linear response when close to the target, sqrt response when we're further away
     angle_to_target = pitch_angle_ef - _angle_ef_target.y;
     if (angle_to_target > linear_angle){
-        rate_ef_desired = safe_sqrt(2.0f*_accel_rp_max*(fabs(angle_to_target)-(linear_angle/2.0f)));
+        rate_ef_desired = safe_sqrt(2.0f*_accel_rp_max*(fabsf(angle_to_target)-(linear_angle/2.0f)));
     } else if (angle_to_target < -linear_angle){
-        rate_ef_desired = -safe_sqrt(2.0f*_accel_rp_max*(fabs(angle_to_target)-(linear_angle/2.0f)));
+        rate_ef_desired = -safe_sqrt(2.0f*_accel_rp_max*(fabsf(angle_to_target)-(linear_angle/2.0f)));
     } else {
         rate_ef_desired = smoothing_gain*angle_to_target;
     }
