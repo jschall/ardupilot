@@ -149,17 +149,15 @@ Compass::Compass(void) :
     last_update(0),
     _null_init_done(false),
     _thr_or_curr(0.0f),
-    _board_orientation(ROTATION_NONE)
+    _board_orientation(ROTATION_NONE),
+    _param_init_done(false)
 {
+    AP_Param::setup_object_defaults(this, var_info);
 #if HAL_CPU_CLASS >= HAL_CPU_CLASS_75
     for(uint8_t i=0; i<COMPASS_MAX_INSTANCES; i++) {
         _compass_mot[i].set_i(i);
-        if(_motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT || _motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT_LEARN) {
-            _compass_mot[i].set_motfactors(_motor_compensation[i]);
-        }
     }
 #endif
-    AP_Param::setup_object_defaults(this, var_info);
 
 #if COMPASS_MAX_INSTANCES > 1
     // default device ids to zero.  init() method will overwrite with the actual device ids
@@ -338,6 +336,16 @@ void Compass::apply_corrections(Vector3f &mag, uint8_t i)
     mag += offsets;
 
 #if HAL_CPU_CLASS >= HAL_CPU_CLASS_75
+    if(!_param_init_done) {
+        _param_init_done = true;
+        // this doesn't work in the constructor, because _motor_comp_type isn't initialized
+        if(_motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT || _motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT_LEARN) {
+            for(uint8_t i=0; i<COMPASS_MAX_INSTANCES; i++) {
+                _compass_mot[i].set_motfactors(_motor_compensation[i]);
+            }
+        }
+    }
+
     if(_compass_mot[i].update_compass(mag) && (_motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT_LEARN)) {
         const Vector3f &motfactors = _compass_mot[i].get_motfactors();
 

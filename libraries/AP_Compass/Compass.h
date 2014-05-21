@@ -315,7 +315,8 @@ protected:
     AP_CompassMot _compass_mot[COMPASS_MAX_INSTANCES];
 #endif
 
-    bool _null_init_done;                           ///< first-time-around flag used by offset nulling
+    bool _null_init_done : 1;                           ///< first-time-around flag used by offset nulling
+    bool _param_init_done : 1;
 
     ///< used by offset correction
     static const uint8_t _mag_history_size = 20;
