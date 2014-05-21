@@ -525,6 +525,7 @@ static void init_disarm_motors()
     inertial_nav.ignore_next_error();
 
     compass.save_offsets();
+    compass.save_motor_compensation();
 
     g.throttle_cruise.save();
 
