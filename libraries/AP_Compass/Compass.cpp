@@ -118,9 +118,9 @@ Compass::Compass(void) :
     _null_init_done(false)
 {
 #if HAL_CPU_CLASS >= HAL_CPU_CLASS_75
-    if(_motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT || _motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT_LEARN) {
-        for(uint8_t i=0; i<COMPASS_MAX_INSTANCES; i++) {
-            _compass_mot[i].set_i(i);
+    for(uint8_t i=0; i<COMPASS_MAX_INSTANCES; i++) {
+        _compass_mot[i].set_i(i);
+        if(_motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT || _motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT_LEARN) {
             _compass_mot[i].set_motfactors(_motor_compensation[i]);
         }
     }
