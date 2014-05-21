@@ -33,7 +33,7 @@ public:
         _i = i;
     }
 
-    void set_motfactors(Vector3f motfactors) {
+    void set_motfactors(const Vector3f &motfactors) {
         _motfactors = motfactors;
     }
 

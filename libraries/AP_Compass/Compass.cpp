@@ -163,12 +163,7 @@ Compass::save_motor_compensation()
     _motor_comp_type.save();
 
     for (uint8_t i=0; i<COMPASS_MAX_INSTANCES; i++) {
-        const Vector3f &motfactors = _compass_mot[i].get_motfactors();
-        if(_motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT_LEARN && !motfactors.is_nan() && !motfactors.is_inf()) {
-            _motor_compensation[i].set_and_save(motfactors);
-        } else {
-            _motor_compensation[i].save();
-        }
+        _motor_compensation[i].save();
     }
 }
 
@@ -253,22 +248,17 @@ Vector3f Compass::apply_corrections(Vector3f mag, uint8_t i)
         offdiagonals.y * mag.x + offdiagonals.z * mag.y +    diagonals.z * mag.z
     );
 #if HAL_CPU_CLASS >= HAL_CPU_CLASS_75
-    if(!_param_init_done) {
+    if(!_param_init_done && _motor_comp_type >= AP_COMPASS_MOT_COMP_CURRENT) {
         _param_init_done = true;
-        // this doesn't work in the constructor, because _motor_comp_type isn't initialized
-        if(_motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT || _motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT_LEARN) {
-            for(uint8_t i=0; i<COMPASS_MAX_INSTANCES; i++) {
-                _compass_mot[i].set_motfactors(_motor_compensation[i]);
-            }
-        }
+        _compass_mot[i].set_motfactors(_motor_compensation[i].get());
     }
 
-    if(_compass_mot[i].update_compass(mag) && (_motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT_LEARN)) {
+    if(_compass_mot[i].update_compass(mag) && _motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT_LEARN) {
         const Vector3f &motfactors = _compass_mot[i].get_motfactors();
         const Vector3f &motfactor_param_val = _motor_compensation[i].get();
 
         if(!motfactors.is_nan() && !motfactors.is_inf()) {
-            _motor_compensation[i].set(motfactor_param_val + (motfactors-motfactor_param_val)*0.01f);
+            _motor_compensation[i].set_and_save(motfactors);
         }
     }
 #endif
