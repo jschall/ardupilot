@@ -161,8 +161,14 @@ void
 Compass::save_motor_compensation()
 {
     _motor_comp_type.save();
-    for (uint8_t k=0; k<COMPASS_MAX_INSTANCES; k++) {
-        _motor_compensation[k].save();
+
+    for (uint8_t i=0; i<COMPASS_MAX_INSTANCES; i++) {
+        const Vector3f &motfactors = _compass_mot[i].get_motfactors();
+        if(_motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT_LEARN && !motfactors.is_nan() && !motfactors.is_inf()) {
+            _motor_compensation[i].set_and_save(motfactors);
+        } else {
+            _motor_compensation[i].save();
+        }
     }
 }
 
@@ -261,7 +267,7 @@ Vector3f Compass::apply_corrections(Vector3f mag, uint8_t i)
         const Vector3f &motfactors = _compass_mot[i].get_motfactors();
         const Vector3f &motfactor_param_val = _motor_compensation[i].get();
 
-        if(!motfactors.is_nan() && !motfactors.is_inf() && fabs(motfactors.x) < 20 && fabs(motfactors.y) < 20 && fabs(motfactors.z) < 20) {
+        if(!motfactors.is_nan() && !motfactors.is_inf()) {
             _motor_compensation[i].set(motfactor_param_val + (motfactors-motfactor_param_val)*0.01f);
         }
     }
