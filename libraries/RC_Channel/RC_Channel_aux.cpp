@@ -96,6 +96,9 @@ void RC_Channel_aux::update_aux_servo_function(void)
 		case RC_Channel_aux::k_steering:
 		    _aux_channels[i]->set_angle(4500);
 			break;
+        case RC_Channel_aux::k_ball_drop:
+            _aux_channels[i]->set_angle(4500);
+            break;
 		default:
 			break;
 		}

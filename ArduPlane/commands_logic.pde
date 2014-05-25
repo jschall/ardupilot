@@ -3,6 +3,7 @@
 // forward declarations to make compiler happy
 static void do_takeoff(const AP_Mission::Mission_Command& cmd);
 static void do_nav_wp(const AP_Mission::Mission_Command& cmd);
+static void do_nav_drop_wp(const AP_Mission::Mission_Command& cmd);
 static void do_land(const AP_Mission::Mission_Command& cmd);
 static void do_loiter_unlimited(const AP_Mission::Mission_Command& cmd);
 static void do_loiter_turns(const AP_Mission::Mission_Command& cmd);
@@ -269,6 +270,10 @@ static void do_takeoff(const AP_Mission::Mission_Command& cmd)
 
 static void do_nav_wp(const AP_Mission::Mission_Command& cmd)
 {
+    if(g.drop_wpnum == cmd.index) {
+        do_nav_drop_wp(cmd);
+        return;
+    }
     set_next_WP(cmd.content.location);
 }
 
@@ -400,6 +405,9 @@ static bool verify_land()
 
 static bool verify_nav_wp()
 {
+    if(g.drop_wpnum == mission.get_current_nav_cmd().index) {
+        return verify_nav_drop_wp();
+    }
     steer_state.hold_course_cd = -1;
 
     nav_controller->update_waypoint(prev_WP_loc, next_WP_loc);

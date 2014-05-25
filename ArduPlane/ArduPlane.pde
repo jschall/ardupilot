@@ -511,6 +511,18 @@ static struct {
     locked_course_err : 0
 };
 
+static struct {
+    struct Location drop_target_loc; //the target we're trying to hit.
+    struct Location drop_loc; //the drop point
+
+    bool track_locked;
+
+    bool dropped;
+    uint32_t dropped_time;
+
+    uint32_t initial_open_time;
+} drop_state;
+
 ////////////////////////////////////////////////////////////////////////////////
 // flight mode specific
 ////////////////////////////////////////////////////////////////////////////////
@@ -722,8 +734,8 @@ static const AP_Scheduler::Task scheduler_tasks[] PROGMEM = {
     { read_control_switch,    7,   1000 },
     { gcs_retry_deferred,     1,   1000 },
     { update_GPS_50Hz,        1,   2500 },
-    { update_GPS_10Hz,        5,   2500 }, // 10
-    { navigate,               5,   3000 },
+    { update_GPS_10Hz,        1,   2500 }, // 10
+    { navigate,               1,   3000 },
     { update_compass,         5,   1200 },
     { read_airspeed,          5,   1200 },
     { update_alt,             5,   3400 },
@@ -770,6 +782,9 @@ void setup() {
 
     // initialise the main loop scheduler
     scheduler.init(&scheduler_tasks[0], sizeof(scheduler_tasks)/sizeof(scheduler_tasks[0]));
+
+    drop_state.initial_open_time = hal.scheduler->millis();
+    RC_Channel_aux::set_servo_out(RC_Channel_aux::k_ball_drop,4500); //open up
 }
 
 void loop()
@@ -955,6 +970,11 @@ static void one_second_loop()
 {
     if (should_log(MASK_LOG_CURRENT))
         Log_Write_Current();
+
+    if(hal.scheduler->millis()-drop_state.initial_open_time > 10000) {
+        drop_state.initial_open_time = hal.scheduler->millis();
+        RC_Channel_aux::set_servo_out(RC_Channel_aux::k_ball_drop,-4500); //grab
+    }
 
     // send a heartbeat
     gcs_send_message(MSG_HEARTBEAT);

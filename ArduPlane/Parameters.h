@@ -115,6 +115,11 @@ public:
         k_param_takeoff_rotate_speed,
         k_param_takeoff_throttle_slewrate,
         k_param_takeoff_throttle_max,
+        k_param_drop_mech_latency,
+        k_param_drop_m,
+        k_param_drop_b,
+        k_param_drop_target_alt,
+        k_param_drop_wpnum,
 
         // 100: Arming parameters
         k_param_arming = 100,
@@ -442,6 +447,13 @@ public:
     AP_Int8 level_roll_limit;
     AP_Int8 flapin_channel;
     AP_Int8 flaperon_output;
+
+    // drop
+    AP_Float drop_mech_latency;
+    AP_Float drop_m;
+    AP_Float drop_b;
+    AP_Float drop_target_alt;
+    AP_Float drop_wpnum;
 
     // RC channels
     RC_Channel rc_1;
