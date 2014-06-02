@@ -1,33 +1,81 @@
 /// -*- tab-width: 4; Mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*-
 
+static Vector3f ball_drop_v_dot(Vector3f vel, float k, Vector3f wind) {
+    Vector3f vel_apparent = vel - wind;
+    float vappr_mag = vel_apparent.length();
+
+    if(vappr_mag == 0) {
+        return Vector3f(0,0,1);
+    }
+
+    float drag_mag = k * sq(vappr_mag);
+    Vector3f vel_direction = vel_apparent/vappr_mag;
+
+    return Vector3f(-vel_direction.x*drag_mag, -vel_direction.y*drag_mag, 1-vel_direction.z*drag_mag);
+}
+
 static float ball_drop_offset(float& n_offset, float& e_offset, float m, float b, float pd, float target_alt, float vn, float ve, float vd, float wn, float we, float mechanism_latency) {
-    float t;
-    float drop_height = -pd-target_alt;
 
-    if(vd >= 0) {
-        t = m*(acosh((sqrt(m*GRAVITY_MSS)/sqrt(m*GRAVITY_MSS-b*sq(vd)))*pow(M_E,drop_height*b/m))-acosh(sqrt(m*GRAVITY_MSS)/sqrt(m*GRAVITY_MSS-b*sq(vd))))/(sqrt(b)*sqrt(GRAVITY_MSS*m));
-    } else {
-        t = m*(acosh((sqrt(m*GRAVITY_MSS)/sqrt(m*GRAVITY_MSS-b*sq(vd)))*pow(M_E,drop_height*b/m))+acosh(sqrt(m*GRAVITY_MSS)/sqrt(m*GRAVITY_MSS-b*sq(vd))))/(sqrt(b)*sqrt(GRAVITY_MSS*m));
+    n_offset = mechanism_latency * vn;
+    e_offset = mechanism_latency * ve;
+
+    float t = 0;
+    float h = -pd-target_alt;
+    float k = b*h/m;
+
+    float ut = sqrt(h/GRAVITY_MSS);
+    float uv = sqrt(GRAVITY_MSS*h); //unit of velocity
+    float ul = h;  //unit of length
+
+    Vector3f ball_position = Vector3f(0,0,0);
+    Vector3f ball_velocity = Vector3f(vn,ve,vd)/uv;
+    Vector3f wind_velocity = Vector3f(wn,we,0)/uv;
+
+    float dt = 0.1f/ut;
+
+    uint32_t startus = hal.scheduler->micros();
+    uint32_t count = 0;
+    while(1) {
+        Vector3f k1 = ball_drop_v_dot(ball_velocity,k,wind_velocity);
+        Vector3f k2 = ball_drop_v_dot(ball_velocity+k1*(dt*2.0f/3.0f),k,wind_velocity);
+
+        Vector3f ball_accel = (k1+k2*3.0f)/4.0f;
+        ball_velocity += ball_accel*0.5f*dt;
+
+        if(ball_accel.length_squared() < 2.5e-7f || hal.scheduler->micros()-startus > 15000) {
+            ball_position += ball_velocity * dt;
+            dt = (1.0-ball_position.z)/ball_velocity.z;
+            ball_velocity.x = wind_velocity.x;
+            ball_velocity.y = wind_velocity.y;
+            ball_velocity.z = wind_velocity.z + sqrt(1/k);
+
+            //duplicate code here to ensure we definitely break
+            t += dt;
+            ball_position += ball_velocity * dt;
+            ball_velocity += ball_accel*0.5f*dt;
+            count += 1;
+            t *= ut;
+            n_offset += ball_position.x * ul;
+            e_offset += ball_position.y * ul;
+            break;
+        } else if(ball_position.z + dt*ball_velocity.z >= 1.0f) {
+            dt = (1.0-ball_position.z)/ball_velocity.z;
+        }
+
+        t += dt;
+        ball_position += ball_velocity * dt;
+        ball_velocity += ball_accel*0.5f*dt;
+
+        count += 1;
+
+        if(ball_position.z >= 1) {
+            t *= ut;
+            n_offset += ball_position.x * ul;
+            e_offset += ball_position.y * ul;
+            break;
+        }
     }
 
-    if(wn > vn) {
-        n_offset = (-m*log(b*t+m/(wn-vn))+b*t*wn+m*log(-m/(vn-wn)))/b;
-    } else if(wn < vn) {
-        n_offset = (m*log(b*t+m/(vn-wn))+b*t*wn-m*log(m/(vn-wn)))/b;
-    } else {
-        n_offset = t * vn;
-    }
-
-    if(we > ve) {
-        e_offset = (-m*log(b*t+m/(we-ve))+b*t*we+m*log(-m/(ve-we)))/b;
-    } else if(we < ve) {
-        e_offset = (m*log(b*t+m/(ve-we))+b*t*we-m*log(m/(ve-we)))/b;
-    } else {
-        e_offset = t * ve;
-    }
-
-    n_offset += mechanism_latency * vn;
-    e_offset += mechanism_latency * ve;
     n_offset = -n_offset;
     e_offset = -e_offset;
 
@@ -71,8 +119,7 @@ static void drop_update_wp() {
     ahrs.get_relative_position_NED(posNED);
 
     static float vd_lowpass;
-    vd_lowpass += (velNED.z-vd_lowpass)*0.02f*.5; //2 second lowpass
-
+    vd_lowpass += (velNED.z-vd_lowpass)*0.02f*.5f; //2 second lowpass
     //only start computing based on current altitude after we lock track
     if(drop_state.track_locked) {
         pd = posNED.z;
@@ -80,10 +127,13 @@ static void drop_update_wp() {
         vn = velNED.x;
         ve = velNED.y;
     } else {
-        vd = vd_lowpass;
+        vn = groundspeed_flying_bearing * cos(bearing);
+        ve = groundspeed_flying_bearing * sin(bearing);
+
         float distance_to_drop_loc = get_distance(current_loc, drop_state.drop_loc);
 
         float target_pd = -(drop_state.drop_target_loc.alt-home.alt)*0.01f;
+
         pd = posNED.z + (distance_to_drop_loc/groundspeed_flying_bearing)*vd_lowpass;
         if(pd < posNED.z && pd < target_pd) {
             //prediction term reduced pd, and it overshot target. set pd to target_pd and assume we won't be climbing or descending
@@ -94,8 +144,7 @@ static void drop_update_wp() {
             pd = target_pd;
             vd = 0;
         } else {
-            vn = groundspeed_flying_bearing * cos(bearing);
-            ve = groundspeed_flying_bearing * sin(bearing);
+            vd = vd_lowpass;
         }
     }
 
@@ -106,13 +155,13 @@ static void drop_update_wp() {
 
     float n_offset, e_offset;
 
-    ball_drop_offset(n_offset, e_offset, m, b, pd, target_alt, vn, ve, vd, wn, we, mechanism_latency);
+    float time = ball_drop_offset(n_offset, e_offset, m, b, pd, target_alt, vn, ve, vd, wn, we, mechanism_latency);
 
     drop_state.drop_loc = drop_state.drop_target_loc;
     location_offset(drop_state.drop_loc,n_offset,e_offset);
 
     if(!drop_state.track_locked) {
-        if(get_distance(current_loc,drop_state.drop_loc) < groundspeed_flying_bearing*3) {
+        if(get_distance(current_loc,drop_state.drop_loc) < 50) {
             //lock our track when we're closer than 3 seconds away
             drop_state.track_locked = true;
         }
@@ -137,42 +186,16 @@ static void drop_update_wp() {
         Vector2f target_pos = location_diff(ahrs.get_home(), drop_state.drop_target_loc);
         Vector2f dist = landed_pos - target_pos;
 
-        gcs_send_text_fmt(PSTR("Ball should hit: %.2fm north, %.2fm east (%.2fm)"),dist.x,dist.y,dist.length());
+        gcs_send_text_fmt(PSTR("Hit N%.2fm E%.2fm from N%.2fm, E%.2fm, T%.2fs"),dist.x,dist.y,n_offset,e_offset,time);
     }
 }
 
 static void do_nav_drop_wp(const AP_Mission::Mission_Command& cmd)
 {
+    set_next_WP(cmd.content.location);
     reset_drop_state();
     prev_WP_loc = current_loc;
-    drop_state.drop_loc = drop_state.drop_target_loc = next_WP_loc = cmd.content.location;
-
-    // if lat and lon is zero, then use current lat/lon
-    // this allows a mission to contain a "loiter on the spot"
-    // command
-    if (next_WP_loc.lat == 0 && next_WP_loc.lng == 0) {
-        next_WP_loc.lat = current_loc.lat;
-        next_WP_loc.lng = current_loc.lng;
-        // additionally treat zero altitude as current altitude
-        if (next_WP_loc.alt == 0) {
-            next_WP_loc.alt = current_loc.alt;
-            next_WP_loc.flags.relative_alt = false;
-        }
-    }
-
-    // convert relative alt to absolute alt
-    if (next_WP_loc.flags.relative_alt) {
-        next_WP_loc.flags.relative_alt = false;
-        next_WP_loc.alt += home.alt;
-    }
-
-    target_altitude_cm = current_loc.alt;
-
-    loiter_angle_reset();
-
-    setup_glide_slope();
-
-    loiter_angle_reset();
+    drop_state.drop_loc = drop_state.drop_target_loc = next_WP_loc;
 }
 
 static void reset_drop_state() {

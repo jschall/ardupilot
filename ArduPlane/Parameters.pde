@@ -69,8 +69,8 @@ const AP_Param::Info var_info[] PROGMEM = {
     // @User: Standard
     ASCALAR(autotune_level, "AUTOTUNE_LEVEL",  5),
 
-    GSCALAR(drop_mech_latency,"DROP_MECH_LAT", 0.2f),
-    GSCALAR(drop_m,"DROP_M", 0.058f),
+    GSCALAR(drop_mech_latency,"DROP_MECH_LAT", 0.14f),
+    GSCALAR(drop_m,"DROP_M", 0.0568f),
     GSCALAR(drop_b,"DROP_B", 0.5f*.507f*1.225f*.0034f),
     GSCALAR(drop_target_alt,"DROP_TAR_ALT", 0.0f),
     GSCALAR(drop_wpnum,"DROP_WPNUM",-1),
