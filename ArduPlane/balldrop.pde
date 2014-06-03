@@ -25,8 +25,8 @@ static float ball_drop_offset(float& n_offset, float& e_offset, float m, float b
     float h = -pd-target_alt;
     float k = b*h/m;
 
-    float ut = sqrt(h/GRAVITY_MSS);
-    float uv = sqrt(GRAVITY_MSS*h); //unit of velocity
+    float ut = sqrtf(h/GRAVITY_MSS);
+    float uv = sqrtf(GRAVITY_MSS*h); //unit of velocity
     float ul = h;  //unit of length
 
     Vector3f ball_position = Vector3f(0,0,0);
@@ -38,12 +38,12 @@ static float ball_drop_offset(float& n_offset, float& e_offset, float m, float b
     uint32_t startus = hal.scheduler->micros();
     uint32_t count = 0;
 
-    float log_h_over_roughness = log(min(h,100.0f)/0.1f);
+    float log_h_over_roughness = logf(min(h,100.0f)/0.1f);
     float wind_scaler = 1.0f;
     while(1) {
         float curr_height = (1.0f-ball_position.z)*ul;
         if(curr_height <= 100) {
-            wind_scaler = log(curr_height/0.1f)/log_h_over_roughness;
+            wind_scaler = logf(curr_height/0.1f)/log_h_over_roughness;
         }
 
         Vector3f wind_velocity = wind_velocity_at_height*wind_scaler;
@@ -60,11 +60,11 @@ static float ball_drop_offset(float& n_offset, float& e_offset, float m, float b
             dt = (1.0f-ball_position.z)/ball_velocity.z;
             ball_velocity.x = wind_velocity.x;
             ball_velocity.y = wind_velocity.y;
-            ball_velocity.z = wind_velocity.z + sqrt(1/k);
+            ball_velocity.z = wind_velocity.z + sqrtf(1/k);
         } else if(ball_accel.length_squared() < 2.5e-7f && curr_height > 100.0f) {
             ball_velocity.x = wind_velocity.x;
             ball_velocity.y = wind_velocity.y;
-            ball_velocity.z = wind_velocity.z + sqrt(1/k);
+            ball_velocity.z = wind_velocity.z + sqrtf(1/k);
 
             float t_to_100m = ((1.0f-(100/h))-ball_position.z)/ball_velocity.z;
             ball_position += ball_velocity * t_to_100m;
@@ -97,17 +97,17 @@ static float ball_drop_offset(float& n_offset, float& e_offset, float m, float b
 }
 
 static float groundspeed_from_wind_aspd_course(float wn, float we, float arspd, float course) {
-    float winddir = atan2(we,wn);
+    float winddir = atan2f(we,wn);
     float windspeed = pythagorous2(wn,we);
     float wta = course-winddir;
 
-    float coswta = cos(wta);
+    float coswta = cosf(wta);
 
-    if(sq(arspd)+sq(windspeed)*sq(cos(wta)) < sq(windspeed)) {
+    if(sq(arspd)+sq(windspeed)*sq(cosf(wta)) < sq(windspeed)) {
         return 1; //todo: something better here (i think this means the wind is too strong to fly)
     }
 
-    float groundspeed = windspeed*coswta + sqrt(sq(arspd)+sq(windspeed)*sq(cos(wta))-sq(windspeed));
+    float groundspeed = windspeed*coswta + sqrtf(sq(arspd)+sq(windspeed)*sq(cosf(wta))-sq(windspeed));
 
     return groundspeed;
 }
@@ -141,8 +141,8 @@ static void drop_update_wp() {
         vn = velNED.x;
         ve = velNED.y;
     } else {
-        vn = groundspeed_flying_bearing * cos(bearing);
-        ve = groundspeed_flying_bearing * sin(bearing);
+        vn = groundspeed_flying_bearing * cosf(bearing);
+        ve = groundspeed_flying_bearing * sinf(bearing);
 
         float distance_to_drop_loc = get_distance(current_loc, drop_state.drop_loc);
 
