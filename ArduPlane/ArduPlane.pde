@@ -519,8 +519,6 @@ static struct {
 
     bool dropped;
     uint32_t dropped_time;
-
-    uint32_t initial_open_time;
 } drop_state;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -735,7 +733,7 @@ static const AP_Scheduler::Task scheduler_tasks[] PROGMEM = {
     { gcs_retry_deferred,     1,   1000 },
     { update_GPS_50Hz,        1,   2500 },
     { update_GPS_10Hz,        1,   2500 }, // 10
-    { navigate,               1,   3000 },
+    { navigate,               1,  15000 },
     { update_compass,         5,   1200 },
     { read_airspeed,          5,   1200 },
     { update_alt,             5,   3400 },
@@ -783,8 +781,7 @@ void setup() {
     // initialise the main loop scheduler
     scheduler.init(&scheduler_tasks[0], sizeof(scheduler_tasks)/sizeof(scheduler_tasks[0]));
 
-    drop_state.initial_open_time = hal.scheduler->millis();
-    RC_Channel_aux::set_servo_out(RC_Channel_aux::k_ball_drop,4500); //open up
+    RC_Channel_aux::set_servo_out(RC_Channel_aux::k_ball_drop,-4500);
 }
 
 void loop()
@@ -971,11 +968,6 @@ static void one_second_loop()
     if (should_log(MASK_LOG_CURRENT))
         Log_Write_Current();
 
-    if(hal.scheduler->millis()-drop_state.initial_open_time > 10000) {
-        drop_state.initial_open_time = hal.scheduler->millis();
-        RC_Channel_aux::set_servo_out(RC_Channel_aux::k_ball_drop,-4500); //grab
-    }
-
     // send a heartbeat
     gcs_send_message(MSG_HEARTBEAT);
 
@@ -993,6 +985,11 @@ static void one_second_loop()
     // update notify flags
     AP_Notify::flags.pre_arm_check = arming.pre_arm_checks(false);
     AP_Notify::flags.armed = arming.is_armed() || arming.arming_required() == AP_Arming::NO;
+
+    uint32_t t1 = hal.scheduler->micros();
+    float n,e;
+    ball_drop_offset(n,e,0.057f,0.0013f,-10000.0f,0.0f,10.0f,5.0f,0.0f,-2.0f,2.0f,0.14f);
+    uint32_t t2 = hal.scheduler->micros();
 }
 
 static void log_perf_info()

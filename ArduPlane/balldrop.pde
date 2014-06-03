@@ -1,17 +1,19 @@
 /// -*- tab-width: 4; Mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*-
 
-static Vector3f ball_drop_v_dot(Vector3f vel, float k, Vector3f wind) {
+static void ball_drop_v_dot(Vector3f &v_dot, const Vector3f &vel, float k, const Vector3f &wind) {
     Vector3f vel_apparent = vel - wind;
     float vappr_mag = vel_apparent.length();
 
     if(vappr_mag == 0) {
-        return Vector3f(0,0,1);
+        v_dot = Vector3f(0,0,1);
+        return;
     }
 
     float drag_mag = k * sq(vappr_mag);
     Vector3f vel_direction = vel_apparent/vappr_mag;
 
-    return Vector3f(-vel_direction.x*drag_mag, -vel_direction.y*drag_mag, 1-vel_direction.z*drag_mag);
+    v_dot = Vector3f(-vel_direction.x*drag_mag, -vel_direction.y*drag_mag, 1-vel_direction.z*drag_mag);
+    return;
 }
 
 static float ball_drop_offset(float& n_offset, float& e_offset, float m, float b, float pd, float target_alt, float vn, float ve, float vd, float wn, float we, float mechanism_latency) {
@@ -29,46 +31,58 @@ static float ball_drop_offset(float& n_offset, float& e_offset, float m, float b
 
     Vector3f ball_position = Vector3f(0,0,0);
     Vector3f ball_velocity = Vector3f(vn,ve,vd)/uv;
-    Vector3f wind_velocity = Vector3f(wn,we,0)/uv;
+    Vector3f wind_velocity_at_height = Vector3f(wn,we,0)/uv;
 
     float dt = 0.1f/ut;
 
     uint32_t startus = hal.scheduler->micros();
     uint32_t count = 0;
+
+    float log_h_over_roughness = log(min(h,100.0f)/0.1f);
+    float wind_scaler = 1.0f;
     while(1) {
-        Vector3f k1 = ball_drop_v_dot(ball_velocity,k,wind_velocity);
-        Vector3f k2 = ball_drop_v_dot(ball_velocity+k1*(dt*2.0f/3.0f),k,wind_velocity);
+        float curr_height = (1.0f-ball_position.z)*ul;
+        if(curr_height <= 100) {
+            wind_scaler = log(curr_height/0.1f)/log_h_over_roughness;
+        }
+
+        Vector3f wind_velocity = wind_velocity_at_height*wind_scaler;
+        Vector3f k1,k2;
+        ball_drop_v_dot(k1,ball_velocity,k,wind_velocity);
+        ball_drop_v_dot(k2,ball_velocity+k1*(dt*2.0f/3.0f),k,wind_velocity);
 
         Vector3f ball_accel = (k1+k2*3.0f)/4.0f;
         ball_velocity += ball_accel*0.5f*dt;
 
-        if(ball_accel.length_squared() < 2.5e-7f || hal.scheduler->micros()-startus > 15000) {
+        uint32_t time_used = hal.scheduler->micros()-startus;
+        if(time_used > 15000) {
             ball_position += ball_velocity * dt;
-            dt = (1.0-ball_position.z)/ball_velocity.z;
+            dt = (1.0f-ball_position.z)/ball_velocity.z;
+            ball_velocity.x = wind_velocity.x;
+            ball_velocity.y = wind_velocity.y;
+            ball_velocity.z = wind_velocity.z + sqrt(1/k);
+        } else if(ball_accel.length_squared() < 2.5e-7f && curr_height > 100.0f) {
             ball_velocity.x = wind_velocity.x;
             ball_velocity.y = wind_velocity.y;
             ball_velocity.z = wind_velocity.z + sqrt(1/k);
 
-            //duplicate code here to ensure we definitely break
-            t += dt;
+            float t_to_100m = ((1.0f-(100/h))-ball_position.z)/ball_velocity.z;
+            ball_position += ball_velocity * t_to_100m;
+            t += t_to_100m;
+        } else if(ball_position.z + dt*ball_velocity.z >= 1.0f) {
+            dt = (1.0f-ball_position.z)/ball_velocity.z;
+            ball_position += ball_velocity * dt;
+        } else {
             ball_position += ball_velocity * dt;
             ball_velocity += ball_accel*0.5f*dt;
-            count += 1;
-            t *= ut;
-            n_offset += ball_position.x * ul;
-            e_offset += ball_position.y * ul;
-            break;
-        } else if(ball_position.z + dt*ball_velocity.z >= 1.0f) {
-            dt = (1.0-ball_position.z)/ball_velocity.z;
         }
 
         t += dt;
-        ball_position += ball_velocity * dt;
-        ball_velocity += ball_accel*0.5f*dt;
 
         count += 1;
 
-        if(ball_position.z >= 1) {
+        if(ball_position.z >= 1 || time_used > 15000) {
+            gcs_send_text_fmt(PSTR("t=%u us c=%u"),time_used,count);
             t *= ut;
             n_offset += ball_position.x * ul;
             e_offset += ball_position.y * ul;
@@ -186,7 +200,7 @@ static void drop_update_wp() {
         Vector2f target_pos = location_diff(ahrs.get_home(), drop_state.drop_target_loc);
         Vector2f dist = landed_pos - target_pos;
 
-        gcs_send_text_fmt(PSTR("Hit N%.2fm E%.2fm from N%.2fm, E%.2fm, T%.2fs"),dist.x,dist.y,n_offset,e_offset,time);
+        //gcs_send_text_fmt(PSTR("Hit N%.2fm E%.2fm from N%.2fm, E%.2fm, T%.2fs"),dist.x,dist.y,n_offset,e_offset,time);
     }
 }
 
