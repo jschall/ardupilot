@@ -412,6 +412,8 @@ const AP_Param::Info var_info[] PROGMEM = {
     // @User: Standard
     GSCALAR(arming_check_enabled, "ARMING_CHECK",   ARMING_CHECK_ALL),
 
+    GSCALAR(batt_alarm_volt, "BATT_ALRM_V", 11.1),
+
     // @Param: ANGLE_MAX
     // @DisplayName: Angle Max
     // @Description: Maximum lean angle in all flight modes

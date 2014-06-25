@@ -793,6 +793,9 @@ static uint16_t mainLoop_count;
 // Loiter timer - Records how long we have been in loiter
 static uint32_t rtl_loiter_start_time;
 
+static uint8_t batt_low_count;
+static uint8_t batt_low_beep_step;
+
 // Used to exit the roll and pitch auto trim function
 static uint8_t auto_trim_counter;
 
@@ -1154,6 +1157,19 @@ static void ten_hz_logging_loop()
             Log_Write_Motors();
         }
     }
+
+    if(batt_low_count==10) {
+        if(batt_low_beep_step == 0 || batt_low_beep_step == 2) {
+            piezo_on();
+        } else {
+            piezo_off();
+        }
+        batt_low_beep_step++;
+
+        if(batt_low_beep_step >= 10) {
+            batt_low_beep_step = 0;
+        }
+    }
 }
 
 // fifty_hz_logging_loop
@@ -1248,6 +1264,12 @@ static void one_hz_loop()
 #endif
 
     check_usb_mux();
+
+    if(battery.voltage() < g.batt_alarm_volt && batt_low_count < 10) {
+        batt_low_count++;
+    } else if(battery.voltage() > g.batt_alarm_volt && batt_low_count != 0) {
+        batt_low_count = 0;
+    }
 }
 
 // called at 100hz but data from sensor only arrives at 20 Hz
