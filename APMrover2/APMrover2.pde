@@ -771,6 +771,10 @@ static void one_second_loop(void)
         }
         counter = 0;
     }
+
+    if (gps.can_calculate_base_pos()) {
+        gps.calculate_base_pos();
+    }
 }
 
 static void update_GPS_50Hz(void)
