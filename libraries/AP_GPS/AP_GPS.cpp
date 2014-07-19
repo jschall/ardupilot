@@ -63,28 +63,28 @@ const AP_Param::GroupInfo AP_GPS::var_info[] PROGMEM = {
     // @User: Advanced
     AP_GROUPINFO("MIN_DGPS", 4, AP_GPS, _min_dgps, 100),
 
-    // @Param: DGPS_GIVEN_BASE
+    // @Param: BASE_GIVEN
     // @DisplayName:  Specify, don't calculate a DGPS base station position
     // @Description: Use the GDPS_BASE_LAT/LON/ALT parameter as the base station position for DGPS.
     // @Values: 0:False, 1:True
     // @User: Advanced
     AP_GROUPINFO("BASE_GIVEN", 5, AP_GPS, _dgps_use_given_base, 0),
 
-    // @Param: DGPS_BASE_LAT
+    // @Param: BASE_LAT
     // @DisplayName: DGPS Base Station Latitude in WGS84 (deg*1e7)
     // @Description: Use this value as the DGPS base station position.
     // @Values: deg * 1e7 
     // @User: Advanced
     AP_GROUPINFO("BASE_LAT", 6, AP_GPS, _dgps_base_lat_wgs, 0),
 
-    // @Param: DGPS_BASE_LON
+    // @Param: BASE_LON
     // @DisplayName: DGPS Base Station Latitude in WGS84 (deg*1e7)
     // @Description: Use this value as the DGPS base station position.
     // @Values: deg * 1e7
     // @User: Advanced
     AP_GROUPINFO("BASE_LON", 7, AP_GPS, _dgps_base_lon_wgs, 0),
 
-    // @Param: DGPS_BASE_ALT
+    // @Param: BASE_ALT
     // @DisplayName: DGPS Base Station Altitude in WGS84 (cm)
     // @Description: Use this value as the DGPS base station position.
     // @Values: cm
