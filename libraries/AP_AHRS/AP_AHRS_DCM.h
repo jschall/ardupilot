@@ -99,6 +99,7 @@ private:
     void            euler_angles(void);
     bool            have_gps(void) const;
 
+    AC_Quaternion _quat;
     // primary representation of attitude of board used for all inertial calculations
     Matrix3f _dcm_matrix;
 

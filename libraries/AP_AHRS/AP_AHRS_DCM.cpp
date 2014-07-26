@@ -68,7 +68,7 @@ AP_AHRS_DCM::update(void)
     drift_correction(delta_t);
 
     // paranoid check for bad values in the DCM matrix
-    check_matrix();
+    //check_matrix();
 
     // Calculate pitch, roll, yaw for stabilization and navigation
     euler_angles();
@@ -101,7 +101,8 @@ AP_AHRS_DCM::matrix_update(float _G_Dt)
         _omega /= healthy_count;
     }
     _omega += _omega_I;
-    _dcm_matrix.rotate((_omega + _omega_P + _omega_yaw_P) * _G_Dt);
+    _quat.rotate_fast((_omega + _omega_P + _omega_yaw_P) * _G_Dt);
+    _quat.rotation_matrix(_dcm_matrix);
 }
 
 
@@ -227,23 +228,7 @@ AP_AHRS_DCM::renorm(Vector3f const &a, Vector3f &result)
 void
 AP_AHRS_DCM::normalize(void)
 {
-    float error;
-    Vector3f t0, t1, t2;
-
-    error = _dcm_matrix.a * _dcm_matrix.b;                                              // eq.18
-
-    t0 = _dcm_matrix.a - (_dcm_matrix.b * (0.5f * error));              // eq.19
-    t1 = _dcm_matrix.b - (_dcm_matrix.a * (0.5f * error));              // eq.19
-    t2 = t0 % t1;                                                       // c= a x b // eq.20
-
-    if (!renorm(t0, _dcm_matrix.a) ||
-        !renorm(t1, _dcm_matrix.b) ||
-        !renorm(t2, _dcm_matrix.c)) {
-        // Our solution is blowing up and we will force back
-        // to last euler angles
-        _last_failure_ms = hal.scheduler->millis();
-        reset(true);
-    }
+    _quat.normalize();
 }
 
 

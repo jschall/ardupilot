@@ -30,6 +30,7 @@
 #include <AP_InertialSensor.h>
 #include <AP_Baro.h>
 #include <AP_Param.h>
+#include <AC_Quaternion.h>
 
 #define AP_AHRS_TRIM_LIMIT 10.0f        // maximum trim angle in degrees
 
