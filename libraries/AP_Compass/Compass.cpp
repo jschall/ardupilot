@@ -338,7 +338,7 @@ void Compass::apply_corrections(Vector3f &mag, uint8_t i)
 #if HAL_CPU_CLASS >= HAL_CPU_CLASS_75
     if(!_param_init_done) {
         _param_init_done = true;
-        // this doesn't work in the constructor, because _motor_comp_type isn't initialized
+
         if(_motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT || _motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT_LEARN) {
             for(uint8_t i=0; i<COMPASS_MAX_INSTANCES; i++) {
                 _compass_mot[i].set_motfactors(_motor_compensation[i]);
@@ -347,10 +347,10 @@ void Compass::apply_corrections(Vector3f &mag, uint8_t i)
     }
 
     if(_compass_mot[i].update_compass(mag) && (_motor_comp_type == AP_COMPASS_MOT_COMP_CURRENT_LEARN)) {
-        const Vector3f &motfactors = _compass_mot[i].get_motfactors();
+        Vector3f motfactors = _compass_mot[i].get_motfactors();
 
         if(!motfactors.is_nan() && !motfactors.is_inf() && fabs(motfactors.x) < 20 && fabs(motfactors.y) < 20 && fabs(motfactors.z) < 20) {
-            _motor_compensation[i].set_and_save(motfactors);
+            _motor_compensation[i].set(motfactors);
         }
     }
 #endif
