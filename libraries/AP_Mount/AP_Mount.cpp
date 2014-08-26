@@ -213,6 +213,10 @@ const AP_Param::GroupInfo AP_Mount::var_info[] PROGMEM = {
     AP_GROUPINFO("JSTICK_SPD",  16, AP_Mount, _joystick_speed, 0),
 #endif
 
+    AP_GROUPINFO("LEAD_RLL", 17, AP_Mount, _roll_stb_lead, 0.0f),
+
+    AP_GROUPINFO("LEAD_PTCH", 18, AP_Mount, _pitch_stb_lead, 0.0f),
+
     AP_GROUPEND
 };
 
@@ -621,6 +625,20 @@ AP_Mount::stabilize()
         }
         if (_stab_tilt) {
             _tilt_angle -= degrees(_ahrs.pitch);
+        }
+
+        if (fabs(_ahrs.pitch) < M_PI/3.0f) {
+            Vector3f gyro = _ahrs.get_gyro();
+
+            if (_stab_roll && _roll_stb_lead != 0.0f) {
+                float roll_rate = gyro.x + _ahrs.sin_pitch() / _ahrs.cos_pitch() * (gyro.y * _ahrs.sin_roll() + gyro.z * _ahrs.cos_roll());
+                _roll_angle -= degrees(roll_rate) * _roll_stb_lead;
+            }
+
+            if (_stab_tilt && _pitch_stb_lead != 0.0f) {
+                float pitch_rate = _ahrs.cos_pitch() * gyro.y - _ahrs.sin_roll() * gyro.z;
+                _tilt_angle -= degrees(pitch_rate) * _pitch_stb_lead;
+            }
         }
     }
 #endif
