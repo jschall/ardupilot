@@ -110,7 +110,7 @@ static void get_pilot_desired_angle_rates(int16_t roll_in, int16_t pitch_in, int
         }
 
         // convert earth-frame level rates to body-frame level rates
-        attitude_control.frame_conversion_ef_to_bf(rate_ef_level, rate_bf_level);
+        attitude_control.frame_conversion_ef_to_rbf(rate_ef_level, rate_bf_level);
 
         // combine earth frame rate corrections with rate requests
         if (g.acro_trainer == ACRO_TRAINER_LIMITED) {

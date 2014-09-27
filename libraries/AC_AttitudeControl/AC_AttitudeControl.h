@@ -1,7 +1,7 @@
 // -*- tab-width: 4; Mode: C++; c-basic-offset: 4; indent-tabs-mode: t -*-
 
 /// @file    AC_AttitudeControl.h
-/// @brief   ArduCopter attitude control library
+/// @brief   ArduCopter attitude control library 2.0
 
 #ifndef AC_AttitudeControl_H
 #define AC_AttitudeControl_H
@@ -15,6 +15,7 @@
 #include <DataFlash.h>
 #include <AC_PID.h>
 #include <AC_P.h>
+#include <AC_Quaternion.h>
 
 // To-Do: change the name or move to AP_Math?
 #define AC_ATTITUDE_CONTROL_DEGX100 5729.57795f                 // constant to convert from radians to centi-degrees
@@ -84,28 +85,15 @@ public:
     void relax_bf_rate_controller();
 
     // set_yaw_target_to_current_heading - sets yaw target to current heading
-    void set_yaw_target_to_current_heading() { _angle_ef_target.z = _ahrs.yaw_sensor; }
+    //void set_yaw_target_to_current_heading() { _angle_ef_target.z = _ahrs.yaw_sensor; }
 
-    //
-    // methods to be called by upper controllers to request and implement a desired attitude
-    //
-
-    // angle_ef_roll_pitch_rate_ef_yaw_smooth - attempts to maintain a roll and pitch angle and yaw rate (all earth frame) while smoothing the attitude based on the feel parameter
-    //      smoothing_gain : a number from 1 to 50 with 1 being sluggish and 50 being very crisp
-    void angle_ef_roll_pitch_rate_ef_yaw_smooth(float roll_angle_ef, float pitch_angle_ef, float yaw_rate_ef, float smoothing_gain);
-
-    // angle_ef_roll_pitch_rate_ef_yaw - attempts to maintain a roll and pitch angle and yaw rate (all earth frame)
-    void angle_ef_roll_pitch_rate_ef_yaw(float roll_angle_ef, float pitch_angle_ef, float yaw_rate_ef);
-
-    // angle_ef_roll_pitch_yaw - attempts to maintain a roll, pitch and yaw angle (all earth frame)
-    //  if yaw_slew is true then target yaw movement will be gradually moved to the new target based on the YAW_SLEW parameter
-    void angle_ef_roll_pitch_yaw(float roll_angle_ef, float pitch_angle_ef, float yaw_angle_ef, bool slew_yaw);
-
-    // rate_ef_roll_pitch_yaw - attempts to maintain a roll, pitch and yaw rate (all earth frame)
-    void rate_ef_roll_pitch_yaw(float roll_rate_ef, float pitch_rate_ef, float yaw_rate_ef);
-
-    // rate_bf_roll_pitch_yaw - attempts to maintain a roll, pitch and yaw rate (all body frame)
     void rate_bf_roll_pitch_yaw(float roll_rate_bf, float pitch_rate_bf, float yaw_rate_bf);
+
+    //TODO:
+    void angle_ef_roll_pitch_rate_ef_yaw_smooth(float roll_angle_ef, float pitch_angle_ef, float yaw_rate_ef, float smoothing_gain) {}
+    void angle_ef_roll_pitch_rate_ef_yaw(float roll_angle_ef, float pitch_angle_ef, float yaw_rate_ef) {}
+    void angle_ef_roll_pitch_yaw(float roll_angle_ef, float pitch_angle_ef, float yaw_angle_ef, bool slew_yaw){}
+    void rate_ef_roll_pitch_yaw(float roll_rate_ef, float pitch_rate_ef, float yaw_rate_ef){}
 
     //
     // rate_controller_run - run lowest level body-frame rate controller and send outputs to the motors
@@ -113,15 +101,14 @@ public:
     //
     virtual void rate_controller_run();
 
-    //
-    // earth-frame <-> body-frame conversion functions
-    //
-    // frame_conversion_ef_to_bf - converts earth frame angles or rates to body frame
-    void frame_conversion_ef_to_bf(const Vector3f& ef_vector, Vector3f &bf_vector);
+    void frame_conversion_ef_to_tbf(const Vector3f& ef_vector, Vector3f &tbf_vector);
+    void frame_conversion_tbf_to_ef(const Vector3f& tbf_vector, Vector3f &ef_vector);
 
-    // frame_conversion_bf_to_ef - converts body frame angles or rates to earth frame
-    //  returns false if conversion fails due to gimbal lock
-    bool frame_conversion_bf_to_ef(const Vector3f& bf_vector, Vector3f &ef_vector);
+    void frame_conversion_ef_to_rbf(const Vector3f& ef_vector, Vector3f &rbf_vector);
+    void frame_conversion_rbf_to_ef(const Vector3f& rbf_vector, Vector3f &ef_vector);
+
+    void frame_conversion_rbf_to_tbf(const Vector3f& rbf_vector, Vector3f &tbf_vector);
+    void frame_conversion_tbf_to_rbf(const Vector3f& tbf_vector, Vector3f &rbf_vector);
 
     //
     // public accessor functions
@@ -130,13 +117,22 @@ public:
     // limit_angle_to_rate_request
     void limit_angle_to_rate_request(bool limit_request) { _flags.limit_angle_to_rate_request = limit_request; }
 
+    Vector3f angle_ef_targets() const {
+        Vector3f ret;
+        _target_attitude.to_euler(ret.x,ret.y,ret.z);
+        ret *= AC_ATTITUDE_CONTROL_DEGX100;
+        return ret;
+    }
+
+    void set_yaw_target_to_current_heading() {  }
+
     // angle_ef_targets - returns angle controller earth-frame targets (for reporting)
-    const Vector3f& angle_ef_targets() const { return _angle_ef_target; }
+    //const Vector3f& angle_ef_targets() const { return _angle_ef_target; }
 
     // rate_bf_targets - gets rate controller body-frame targets
-    void rate_bf_roll_target(float rate_cds) { _rate_bf_target.x = rate_cds; }
-    void rate_bf_pitch_target(float rate_cds) { _rate_bf_target.y = rate_cds; }
-    void rate_bf_yaw_target(float rate_cds) { _rate_bf_target.z = rate_cds; }
+    void rate_bf_roll_target(float rate_cds) { _rate_bf_target.x = rate_cds/AC_ATTITUDE_CONTROL_DEGX100; }
+    void rate_bf_pitch_target(float rate_cds) { _rate_bf_target.y = rate_cds/AC_ATTITUDE_CONTROL_DEGX100; }
+    void rate_bf_yaw_target(float rate_cds) { _rate_bf_target.z = rate_cds/AC_ATTITUDE_CONTROL_DEGX100; }
 
     // enable_bf_feedforward - enable or disable body-frame feed forward
     void bf_feedforward(bool enable_or_disable) { _rate_bf_ff_enabled = enable_or_disable; }
@@ -172,24 +168,12 @@ protected:
         uint8_t limit_angle_to_rate_request :   1;  // 1 if the earth frame angle controller is limiting it's maximum rate request
     } _flags;
     
-    // update_ef_roll_angle_and_error - update _angle_ef_target.x using an earth frame roll rate request
-    void update_ef_roll_angle_and_error(float roll_rate_ef, Vector3f &angle_ef_error, float overshoot_max);
-
-    // update_ef_pitch_angle_and_error - update _angle_ef_target.y using an earth frame pitch rate request
-    void update_ef_pitch_angle_and_error(float pitch_rate_ef, Vector3f &angle_ef_error, float overshoot_max);
-
-    // update_ef_yaw_angle_and_error - update _angle_ef_target.z using an earth frame yaw rate request
-    void update_ef_yaw_angle_and_error(float yaw_rate_ef, Vector3f &angle_ef_error, float overshoot_max);
-
-    // integrate_bf_rate_error_to_angle_errors - calculates body frame angle errors
-    //   body-frame feed forward rates (centi-degrees / second) taken from _angle_bf_error
-    //   angle errors in centi-degrees placed in _angle_bf_error
-    void integrate_bf_rate_error_to_angle_errors();
-
     // update_rate_bf_targets - converts body-frame angle error to body-frame rate targets for roll, pitch and yaw axis
-    //   targets rates in centi-degrees taken from _angle_bf_error
+    //   targets rates in centi-degrees taken from _angle_rbf_error
     //   results in centi-degrees/sec put into _rate_bf_target
+    void update_angle_rbf_error();
     void update_rate_bf_targets();
+    void update_target_attitude();
 
     //
     // body-frame rate controller
@@ -247,11 +231,10 @@ protected:
     // internal variables
     // To-Do: make rate targets a typedef instead of Vector3f?
     float               _dt;                    // time delta in seconds
-    Vector3f            _angle_ef_target;       // angle controller earth-frame targets
-    Vector3f            _angle_bf_error;        // angle controller body-frame error
+    AC_Quaternion       _target_attitude;
+    Vector3f            _angle_rbf_error;        // angle controller body-frame error
     Vector3f            _rate_bf_target;        // rate controller body-frame targets
-    Vector3f            _rate_ef_desired;       // earth-frame feed forward rates
-    Vector3f            _rate_bf_desired;       // body-frame feed forward rates
+    Vector3f            _rate_tbf_desired;       // body-frame feed forward rates
     int16_t             _angle_boost;           // used only for logging
     int16_t             _acro_angle_switch;           // used only for logging
 };

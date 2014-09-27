@@ -119,8 +119,9 @@
 #include <AC_PID.h>             // PID library
 #include <AC_HELI_PID.h>        // Heli specific Rate PID library
 #include <AC_P.h>               // P library
-#include <AC_AttitudeControl.h> // Attitude control library
-#include <AC_AttitudeControl_Heli.h> // Attitude control library for traditional helicopter
+#include <AC_Quaternion.h>
+#include <AC_AttitudeControl.h>
+//#include <AC_AttitudeControl_Heli.h> // Attitude control library for traditional helicopter
 #include <AC_PosControl.h>      // Position control library
 #include <RC_Channel.h>         // RC Channel Library
 #include <AP_Motors.h>          // AP Motors library
