@@ -7,6 +7,7 @@
 // acro_init - initialise acro controller
 static bool acro_init(bool ignore_checks)
 {
+    attitude_control.quat_reset_target_attitude();
     // always successfully enter acro
     return true;
 }
@@ -22,6 +23,7 @@ static void acro_run()
     if(!motors.armed() || g.rc_3.control_in <= 0) {
         attitude_control.relax_bf_rate_controller();
         attitude_control.set_yaw_target_to_current_heading();
+        attitude_control.quat_reset_target_attitude();
         attitude_control.set_throttle_out(0, false);
         return;
     }
@@ -33,7 +35,7 @@ static void acro_run()
     pilot_throttle_scaled = get_pilot_desired_throttle(g.rc_3.control_in);
 
     // run attitude controller
-    attitude_control.rate_bf_roll_pitch_yaw(target_roll, target_pitch, target_yaw);
+    attitude_control.rate_bf_roll_pitch_yaw_quat(target_roll, target_pitch, target_yaw);
 
     // output pilot's throttle without angle boost
     attitude_control.set_throttle_out(pilot_throttle_scaled, false);
