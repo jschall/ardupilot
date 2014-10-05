@@ -404,6 +404,134 @@ void AC_AttitudeControl::rate_bf_roll_pitch_yaw(float roll_rate_bf, float pitch_
     _rate_bf_target += _rate_bf_desired;
 }
 
+// *********** begin quat patch stuff ***********
+void AC_AttitudeControl::rate_bf_roll_pitch_yaw_quat(float roll_rate_bf, float pitch_rate_bf, float yaw_rate_bf)
+{
+    Vector3f rate_input_rads;
+    rate_input_rads = Vector3f(roll_rate_bf, pitch_rate_bf, yaw_rate_bf);
+    //input is in cd/s, convert to rad/s
+    rate_input_rads /= AC_ATTITUDE_CONTROL_DEGX100;
+
+    float rate_change_rads, rate_change_limit_rads;
+    if (_accel_rp_max > 0.0f) {
+        //accel limits are in cd/s2
+        rate_change_limit_rads = _accel_rp_max/AC_ATTITUDE_CONTROL_DEGX100 * _dt;
+
+        rate_change_rads = rate_input_rads.x - _quat_desired_rate_rads.x;
+        rate_change_rads = constrain_float(rate_change_rads, -rate_change_limit_rads, rate_change_limit_rads);
+        _quat_desired_rate_rads.x += rate_change_rads;
+
+        rate_change_rads = rate_input_rads.y - _quat_desired_rate_rads.y;
+        rate_change_rads = constrain_float(rate_change_rads, -rate_change_limit_rads, rate_change_limit_rads);
+        _quat_desired_rate_rads.y += rate_change_rads;
+    } else {
+        _quat_desired_rate_rads.x = rate_input_rads.x;
+        _quat_desired_rate_rads.y = rate_input_rads.y;
+    }
+
+    if (_accel_y_max > 0.0f) {
+        //accel limits are in cd/s2
+        rate_change_limit_rads = _accel_y_max/AC_ATTITUDE_CONTROL_DEGX100 * _dt;
+
+        rate_change_rads = rate_input_rads.z - _quat_desired_rate_rads.z;
+        rate_change_rads = constrain_float(rate_change_rads, -rate_change_limit_rads, rate_change_limit_rads);
+        _quat_desired_rate_rads.z += rate_change_rads;
+    } else {
+        _quat_desired_rate_rads.z = rate_input_rads.z;
+    }
+
+    quat_update_angle_bf_error();
+    update_rate_bf_targets();
+
+    Vector3f constrained_target_rate_rads;
+    quat_constrain_target_rate(_quat_desired_rate_rads, constrained_target_rate_rads);
+
+    quat_update_target_attitude(constrained_target_rate_rads);
+
+    Vector3f rate_rbf_desired_rads;
+    quat_frame_conversion_tbf_to_rbf(constrained_target_rate_rads, rate_rbf_desired_rads);
+    //_rate_bf_target is in cd
+    _rate_bf_target += rate_rbf_desired_rads*AC_ATTITUDE_CONTROL_DEGX100;
+}
+
+void AC_AttitudeControl::quat_constrain_target_rate(const Vector3f& desired_rate_rads, Vector3f& constrained_rate_rads) {
+    Vector3f tbf_copter_rate_rads;
+    Vector3f tbf_error_rad;
+
+    quat_frame_conversion_rbf_to_tbf(_ahrs.get_gyro(),tbf_copter_rate_rads);
+    quat_frame_conversion_rbf_to_tbf(_angle_bf_error,tbf_error_rad);
+    //_angle_bf_error is in cd
+    tbf_error_rad /= AC_ATTITUDE_CONTROL_DEGX100;
+
+    float pos_roll_rate_lim_rads = -(tbf_error_rad.x-ToRad(10))*_p_angle_roll.kP() + tbf_copter_rate_rads.x;
+    float neg_roll_rate_lim_rads = -(tbf_error_rad.x+ToRad(10))*_p_angle_roll.kP() + tbf_copter_rate_rads.x;
+    float pos_pitch_rate_lim_rads = -(tbf_error_rad.y-ToRad(10))*_p_angle_pitch.kP() + tbf_copter_rate_rads.y;
+    float neg_pitch_rate_lim_rads = -(tbf_error_rad.y+ToRad(10))*_p_angle_pitch.kP() + tbf_copter_rate_rads.y;
+    float pos_yaw_rate_lim_rads = -(tbf_error_rad.z-ToRad(10))*_p_angle_yaw.kP() + tbf_copter_rate_rads.z;
+    float neg_yaw_rate_lim_rads = -(tbf_error_rad.z+ToRad(10))*_p_angle_yaw.kP() + tbf_copter_rate_rads.z;
+
+    constrained_rate_rads.x = constrain_float(desired_rate_rads.x, neg_roll_rate_lim_rads, pos_roll_rate_lim_rads);
+    constrained_rate_rads.y = constrain_float(desired_rate_rads.y, neg_pitch_rate_lim_rads, pos_pitch_rate_lim_rads);
+    constrained_rate_rads.z = constrain_float(desired_rate_rads.z, neg_yaw_rate_lim_rads, pos_yaw_rate_lim_rads);
+}
+
+void AC_AttitudeControl::quat_update_target_attitude(const Vector3f& rate_rads) {
+    _quat_target_attitude.rotate_fast(rate_rads*_dt);
+    _quat_target_attitude.normalize();
+}
+
+void AC_AttitudeControl::quat_update_angle_bf_error() {
+    AC_Quaternion current_attitude;
+    AC_Quaternion e;
+    current_attitude.from_rotation_matrix(_ahrs.get_dcm_matrix());
+    e = current_attitude.inverse() * _quat_target_attitude;
+    e.to_axis_angle(_angle_bf_error);
+    //_angle_bf_error is in cd
+    _angle_bf_error *= AC_ATTITUDE_CONTROL_DEGX100;
+}
+
+void AC_AttitudeControl::quat_reset_target_attitude() {
+    AC_Quaternion current_attitude;
+    current_attitude.from_rotation_matrix(_ahrs.get_dcm_matrix());
+    _quat_target_attitude = current_attitude;
+}
+
+void AC_AttitudeControl::quat_frame_conversion_ef_to_tbf(const Vector3f& ef_vector, Vector3f& tbf_vector)
+{
+    Matrix3f mat;
+    _quat_target_attitude.rotation_matrix(mat);
+    tbf_vector = mat.mul_transpose(ef_vector);
+}
+
+void AC_AttitudeControl::quat_frame_conversion_tbf_to_ef(const Vector3f& tbf_vector, Vector3f& ef_vector)
+{
+    Matrix3f mat;
+    _quat_target_attitude.rotation_matrix(mat);
+    ef_vector = mat * tbf_vector;
+}
+
+void AC_AttitudeControl::quat_frame_conversion_ef_to_rbf(const Vector3f& ef_vector, Vector3f& rbf_vector)
+{
+    rbf_vector = _ahrs.get_dcm_matrix().mul_transpose(ef_vector);
+}
+
+void AC_AttitudeControl::quat_frame_conversion_rbf_to_ef(const Vector3f& rbf_vector, Vector3f& ef_vector)
+{
+    ef_vector = _ahrs.get_dcm_matrix() * rbf_vector;
+}
+
+void AC_AttitudeControl::quat_frame_conversion_rbf_to_tbf(const Vector3f& rbf_vector, Vector3f& tbf_vector)
+{
+    quat_frame_conversion_rbf_to_ef(rbf_vector, tbf_vector);
+    quat_frame_conversion_ef_to_tbf(tbf_vector, tbf_vector);
+}
+
+void AC_AttitudeControl::quat_frame_conversion_tbf_to_rbf(const Vector3f& tbf_vector, Vector3f& rbf_vector)
+{
+    quat_frame_conversion_tbf_to_ef(tbf_vector, rbf_vector);
+    quat_frame_conversion_ef_to_rbf(rbf_vector, rbf_vector);
+}
+
 //
 // rate_controller_run - run lowest level body-frame rate controller and send outputs to the motors
 //      should be called at 100hz or more
