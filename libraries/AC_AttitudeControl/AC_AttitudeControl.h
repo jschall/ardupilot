@@ -15,6 +15,7 @@
 #include <DataFlash.h>
 #include <AC_PID.h>
 #include <AC_P.h>
+#include <AC_Quaternion.h>
 
 // To-Do: change the name or move to AP_Math?
 #define AC_ATTITUDE_CONTROL_DEGX100 5729.57795f                 // constant to convert from radians to centi-degrees
@@ -148,13 +149,24 @@ public:
     // throttle functions
     //
 
-     // set_throttle_out - to be called by upper throttle controllers when they wish to provide throttle output directly to motors
-     // provide 0 to cut motors
-     void set_throttle_out(int16_t throttle_pwm, bool apply_angle_boost);
+    // set_throttle_out - to be called by upper throttle controllers when they wish to provide throttle output directly to motors
+    // provide 0 to cut motors
+    void set_throttle_out(int16_t throttle_pwm, bool apply_angle_boost);
 
-     // angle_boost - accessor for angle boost so it can be logged
-     int16_t angle_boost() const { return _angle_boost; }
+    // angle_boost - accessor for angle boost so it can be logged
+    int16_t angle_boost() const { return _angle_boost; }
 
+    //QUAT stuff
+    void quat_reset_target_attitude();
+    void rate_bf_roll_pitch_yaw_quat(float roll_rate_bf, float pitch_rate_bf, float yaw_rate_bf);
+    void quat_frame_conversion_ef_to_tbf(const Vector3f& ef_vector, Vector3f &tbf_vector);
+    void quat_frame_conversion_tbf_to_ef(const Vector3f& tbf_vector, Vector3f &ef_vector);
+
+    void quat_frame_conversion_ef_to_rbf(const Vector3f& ef_vector, Vector3f &rbf_vector);
+    void quat_frame_conversion_rbf_to_ef(const Vector3f& rbf_vector, Vector3f &ef_vector);
+
+    void quat_frame_conversion_rbf_to_tbf(const Vector3f& rbf_vector, Vector3f &tbf_vector);
+    void quat_frame_conversion_tbf_to_rbf(const Vector3f& tbf_vector, Vector3f &rbf_vector);
     //
     // helper functions
     //
@@ -166,6 +178,13 @@ public:
     static const struct AP_Param::GroupInfo var_info[];
 
 protected:
+    //QUAT stuff
+    AC_Quaternion _quat_target_attitude;
+    Vector3f _quat_desired_rate_rads;
+    void quat_update_angle_bf_error();
+    void quat_update_rate_bf_targets();
+    void quat_constrain_target_rate(const Vector3f& rate_rads, Vector3f& constrained_rate_rads);
+    void quat_update_target_attitude(const Vector3f& rate_rads);
 
     // attitude control flags
     struct AttControlFlags {
