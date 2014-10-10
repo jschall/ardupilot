@@ -10,37 +10,12 @@
 static void arm_motors_check()
 {
     static int16_t arming_counter;
-    bool allow_arming = false;
 
     // ensure throttle is down
     if (g.rc_3.control_in > 0) {
         arming_counter = 0;
         return;
     }
-
-    // allow arming/disarming in fully manual flight modes ACRO, STABILIZE, SPORT and DRIFT
-    if (manual_flight_mode(control_mode)) {
-        allow_arming = true;
-    }
-
-    // allow arming/disarming in Loiter and AltHold if landed
-    if (ap.land_complete && (control_mode == LOITER || control_mode == ALT_HOLD || control_mode == POSHOLD || control_mode == AUTOTUNE)) {
-        allow_arming = true;
-    }
-
-    // kick out other flight modes
-    if (!allow_arming) {
-        arming_counter = 0;
-        return;
-    }
-
-    #if FRAME_CONFIG == HELI_FRAME
-    // heli specific arming check
-    if (!motors.allow_arming()){
-        arming_counter = 0;
-        return;
-    }
-    #endif  // HELI_FRAME
 
     int16_t tmp = g.rc_4.control_in;
 
@@ -72,6 +47,10 @@ static void arm_motors_check()
 
     // full left
     }else if (tmp < -4000) {
+        if (!manual_flight_mode(control_mode) && !ap.land_complete) {
+            arming_counter = 0;
+            return;
+        }
 
         // increase the counter to a maximum of 1 beyond the disarm delay
         if( arming_counter <= DISARM_DELAY ) {
@@ -527,6 +506,24 @@ static bool pre_arm_gps_checks(bool display_failure)
 // always called just before arming.  Return true if ok to arm
 static bool arm_checks(bool display_failure)
 {
+    // always check if the current mode allows arming
+    if (!mode_allows_arming(control_mode)) {
+        if (display_failure) {
+            gcs_send_text_P(SEVERITY_HIGH,PSTR("Arm: Mode not armable"));
+        }
+        return false;
+    }
+
+    // always check if rotor is spinning on heli
+    #if FRAME_CONFIG == HELI_FRAME
+    // heli specific arming check
+    if (!motors.allow_arming()){
+        if (display_failure) {
+            gcs_send_text_P(SEVERITY_HIGH,PSTR("Arm: Rotor not spinning"));
+        }
+    }
+    #endif  // HELI_FRAME
+
     // succeed if arming checks are disabled
     if (g.arming_check == ARMING_CHECK_NONE) {
         return true;
