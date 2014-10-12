@@ -278,9 +278,7 @@ static void exit_mission()
     // if we are not on the ground switch to loiter or land
     if(!ap.land_complete) {
         // try to enter loiter but if that fails land
-        if (!set_mode(LOITER)) {
-            set_mode(LAND);
-        }
+        auto_pause_start();
     }else{
 #if LAND_REQUIRE_MIN_THROTTLE_TO_DISARM == ENABLED
         // disarm when the landing detector says we've landed and throttle is at minimum

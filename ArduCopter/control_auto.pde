@@ -76,6 +76,10 @@ static void auto_run()
         auto_nav_guided_run();
         break;
 #endif
+
+    case Auto_Pause:
+        auto_pause_run();
+        break;
     }
 }
 
@@ -408,6 +412,44 @@ void auto_nav_guided_run()
     guided_run();
 }
 #endif  // NAV_GUIDED
+
+bool auto_pause_start()
+{
+    if (!GPS_ok()) {
+        return false;
+    }
+    auto_mode = Auto_Pause;
+
+    Vector3f origin = inertial_nav.get_position();
+
+    Vector3f stopping_point;
+    pos_control.get_stopping_point_z(stopping_point);
+    pos_control.get_stopping_point_z(stopping_point);
+
+    wp_nav.set_wp_origin_and_destination(origin, stopping_point);
+
+    set_auto_yaw_mode(AUTO_YAW_HOLD);
+
+    return true;
+}
+
+void auto_pause_run() {
+    if(!ap.auto_armed || ap.land_complete) {
+        attitude_control.relax_bf_rate_controller();
+        attitude_control.set_yaw_target_to_current_heading();
+        attitude_control.set_throttle_out(0, false);
+        return;
+    }
+
+    float target_yaw_rate = 0;
+    if(!failsafe.radio) {
+        target_yaw_rate = get_pilot_desired_yaw_rate(g.rc_4.control_in);
+    }
+
+    wp_nav.update_wpnav();
+    pos_control.update_z_controller();
+    attitude_control.angle_ef_roll_pitch_rate_ef_yaw(wp_nav.get_roll(), wp_nav.get_pitch(), target_yaw_rate);
+}
 
 // get_default_auto_yaw_mode - returns auto_yaw_mode based on WP_YAW_BEHAVIOR parameter
 // set rtl parameter to true if this is during an RTL
