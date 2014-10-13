@@ -101,7 +101,10 @@ AP_AHRS_DCM::matrix_update(float _G_Dt)
         _omega /= healthy_count;
     }
     _omega += _omega_I;
-    _dcm_matrix.rotate((_omega + _omega_P + _omega_yaw_P) * _G_Dt);
+    Vector3f delAng = (_omega + _omega_P + _omega_yaw_P) * _G_Dt;
+    delAng += (prevDelAng % delAng) * 8.333333e-2f;
+    _dcm_matrix.rotate(delAng);
+    prevDelAng = delAng;
 }
 
 
