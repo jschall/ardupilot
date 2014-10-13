@@ -600,10 +600,12 @@ AP_AHRS_DCM::drift_correction(float deltat)
     bool using_gps_corrections = false;
     float ra_scale = 1.0f/(_ra_deltat*GRAVITY_MSS);
 
+    Vector3f GA_e_unnormalized = GA_e;
     if (_flags.correct_centrifugal && (_have_gps_lock || _flags.fly_forward)) {
         float v_scale = gps_gain.get() * ra_scale;
         Vector3f vdelta = (velocity - _last_velocity) * v_scale;
         GA_e += vdelta;
+        GA_e_unnormalized = GA_e;
         GA_e.normalize();
         if (GA_e.is_inf()) {
             // wait for some non-zero acceleration information
@@ -661,40 +663,42 @@ AP_AHRS_DCM::drift_correction(float deltat)
         _last_failure_ms = hal.scheduler->millis();
         return;
     }
+    float yz_accel = pythagorous2(GA_e_unnormalized.y,GA_e_unnormalized.z);
+    float xz_accel = pythagorous2(GA_e_unnormalized.x,GA_e_unnormalized.z);
+    float xy_accel = pythagorous2(GA_e_unnormalized.x,GA_e_unnormalized.y);
 
     _active_accel_instance = besti;
 
-#define YAW_INDEPENDENT_DRIFT_CORRECTION 0
+#define YAW_INDEPENDENT_DRIFT_CORRECTION 1
 #if YAW_INDEPENDENT_DRIFT_CORRECTION
-    // step 2 calculate earth_error_Z
-    float earth_error_Z = error.z;
+    if(xy_accel > 0.2f) {
+        // step 2 calculate earth_error_Z
+        float earth_error_Z = error[besti].z;
 
-    // equation 10
-    float tilt = pythagorous2(GA_e.x, GA_e.y);
+        // equation 10
+        float tilt = pythagorous2(GA_e.x, GA_e.y);
 
-    // equation 11
-    float theta = atan2f(GA_b[besti].y, GA_b[besti].x);
+        // equation 11
+        float theta = atan2f(GA_b[besti].y, GA_b[besti].x);
 
-    // equation 12
-    Vector3f GA_e2 = Vector3f(cosf(theta)*tilt, sinf(theta)*tilt, GA_e.z);
+        // equation 12
+        Vector3f GA_e2 = Vector3f(cosf(theta)*tilt, sinf(theta)*tilt, GA_e.z);
 
-    // step 6
-    error = GA_b[besti] % GA_e2;
-    error.z = earth_error_Z;
+        // step 6
+        error[besti] = GA_b[besti] % GA_e2;
+        error[besti].z = earth_error_Z;
+    } else {
+        //don't do the GPS algorithm at all
+        Vector3f GA_e2 = Vector3f(0, 0, -1.0f);
+        error[besti] = GA_b[besti] % GA_e2;
+    }
 #endif // YAW_INDEPENDENT_DRIFT_CORRECTION
 
-    // to reduce the impact of two competing yaw controllers, we
-    // reduce the impact of the gps/accelerometers on yaw when we are
-    // flat, but still allow for yaw correction using the
-    // accelerometers at high roll angles as long as we have a GPS
-    if (AP_AHRS_DCM::use_compass()) {
-        if (have_gps() && gps_gain == 1.0f) {
-            error[besti].z *= sinf(fabsf(roll));
-        } else {
-            error[besti].z = 0;
-        }
-    }
-
+    //schedule gain on observability
+    error[besti].x *= constrain_float(yz_accel, 0.0f, 1.0f);
+    error[besti].y *= constrain_float(xz_accel, 0.0f, 1.0f);
+    error[besti].z *= constrain_float(xy_accel, 0.0f, 1.0f);
+    
     // if ins is unhealthy then stop attitude drift correction and
     // hope the gyros are OK for a while. Just slowly reduce _omega_P
     // to prevent previous bad accels from throwing us off
