@@ -419,6 +419,15 @@ static void pre_arm_checks(bool display_failure)
         }
     }
 
+#if AP_AHRS_NAVEKF_AVAILABLE
+    if (ahrs.get_ekf_use() && !ahrs.using_EKF()) {
+        if (display_failure) {
+                gcs_send_text_P(SEVERITY_HIGH,PSTR("PreArm: EKF not ready"));
+            }
+        return;
+    }
+#endif //AP_AHRS_NAVEKF_AVAILABLE
+
     // if we've gotten this far then pre arm checks have completed
     set_pre_arm_check(true);
 }
@@ -506,6 +515,15 @@ static bool arm_checks(bool display_failure, bool arming_from_gcs)
     // start dataflash
     start_logging();
 #endif
+
+#if AP_AHRS_NAVEKF_AVAILABLE
+    if (ahrs.get_ekf_use() && !ahrs.using_EKF()) {
+        if (display_failure) {
+                gcs_send_text_P(SEVERITY_HIGH,PSTR("Arm: EKF not ready"));
+            }
+        return false;
+    }
+#endif //AP_AHRS_NAVEKF_AVAILABLE
 
     // always check if the current mode allows arming
     if (!mode_allows_arming(control_mode, arming_from_gcs)) {
