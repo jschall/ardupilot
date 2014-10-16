@@ -96,6 +96,7 @@ public:
     bool get_relative_position_NED(Vector3f &vec) const;
 
     void set_ekf_use(bool setting) { _ekf_use.set(setting); }
+    bool get_ekf_use() { return _ekf_use.get(); }
 
     // is the AHRS subsystem healthy?
     bool healthy(void);
@@ -103,9 +104,9 @@ public:
     // true if the AHRS has completed initialisation
     bool initialised(void) const;
 
-private:
     bool using_EKF(void) const;
 
+private:
     NavEKF EKF;
     bool ekf_started;
     Matrix3f _dcm_matrix;
