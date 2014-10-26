@@ -99,6 +99,8 @@ public:
 
     // true if the AHRS has completed initialisation
     bool initialised(void) const;
+    
+    const Vector3f &get_accel_ef(void) const;
 
     bool using_EKF(void) const;
 
