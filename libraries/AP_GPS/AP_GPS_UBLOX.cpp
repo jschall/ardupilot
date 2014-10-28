@@ -460,6 +460,8 @@ AP_GPS_UBLOX::_parse_gps(void)
         state.velocity.x = _buffer.velned.ned_north * 0.01f;
         state.velocity.y = _buffer.velned.ned_east * 0.01f;
         state.velocity.z = _buffer.velned.ned_down * 0.01f;
+        state.have_speed_accuracy = true;
+        state.speed_accuracy = _buffer.velned.speed_accuracy*0.01f;
         _new_speed = true;
         break;
     default:

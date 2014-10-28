@@ -136,6 +136,8 @@ public:
         uint8_t num_sats;                   ///< Number of visible satelites        
         Vector3f velocity;                  ///< 3D velocitiy in m/s, in NED format
         bool have_vertical_velocity:1;      ///< does this GPS give vertical velocity?
+        bool have_speed_accuracy:1;
+        float speed_accuracy;
         uint32_t last_gps_time_ms;          ///< the system time we got the last GPS timestamp, milliseconds
     };
 
@@ -178,6 +180,18 @@ public:
     }
     const Location &location() const {
         return location(primary_instance);
+    }
+
+    bool speed_accuracy(uint8_t instance, float &sacc) {
+        if(_GPS_STATE(instance).have_speed_accuracy) {
+            sacc = _GPS_STATE(instance).speed_accuracy;
+            return true;
+        }
+        return false;
+    }
+
+    bool speed_accuracy(float &sacc) {
+        return speed_accuracy(primary_instance, sacc);
     }
 
     // 3D velocity in NED format
