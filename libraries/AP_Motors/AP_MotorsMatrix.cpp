@@ -215,7 +215,11 @@ void AP_MotorsMatrix::output_armed()
         //      We will choose #1 (the best throttle for yaw control) if that means reducing throttle to the motors (i.e. we favour reducing throttle *because* it provides better yaw control)
         //      We will choose #2 (a mix of pilot and hover throttle) only when the throttle is quite low.  We favour reducing throttle instead of better yaw control because the pilot has commanded it
         int16_t motor_mid = (rpy_low+rpy_high)/2;
-        out_best_thr_pwm = min(out_mid_pwm - motor_mid, max(_rc_throttle.radio_out, (_rc_throttle.radio_out+_hover_out)/2));
+        int16_t rp_centered_pwm = out_mid_pwm - motor_mid;
+        int16_t reduced_pwm = max(_rc_throttle.radio_out, (_rc_throttle.radio_out+_hover_out)/2);
+        reduced_pwm *= _throttle_pulldown_strength;
+        reduced_pwm += (1.0f-_throttle_pulldown_strength)*rp_centered_pwm;
+        out_best_thr_pwm = min(rp_centered_pwm, reduced_pwm);
 
         // calculate amount of yaw we can fit into the throttle range
         // this is always equal to or less than the requested yaw from the pilot or rate controller
