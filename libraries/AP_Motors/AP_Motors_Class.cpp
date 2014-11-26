@@ -82,7 +82,8 @@ AP_Motors::AP_Motors( RC_Channel& rc_roll, RC_Channel& rc_pitch, RC_Channel& rc_
     _min_throttle(AP_MOTORS_DEFAULT_MIN_THROTTLE),
     _max_throttle(AP_MOTORS_DEFAULT_MAX_THROTTLE),
     _hover_out(AP_MOTORS_DEFAULT_MID_THROTTLE),
-    _spin_when_armed_ramped(0)
+    _spin_when_armed_ramped(0),
+    _throttle_pulldown_strength(1.0f)
 {
     AP_Param::setup_object_defaults(this, var_info);
 

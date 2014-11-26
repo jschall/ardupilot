@@ -109,6 +109,8 @@ public:
     void                set_yaw(int16_t yaw_in) { _rc_yaw.servo_out = yaw_in; };                        // range -4500 ~ 4500
     void                set_throttle(int16_t throttle_in) { _rc_throttle.servo_out = throttle_in; };    // range 0 ~ 1000
 
+    void                set_throttle_pulldown_strength(float throttle_pulldown_strength) { _throttle_pulldown_strength = constrain_float(throttle_pulldown_strength,0.0f,1.0f); }
+
     // get_throttle_out - returns throttle sent to motors in the range 0 ~ 1000
     int16_t             get_throttle_out() const { return _rc_throttle.servo_out; }
 
@@ -190,5 +192,6 @@ protected:
     int16_t             _max_throttle;          // the maximum throttle to be sent to the motors (sometimes limited by slow start)
     int16_t             _hover_out;             // the estimated hover throttle in pwm (i.e. 1000 ~ 2000).  calculated from the THR_MID parameter
     int16_t             _spin_when_armed_ramped;// equal to _spin_when_armed parameter but slowly ramped up from zero
+    float               _throttle_pulldown_strength;
 };
 #endif  // __AP_MOTORS_CLASS_H__
