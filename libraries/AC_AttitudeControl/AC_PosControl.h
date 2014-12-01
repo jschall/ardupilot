@@ -353,6 +353,8 @@ private:
     float       _leash_down_z;          // vertical leash down in cm.  target will never be further than this distance below the vehicle
     float       _leash_up_z;            // vertical leash up in cm.  target will never be further than this distance above the vehicle
 
+    float       _thr_pulldown_str;
+
     // output from controller
     float       _roll_target;           // desired roll angle in centi-degrees calculated by position controller
     float       _pitch_target;          // desired roll pitch in centi-degrees calculated by position controller
