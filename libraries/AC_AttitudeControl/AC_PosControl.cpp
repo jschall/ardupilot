@@ -53,7 +53,8 @@ AC_PosControl::AC_PosControl(const AP_AHRS& ahrs, const AP_InertialNav& inav,
     _xy_step(0),
     _dt_xy(0.0f),
     _vel_xyz_step(0),
-    _pid_scaler(1.0f)
+    _pid_scaler(1.0f),
+    _thr_pulldown_str(1.0f)
 {
     AP_Param::setup_object_defaults(this, var_info);
 
@@ -262,6 +263,9 @@ void AC_PosControl::pos_to_rate_z()
     // calculate altitude error
     _pos_error.z = _pos_target.z - curr_alt;
 
+    //start forcing the copter down if copter gets too high
+    _thr_pulldown_str = constrain_float((-_pos_error.z*0.01f-1.0f)*0.25f,0.0f,1.0f);
+
     // do not let target altitude get too far from current altitude
     if (_pos_error.z > _leash_up_z) {
         _pos_target.z = curr_alt + _leash_up_z;
@@ -385,7 +389,7 @@ void AC_PosControl::accel_to_throttle(float accel_target_z)
     d = _pid_alt_accel.get_d(acc_z_error, _dt);
 
     // send throttle to attitude controller with angle boost
-    _attitude_control.set_throttle_out((int16_t)p+i+d+_throttle_hover, true);
+    _attitude_control.set_throttle_out((int16_t)p+i+d+_throttle_hover, true, _thr_pulldown_str);
 }
 
 ///

@@ -357,6 +357,8 @@ private:
 
     float       _pid_scaler;
 
+    float       _thr_pulldown_str;
+
     // output from controller
     float       _roll_target;           // desired roll angle in centi-degrees calculated by position controller
     float       _pitch_target;          // desired roll pitch in centi-degrees calculated by position controller
