@@ -666,8 +666,10 @@ void AC_AttitudeControl::accel_limiting(bool enable_limits)
 
  // set_throttle_out - to be called by upper throttle controllers when they wish to provide throttle output directly to motors
  // provide 0 to cut motors
-void AC_AttitudeControl::set_throttle_out(int16_t throttle_out, bool apply_angle_boost)
+void AC_AttitudeControl::set_throttle_out(int16_t throttle_out, bool apply_angle_boost, float pulldown_str)
 {
+    _motors.set_throttle_pulldown_strength(pulldown_str);
+
     if (apply_angle_boost) {
         _motors.set_throttle(get_angle_boost(throttle_out));
     }else{
