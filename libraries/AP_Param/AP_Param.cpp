@@ -477,11 +477,8 @@ bool AP_Param::scan(const AP_Param::Param_header *target, uint16_t *pofs)
             *pofs = ofs;
             return true;
         }
-        // note that this is an ||, not an &&, as this makes us more
-        // robust to power off while adding a variable to EEPROM
-        if (phdr.type == _sentinal_type ||
-            phdr.key == _sentinal_key ||
-            phdr.group_element == _sentinal_group) {
+
+        if (is_sentinal(phdr)) {
             // we've reached the sentinal
             *pofs = ofs;
             return false;
@@ -757,6 +754,137 @@ bool AP_Param::save(bool force_save)
     eeprom_write_check(ap, ofs+sizeof(phdr), type_size((enum ap_var_type)phdr.type));
     eeprom_write_check(&phdr, ofs, sizeof(phdr));
     return true;
+}
+
+bool AP_Param::is_sentinal(const struct Param_header& phdr)
+{
+    // note that this is an ||, not an &&, as this makes us more
+    // robust to power off while adding a variable to EEPROM
+    return phdr.type == _sentinal_type || phdr.key == _sentinal_key || phdr.group_element == _sentinal_group;
+}
+
+bool AP_Param::is_sentinal_strict(const struct Param_header& phdr)
+{
+    return phdr.type == _sentinal_type && phdr.key == _sentinal_key && phdr.group_element == _sentinal_group;
+}
+
+void AP_Param::get_sentinal(struct Param_header& phdr)
+{
+    phdr.type = _sentinal_type;
+    phdr.key = _sentinal_key;
+    phdr.group_element = _sentinal_group;
+}
+
+uint16_t AP_Param::get_sentinal_ofs(void)
+{
+    struct Param_header phdr;
+    uint16_t ofs = sizeof(AP_Param::EEPROM_header);
+
+    while (ofs < _storage.size()) {
+        _storage.read_block(&phdr, ofs, sizeof(phdr));
+
+        if (is_sentinal(phdr)) {
+            // reached sentinal
+            return ofs;
+        }
+        ofs += type_size((enum ap_var_type)phdr.type) + sizeof(phdr);
+    }
+    return 0xffff;
+}
+
+void AP_Param::run_garbage_collection(void)
+{
+    struct Param_header phdr;
+    static const uint16_t param_block_start = sizeof(AP_Param::EEPROM_header);
+    static const uint16_t phdr_len = sizeof(Param_header);
+    uint16_t ofs = param_block_start;
+    uint16_t sentinal_ofs = get_sentinal_ofs();
+    uint16_t param_block_size = (sentinal_ofs+phdr_len)-ofs;
+
+    if (sentinal_ofs == 0xffff) {
+        return;
+    }
+
+    char* param_block = (char*)malloc(param_block_size);
+
+    if(param_block == NULL) {
+        return;
+    }
+
+    _storage.read_block(param_block, ofs, param_block_size);
+
+    // convert offsets to param_block address space
+    ofs -= sizeof(AP_Param::EEPROM_header);
+    sentinal_ofs -= sizeof(AP_Param::EEPROM_header);
+
+    // check that the sentinal is in the expected position
+    memcpy(&phdr, &param_block[sentinal_ofs], phdr_len);
+    if(!is_sentinal(phdr)) {
+        // read_block must have failed somehow
+        free(param_block);
+        return;
+    }
+
+    // ensure that the sentinal is not corrupt (get_sentinal_ofs will find malformed sentinals)
+    get_sentinal(phdr);
+    memcpy(&param_block[sentinal_ofs], &phdr, phdr_len);
+
+    uint16_t first_changed_ofs = (sentinal_ofs+phdr_len);
+    bool changed_buffer = false;
+
+    while (ofs < sentinal_ofs) {
+        memcpy(&phdr, &param_block[ofs], phdr_len);
+
+        if (is_sentinal_strict(phdr)) {
+            // we must have messed up somehow
+            free(param_block);
+            return;
+        }
+
+        uint16_t entry_size = type_size((enum ap_var_type)phdr.type) + phdr_len;
+        uint16_t next_ofs = ofs + entry_size;
+
+        const struct AP_Param::Info *info;
+        void *ptr;
+        info = find_by_header(phdr, &ptr);
+
+        // if the EEPROM entry is invalid, delete it
+        // TODO: also delete default values
+        if (info == NULL) {
+            uint16_t move_size = (sentinal_ofs+phdr_len)-next_ofs;
+
+            // move everything starting at next_ofs down to ofs
+            memmove(&param_block[ofs], &param_block[next_ofs], move_size);
+
+            sentinal_ofs -= entry_size;
+
+            changed_buffer = true;
+            if (ofs < first_changed_ofs) {
+                first_changed_ofs = ofs;
+            }
+        } else {
+            ofs = next_ofs;
+        }
+    }
+
+    if (changed_buffer) {
+        // zero eeprom beyond the sentinal
+        memset(&param_block[(sentinal_ofs+phdr_len)], 0, param_block_size-(sentinal_ofs+phdr_len));
+
+        // validate sentinal location
+        memcpy(&phdr, &param_block[sentinal_ofs], phdr_len);
+        if (is_sentinal_strict(phdr)) {
+            char* write_buffer_ptr = &param_block[first_changed_ofs];
+            uint16_t size = param_block_size-first_changed_ofs;
+
+            _storage.write_block(param_block_start+first_changed_ofs, write_buffer_ptr, size);
+        }
+    }
+
+    free(param_block);
+    if (changed_buffer) {
+        load_all();
+    }
 }
 
 // Load the variable from EEPROM, if supported

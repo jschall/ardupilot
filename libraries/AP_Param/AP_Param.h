@@ -224,6 +224,8 @@ public:
     ///
     static void         erase_all(void);
 
+    static void         run_garbage_collection(void);
+
     /// print the value of all variables
     static void         show_all(AP_HAL::BetterStream *port);
 
@@ -352,6 +354,11 @@ private:
                                     uint8_t group_shift,
                                     ParamToken *token,
                                     enum ap_var_type *ptype);
+
+    static bool         is_sentinal(const struct Param_header& phdr);
+    static bool         is_sentinal_strict(const struct Param_header& phdr);
+    static void         get_sentinal(struct Param_header& phdr);
+    static uint16_t     get_sentinal_ofs(void);
 
     // find a default value given a pointer to a default value in flash
     static float get_default_value(const float *def_value_ptr);
