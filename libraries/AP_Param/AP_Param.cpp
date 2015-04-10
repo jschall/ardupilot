@@ -792,7 +792,15 @@ uint16_t AP_Param::get_sentinal_ofs(void)
     return 0xffff;
 }
 
-void AP_Param::run_garbage_collection(void)
+bool AP_Param::gc_condition(const struct AP_Param::Param_header& phdr, const struct AP_Param::Info* info, void *ptr) {
+    return info == NULL;
+}
+
+void AP_Param::run_garbage_collection() {
+    delete_matching(&gc_condition);
+}
+
+void AP_Param::delete_matching(AP_Param::delete_condition_callback_t condition_callback)
 {
     struct Param_header phdr;
     static const uint16_t param_block_start = sizeof(AP_Param::EEPROM_header);
@@ -850,7 +858,7 @@ void AP_Param::run_garbage_collection(void)
 
         // if the EEPROM entry is invalid, delete it
         // TODO: also delete default values
-        if (info == NULL) {
+        if (condition_callback(phdr, info, ptr)) {
             uint16_t move_size = (sentinal_ofs+phdr_len)-next_ofs;
 
             // move everything starting at next_ofs down to ofs
