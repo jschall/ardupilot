@@ -4200,57 +4200,48 @@ void NavEKF::calcEarthRateNED(Vector3f &omega, int32_t latitude) const
 // initialise the earth magnetic field states using declination, suppled roll/pitch
 // and magnetometer measurements and return initial attitude quaternion
 // if no magnetometer data, do not update magnetic field states and assume zero yaw angle
-Quaternion NavEKF::calcQuatAndFieldStates(float roll, float pitch)
+Quaternion NavEKF::calcQuatAndFieldStates(const Quaternion& ref_attitude)
 {
-    // declare local variables required to calculate initial orientation and magnetic field
-    float yaw;
-    Matrix3f Tbn;
-    Vector3f initMagNED;
-    Quaternion initQuat;
-
+    Quaternion initQuat = ref_attitude;
+    yawAligned = false;
     if (use_compass()) {
-        // calculate rotation matrix from body to NED frame
-        Tbn.from_euler(roll, pitch, 0.0f);
-
-        // read the magnetometer data
-        readMagData();
-
-        // rotate the magnetic field into NED axes
-        initMagNED = Tbn * magData;
-
-        // calculate heading of mag field rel to body heading
-        float magHeading = atan2f(initMagNED.y, initMagNED.x);
-
-        // get the magnetic declination
-        float magDecAng = use_compass() ? _ahrs->get_compass()->get_declination() : 0;
-
-        // calculate yaw angle rel to true north
-        yaw = magDecAng - magHeading;
-        yawAligned = true;
-        // calculate initial filter quaternion states using yaw from magnetometer if mag heading healthy
-        // otherwise use existing heading
+        Matrix3f mat;
+        initQuat.rotation_matrix(mat);
         if (!badMag) {
-            initQuat.from_euler(roll, pitch, yaw);
+            // we want to correct the initQuat's yaw angle using the magnetometer
+
+            // get magnetic field in the earth frame
+            Vector3f magNED = mat * magData;
+
+            // get magnetic declination
+            float magDecAng = _ahrs->get_compass();
+
+            // determine initQuat's earth-frame z angle error and rotate to body frame
+            Vector3f body_angle_error = Vector3(0, 0, magDecAng-atan2f(magNED.y, magNED.x));
+            body_angle_error = mat.mul_transpose(body_angle_error);
+
+            // rotate initQuat by body_angle_error
+            initQuat.rotate(body_angle_error);
         } else {
-            initQuat = state.quat;
+            // we want to keep the state.quat yaw angle while resetting to the initQuat's body-frame tilt angle
+
+            // determine the angle error from the initial quaternion to the state vector's quaternion
+            // in the initial quaternion's body frame
+            Vector3f body_angle_error;
+            (initQuat.inverse()*state.quat).to_axis_angle(body_angle_error);
+
+            // zero the earth-frame x- and y-axis components so that initQuat's body-frame tilt angle will be unchanged
+            body_angle_error = mat * body_angle_error;
+            body_angle_error.x = 0.0f;
+            body_angle_error.y = 0.0f;
+            body_angle_error = mat.mul_transpose(body_angle_error);
+
+            initQuat.rotate(body_angle_error);
         }
-
-        // calculate initial Tbn matrix and rotate Mag measurements into NED
-        // to set initial NED magnetic field states
-        initQuat.rotation_matrix(Tbn);
-        initMagNED = Tbn * magData;
-
-        // write to earth magnetic field state vector
-        state.earth_magfield = initMagNED;
-
-        // clear bad magnetometer status
+        yawAligned = true;
         badMag = false;
-    } else {
-        initQuat.from_euler(roll, pitch, 0.0f);
-        yawAligned = false;
+        initQuat.normalize();
     }
-
-    // return attitude quaternion
     return initQuat;
 }
 
