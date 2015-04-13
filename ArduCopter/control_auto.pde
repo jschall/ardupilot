@@ -95,7 +95,7 @@ static void auto_takeoff_start(float final_alt_above_home)
 
     // initialise wpnav destination
     Vector3f target_pos = inertial_nav.get_position();
-    target_pos.z = pv_alt_above_origin(final_alt_above_home);
+    target_pos.z = inertial_nav.alt_above_home_cm_to_alt_above_origin_cm(final_alt_above_home);
     wp_nav.set_wp_destination(target_pos);
 
     // initialise yaw
