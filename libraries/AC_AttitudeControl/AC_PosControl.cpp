@@ -199,7 +199,7 @@ void AC_PosControl::get_stopping_point_z(Vector3f& stopping_point) const
 /// init_takeoff - initialises target altitude if we are taking off
 void AC_PosControl::init_takeoff()
 {
-    const Vector3f& curr_pos = _inav.get_position();
+    const Vector3f& curr_pos = _inav.get_position_cm_alt_above_origin();
 
     _pos_target.z = curr_pos.z + POSCONTROL_TAKEOFF_JUMP_CM;
 
@@ -445,7 +445,7 @@ void AC_PosControl::set_target_to_stopping_point_xy()
 ///     set_leash_length() should have been called before this method
 void AC_PosControl::get_stopping_point_xy(Vector3f &stopping_point) const
 {
-	const Vector3f curr_pos = _inav.get_position();
+	const Vector3f curr_pos = _inav.get_position_cm_alt_above_origin();
 	Vector3f curr_vel = _inav.get_velocity();
     float linear_distance;      // the distance at which we swap from a linear to sqrt response
     float linear_velocity;      // the velocity above which we swap from a linear to sqrt response
@@ -574,7 +574,7 @@ void AC_PosControl::init_vel_controller_xyz()
     _flags.reset_accel_to_lean_xy = true;
 
     // set target position in xy axis
-    const Vector3f& curr_pos = _inav.get_position();
+    const Vector3f& curr_pos = _inav.get_position_cm_alt_above_origin();
     set_xy_target(curr_pos.x, curr_pos.y);
 
     // move current vehicle velocity into feed forward velocity
@@ -660,7 +660,7 @@ void AC_PosControl::desired_vel_to_pos(float nav_dt)
 ///         velocity due to position error is reduce to a maximum of 1m/s
 void AC_PosControl::pos_to_rate_xy(xy_mode mode, float dt, float ekfNavVelGainScaler)
 {
-    Vector3f curr_pos = _inav.get_position();
+    Vector3f curr_pos = _inav.get_position_cm_alt_above_origin();
     float linear_distance;      // the distance we swap between linear and sqrt velocity response
     float kP = ekfNavVelGainScaler * _p_pos_xy.kP(); // scale gains to compensate for noisy optical flow measurement in the EKF
 
