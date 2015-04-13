@@ -124,7 +124,7 @@ public:
     void set_alt_target_from_climb_rate(float climb_rate_cms, float dt, bool force_descend = false);
 
     /// set_alt_target_to_current_alt - set altitude target to current altitude
-    void set_alt_target_to_current_alt() { _pos_target.z = _inav.get_altitude(); }
+    void set_alt_target_to_current_alt() { _pos_target.z = _inav.get_alt_above_origin_cm(); }
 
     /// get_alt_target, get_desired_alt - get desired altitude (in cm above home) from loiter or wp controller which should be fed into throttle controller
     /// To-Do: remove one of the two functions below

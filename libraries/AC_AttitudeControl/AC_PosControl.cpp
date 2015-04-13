@@ -125,7 +125,7 @@ void AC_PosControl::set_alt_target_with_slew(float alt_cm, float dt)
     }
 
     // do not let target get too far from current altitude
-    float curr_alt = _inav.get_altitude();
+    float curr_alt = _inav.get_alt_above_origin_cm();
     _pos_target.z = constrain_float(_pos_target.z,curr_alt-_leash_down_z,curr_alt+_leash_up_z);
 }
 
@@ -153,7 +153,7 @@ void AC_PosControl::set_alt_target_from_climb_rate(float climb_rate_cms, float d
 // get_alt_error - returns altitude error in cm
 float AC_PosControl::get_alt_error() const
 {
-    return (_pos_target.z - _inav.get_altitude());
+    return (_pos_target.z - _inav.get_alt_above_origin_cm());
 }
 
 /// set_target_to_stopping_point_z - returns reasonable stopping altitude in cm above home
@@ -168,7 +168,7 @@ void AC_PosControl::set_target_to_stopping_point_z()
 /// get_stopping_point_z - calculates stopping point based on current position, velocity, vehicle acceleration
 void AC_PosControl::get_stopping_point_z(Vector3f& stopping_point) const
 {
-    const float curr_pos_z = _inav.get_altitude();
+    const float curr_pos_z = _inav.get_alt_above_origin_cm();
     float curr_vel_z = _inav.get_velocity_z();
 
     float linear_distance;  // half the distance we swap between linear and sqrt and the distance we offset sqrt
@@ -250,7 +250,7 @@ void AC_PosControl::calc_leash_length_z()
 // vel_up_max, vel_down_max should have already been set before calling this method
 void AC_PosControl::pos_to_rate_z()
 {
-    float curr_alt = _inav.get_altitude();
+    float curr_alt = _inav.get_alt_above_origin_cm();
 
     // clear position limit flags
     _limit.pos_up = false;
