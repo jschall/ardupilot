@@ -40,13 +40,28 @@ public:
     struct Location get_origin() const;
 
     /**
-     * get_position - returns the current position relative to the home location in cm.
-     *
-     * the home location was set with AP_InertialNav::set_home_position(int32_t, int32_t)
+     * get_position_cm_alt_above_origin - returns the current horizontal position relative to the ekf origin in cm
+     * and the current height relative to the ekf origin in cm
      *
      * @return
      */
-    const Vector3f&    get_position() const;
+    const Vector3f&    get_position_cm_alt_above_origin() const;
+
+    /**
+     * get_position_cm_alt_above_home - returns the current horizontal position relative to the ekf origin in cm
+     * and the current height relative to home in cm
+     *
+     * @return
+     */
+    Vector3f    get_position_cm_alt_above_home() const;
+
+    /**
+     * get_position_cm_alt_wgs84 - returns the current horizontal position relative to the ekf origin in cm
+     * and the current height relative to sea level according to wgs84 in cm
+     *
+     * @return
+     */
+    Vector3f    get_position_cm_alt_wgs84() const;
 
     /**
      * get_llh - updates the provided location with the latest calculated location including absolute altitude

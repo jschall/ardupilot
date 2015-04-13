@@ -55,11 +55,28 @@ public:
     //
 
     /**
-     * get_position - returns the current position relative to the home location in cm.
+     * get_position_cm_alt_above_origin - returns the current horizontal position relative to the ekf origin in cm
+     * and the current height relative to the ekf origin in cm
      *
      * @return
      */
-    virtual const Vector3f&    get_position() const = 0;
+    virtual const Vector3f&    get_position_cm_alt_above_origin() const = 0;
+
+    /**
+     * get_position_cm_alt_above_home - returns the current horizontal position relative to the ekf origin in cm
+     * and the current height relative to home in cm
+     *
+     * @return
+     */
+    virtual Vector3f    get_position_cm_alt_above_home() const = 0;
+
+    /**
+     * get_position_cm_alt_wgs84 - returns the current horizontal position relative to the ekf origin in cm
+     * and the current height relative to sea level according to wgs84 in cm
+     *
+     * @return
+     */
+    virtual Vector3f    get_position_cm_alt_wgs84() const = 0;
 
     /**
      * get_llh - updates the provided location with the latest calculated location including absolute altitude

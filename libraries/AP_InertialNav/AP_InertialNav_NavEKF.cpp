@@ -53,13 +53,37 @@ struct Location AP_InertialNav_NavEKF::get_origin() const
 }
 
 /**
- * get_position - returns the current position relative to the home location in cm.
+ * get_position_cm_alt_above_origin - returns the current horizontal position relative to the ekf origin in cm
+ * and the current height relative to the ekf origin in cm
  *
  * @return
  */
-const Vector3f &AP_InertialNav_NavEKF::get_position(void) const 
-{
+const Vector3f& AP_InertialNav_NavEKF::get_position_cm_alt_above_origin() const {
     return _relpos_cm;
+}
+
+/**
+ * get_position_cm_alt_above_home - returns the current horizontal position relative to the ekf origin in cm
+ * and the current height relative to home in cm
+ *
+ * @return
+ */
+Vector3f AP_InertialNav_NavEKF::get_position_cm_alt_above_home() const {
+    Vector3f ret = _relpos_cm;
+    ret.z = get_alt_above_home_cm();
+    return ret;
+}
+
+/**
+ * get_position_cm_alt_wgs84 - returns the current horizontal position relative to the ekf origin in cm
+ * and the current height relative to sea level according to wgs84 in cm
+ *
+ * @return
+ */
+Vector3f AP_InertialNav_NavEKF::get_position_cm_alt_wgs84() const {
+    Vector3f ret = _relpos_cm;
+    ret.z = get_alt_wgs84_cm();
+    return ret;
 }
 
 /**
