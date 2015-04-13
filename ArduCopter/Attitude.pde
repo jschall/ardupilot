@@ -227,18 +227,18 @@ static int16_t get_throttle_pre_takeoff(int16_t throttle_control)
 
 // get_surface_tracking_climb_rate - hold copter at the desired distance above the ground
 //      returns climb rate (in cm/s) which should be passed to the position controller
-static float get_surface_tracking_climb_rate(int16_t target_rate, float current_alt_target, float dt)
+static float get_surface_tracking_climb_rate(int16_t target_rate, float current_alt_target_above_origin_cm, float dt)
 {
     static uint32_t last_call_ms = 0;
     float distance_error;
     float velocity_correction;
-    float current_alt = inertial_nav.get_alt_above_origin_cm();
+    float current_alt_above_origin_cm = inertial_nav.get_alt_above_origin_cm();
 
     uint32_t now = millis();
 
     // reset target altitude if this controller has just been engaged
     if (now - last_call_ms > SONAR_TIMEOUT_MS) {
-        target_sonar_alt = sonar_alt + current_alt_target - current_alt;
+        target_sonar_alt = sonar_alt + current_alt_target_above_origin_cm - current_alt_above_origin_cm;
     }
     last_call_ms = now;
 
@@ -252,7 +252,7 @@ static float get_surface_tracking_climb_rate(int16_t target_rate, float current_
     target_sonar_alt = constrain_float(target_sonar_alt,sonar_alt-pos_control.get_leash_down_z(),sonar_alt+pos_control.get_leash_up_z());
 
     // calc desired velocity correction from target sonar alt vs actual sonar alt (remove the error already passed to Altitude controller to avoid oscillations)
-    distance_error = (target_sonar_alt - sonar_alt) - (current_alt_target - current_alt);
+    distance_error = (target_sonar_alt - sonar_alt) - (current_alt_target_above_origin_cm - current_alt_above_origin_cm);
     velocity_correction = distance_error * g.sonar_gain;
     velocity_correction = constrain_float(velocity_correction, -THR_SURFACE_TRACKING_VELZ_MAX, THR_SURFACE_TRACKING_VELZ_MAX);
 
