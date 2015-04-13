@@ -351,7 +351,7 @@ static void do_land(const AP_Mission::Mission_Command& cmd)
 
         // calculate and set desired location above landing target
         Vector3f pos = pv_location_to_vector(cmd.content.location);
-        pos.z = inertial_nav.get_altitude();
+        pos.z = inertial_nav.get_alt_above_origin_cm();
         auto_wp_start(pos);
     }else{
         // set landing state

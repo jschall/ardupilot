@@ -232,7 +232,7 @@ static float get_throttle_surface_tracking(int16_t target_rate, float current_al
     static uint32_t last_call_ms = 0;
     float distance_error;
     float velocity_correction;
-    float current_alt = inertial_nav.get_altitude();
+    float current_alt = inertial_nav.get_alt_above_origin_cm();
 
     uint32_t now = millis();
 
