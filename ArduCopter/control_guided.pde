@@ -44,7 +44,7 @@ static void guided_takeoff_start(float final_alt)
     guided_mode = Guided_TakeOff;
     
     // initialise wpnav destination
-    Vector3f target_pos = inertial_nav.get_position();
+    Vector3f target_pos = inertial_nav.get_position_cm_alt_above_origin();
     target_pos.z = final_alt;
     wp_nav.set_wp_destination(target_pos);
 
@@ -102,7 +102,7 @@ static void guided_posvel_control_start()
     pos_control.set_speed_xy(wp_nav.get_speed_xy());
     pos_control.set_accel_xy(wp_nav.get_wp_acceleration());
 
-    const Vector3f& curr_pos = inertial_nav.get_position();
+    const Vector3f& curr_pos = inertial_nav.get_position_cm_alt_above_origin();
     const Vector3f& curr_vel = inertial_nav.get_velocity();
 
     // set target position and velocity to current position and velocity
@@ -354,7 +354,7 @@ static void guided_limit_init_time_and_pos()
     guided_limit.start_time = hal.scheduler->millis();
 
     // initialise start position from current position
-    guided_limit.start_pos = inertial_nav.get_position();
+    guided_limit.start_pos = inertial_nav.get_position_cm_alt_above_origin();
 }
 
 // guided_limit_check - returns true if guided mode has breached a limit
@@ -367,7 +367,7 @@ static bool guided_limit_check()
     }
 
     // get current location
-    const Vector3f& curr_pos = inertial_nav.get_position();
+    const Vector3f& curr_pos = inertial_nav.get_position_cm_alt_above_origin();
 
     // check if we have gone below min alt
     if ((guided_limit.alt_min_cm != 0.0f) && (curr_pos.z < guided_limit.alt_min_cm)) {

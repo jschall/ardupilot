@@ -60,7 +60,7 @@ static void calc_wp_bearing()
 // calc_home_distance_and_bearing - calculate distance and bearing to home for reporting and autopilot decisions
 static void calc_home_distance_and_bearing()
 {
-    Vector3f curr = inertial_nav.get_position();
+    Vector3f curr = inertial_nav.get_position_cm_alt_above_origin();
 
     // calculate home distance and bearing
     if (position_ok()) {

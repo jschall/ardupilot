@@ -94,7 +94,7 @@ static void auto_takeoff_start(float final_alt_above_home)
     auto_mode = Auto_TakeOff;
 
     // initialise wpnav destination
-    Vector3f target_pos = inertial_nav.get_position();
+    Vector3f target_pos = inertial_nav.get_position_cm_alt_above_origin();
     target_pos.z = inertial_nav.alt_above_home_cm_to_alt_above_origin_cm(final_alt_above_home);
     wp_nav.set_wp_destination(target_pos);
 
@@ -368,7 +368,7 @@ static void auto_circle_movetoedge_start()
     wp_nav.set_wp_destination(circle_edge);
 
     // if we are outside the circle, point at the edge, otherwise hold yaw
-    const Vector3f &curr_pos = inertial_nav.get_position();
+    const Vector3f &curr_pos = inertial_nav.get_position_cm_alt_above_origin();
     const Vector3f &circle_center = circle_nav.get_center();
     float dist_to_center = pythagorous2(circle_center.x - curr_pos.x, circle_center.y - curr_pos.y);
     if (dist_to_center > circle_nav.get_radius() && dist_to_center > 500) {
@@ -435,7 +435,7 @@ bool auto_loiter_start()
     }
     auto_mode = Auto_Loiter;
 
-    Vector3f origin = inertial_nav.get_position();
+    Vector3f origin = inertial_nav.get_position_cm_alt_above_origin();
 
     // calculate stopping point
     Vector3f stopping_point;

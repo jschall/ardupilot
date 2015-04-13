@@ -323,7 +323,7 @@ static void do_takeoff(const AP_Mission::Mission_Command& cmd)
 // do_nav_wp - initiate move to next waypoint
 static void do_nav_wp(const AP_Mission::Mission_Command& cmd)
 {
-    const Vector3f &curr_pos = inertial_nav.get_position();
+    const Vector3f &curr_pos = inertial_nav.get_position_cm_alt_above_origin();
     const Vector3f local_pos = pv_location_to_vector_with_default(cmd.content.location, curr_pos);
 
     // this will be used to remember the time in millis after we reach or pass the WP.
@@ -369,7 +369,7 @@ static void do_loiter_unlimited(const AP_Mission::Mission_Command& cmd)
     Vector3f target_pos;
 
     // get current position
-    Vector3f curr_pos = inertial_nav.get_position();
+    Vector3f curr_pos = inertial_nav.get_position_cm_alt_above_origin();
 
     // default to use position provided
     target_pos = pv_location_to_vector(cmd.content.location);
@@ -392,7 +392,7 @@ static void do_loiter_unlimited(const AP_Mission::Mission_Command& cmd)
 // do_circle - initiate moving in a circle
 static void do_circle(const AP_Mission::Mission_Command& cmd)
 {
-    Vector3f curr_pos = inertial_nav.get_position();
+    Vector3f curr_pos = inertial_nav.get_position_cm_alt_above_origin();
     Vector3f circle_center = pv_location_to_vector(cmd.content.location);
     uint8_t circle_radius_m = HIGHBYTE(cmd.p1); // circle radius held in high byte of p1
     bool move_to_edge_required = false;
@@ -438,7 +438,7 @@ static void do_loiter_time(const AP_Mission::Mission_Command& cmd)
     Vector3f target_pos;
 
     // get current position
-    Vector3f curr_pos = inertial_nav.get_position();
+    Vector3f curr_pos = inertial_nav.get_position_cm_alt_above_origin();
 
     // default to use position provided
     target_pos = pv_location_to_vector(cmd.content.location);
@@ -464,7 +464,7 @@ static void do_loiter_time(const AP_Mission::Mission_Command& cmd)
 // do_spline_wp - initiate move to next waypoint
 static void do_spline_wp(const AP_Mission::Mission_Command& cmd)
 {
-    const Vector3f& curr_pos = inertial_nav.get_position();
+    const Vector3f& curr_pos = inertial_nav.get_position_cm_alt_above_origin();
     Vector3f local_pos = pv_location_to_vector_with_default(cmd.content.location, curr_pos);
 
     // this will be used to remember the time in millis after we reach or pass the WP.
@@ -675,7 +675,7 @@ static bool verify_circle(const AP_Mission::Mission_Command& cmd)
     // check if we've reached the edge
     if (auto_mode == Auto_CircleMoveToEdge) {
         if (wp_nav.reached_wp_destination()) {
-            Vector3f curr_pos = inertial_nav.get_position();
+            Vector3f curr_pos = inertial_nav.get_position_cm_alt_above_origin();
             Vector3f circle_center = pv_location_to_vector(cmd.content.location);
 
             // set target altitude if not provided

@@ -276,7 +276,7 @@ static void Log_Write_Nav_Tuning()
     const Vector3f &pos_target = pos_control.get_pos_target();
     const Vector3f &vel_target = pos_control.get_vel_target();
     const Vector3f &accel_target = pos_control.get_accel_target();
-    const Vector3f &position = inertial_nav.get_position();
+    const Vector3f &position = inertial_nav.get_position_cm_alt_above_origin();
     const Vector3f &velocity = inertial_nav.get_velocity();
 
     struct log_Nav_Tuning pkt = {
