@@ -169,7 +169,7 @@ void AC_Circle::get_closest_point_on_circle(Vector3f &result)
     }
 
     // get current position
-    const Vector3f &curr_pos = _inav.get_position();
+    const Vector3f &curr_pos = _inav.get_position_cm_alt_above_origin();
 
     // calc vector from current location to circle center
     Vector2f vec;   // vector from circle center to current location
@@ -241,7 +241,7 @@ void AC_Circle::init_start_angle(bool use_heading)
         _angle = wrap_PI(_ahrs.yaw-PI);
     } else {
         // if we are exactly at the center of the circle, init angle to directly behind vehicle (so vehicle will backup but not change heading)
-        const Vector3f &curr_pos = _inav.get_position();
+        const Vector3f &curr_pos = _inav.get_position_cm_alt_above_origin();
         if (curr_pos.x == _center.x && curr_pos.y == _center.y) {
             _angle = wrap_PI(_ahrs.yaw-PI);
         } else {

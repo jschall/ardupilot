@@ -145,7 +145,7 @@ void AC_WPNav::init_loiter_target(const Vector3f& position, bool reset_I)
 /// init_loiter_target - initialize's loiter position and feed-forward velocity from current pos and velocity
 void AC_WPNav::init_loiter_target()
 {
-    const Vector3f& curr_pos = _inav.get_position();
+    const Vector3f& curr_pos = _inav.get_position_cm_alt_above_origin();
     const Vector3f& curr_vel = _inav.get_velocity();
 
     // initialise position controller
@@ -174,7 +174,7 @@ void AC_WPNav::init_loiter_target()
 /// loiter_soften_for_landing - reduce response for landing
 void AC_WPNav::loiter_soften_for_landing()
 {
-    const Vector3f& curr_pos = _inav.get_position();
+    const Vector3f& curr_pos = _inav.get_position_cm_alt_above_origin();
 
     // set target position to current position
     _pos_control.set_xy_target(curr_pos.x, curr_pos.y);
@@ -287,7 +287,7 @@ void AC_WPNav::calc_loiter_desired_velocity(float nav_dt, float ekfGndSpdLimit)
 /// get_bearing_to_target - get bearing to loiter target in centi-degrees
 int32_t AC_WPNav::get_loiter_bearing_to_target() const
 {
-    return get_bearing_cd(_inav.get_position(), _pos_control.get_pos_target());
+    return get_bearing_cd(_inav.get_position_cm_alt_above_origin(), _pos_control.get_pos_target());
 }
 
 // update_loiter - run the loiter controller - gets called at 100hz (APM) or 400hz (PX4)
@@ -423,7 +423,7 @@ void AC_WPNav::shift_wp_origin_to_current_pos()
     }
 
     // get current and target locations
-    const Vector3f curr_pos = _inav.get_position();
+    const Vector3f curr_pos = _inav.get_position_cm_alt_above_origin();
     const Vector3f pos_target = _pos_control.get_pos_target();
 
     // calculate difference between current position and target
@@ -455,7 +455,7 @@ void AC_WPNav::advance_wp_target_along_track(float dt)
     bool reached_leash_limit = false;   // true when track has reached leash limit and we need to slow down the target point
 
     // get current location
-    Vector3f curr_pos = _inav.get_position();
+    Vector3f curr_pos = _inav.get_position_cm_alt_above_origin();
     Vector3f curr_delta = curr_pos - _origin;
 
     // calculate how far along the track we are
@@ -578,14 +578,14 @@ void AC_WPNav::advance_wp_target_along_track(float dt)
 float AC_WPNav::get_wp_distance_to_destination() const
 {
     // get current location
-    Vector3f curr = _inav.get_position();
+    Vector3f curr = _inav.get_position_cm_alt_above_origin();
     return pythagorous2(_destination.x-curr.x,_destination.y-curr.y);
 }
 
 /// get_wp_bearing_to_destination - get bearing to next waypoint in centi-degrees
 int32_t AC_WPNav::get_wp_bearing_to_destination() const
 {
-    return get_bearing_cd(_inav.get_position(), _destination);
+    return get_bearing_cd(_inav.get_position_cm_alt_above_origin(), _destination);
 }
 
 /// update_wpnav - run the wp controller - should be called at 100hz or higher
@@ -806,7 +806,7 @@ void AC_WPNav::set_spline_dest_and_vel(const Vector3f& dest_pos, const Vector3f&
 
     _spline_time = 0.0f;
 
-    _origin = _inav.get_position();
+    _origin = _inav.get_position_cm_alt_above_origin();
     _destination = dest_pos;
     _spline_origin_vel = _inav.get_velocity();
     _spline_destination_vel = dest_vel;
