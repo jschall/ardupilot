@@ -101,11 +101,22 @@ public:
     //
 
     /**
-     * get_altitude - get latest altitude estimate in cm above the
-     * reference position
+     * get_alt_above_origin_cm - get latest altitude estimate in cm above origin
      * @return
      */
-    virtual float       get_altitude() const = 0;
+    virtual float       get_alt_above_origin_cm() const = 0;
+
+    /**
+     * get_alt_above_home_cm - get latest altitude estimate in cm above home
+     * @return
+     */
+    virtual float       get_alt_above_home_cm() const = 0;
+
+    /**
+     * get_alt_wgs84_cm - get latest altitude estimate in cm above sea level according to wgs84
+     * @return
+     */
+    virtual float       get_alt_wgs84_cm() const = 0;
 
     /**
      * get_velocity_z - returns the current climbrate.
@@ -115,6 +126,13 @@ public:
      * @return climbrate in cm/s (positive up)
      */
     virtual float       get_velocity_z() const = 0;
+
+    virtual float alt_above_origin_cm_to_alt_above_home_cm(float alt_above_origin) const = 0;
+    virtual float alt_above_origin_cm_to_alt_wgs84_cm(float alt_above_origin) const = 0;
+    virtual float alt_above_home_cm_to_alt_above_origin_cm(float alt_above_home) const = 0;
+    virtual float alt_above_home_cm_to_alt_wgs84_cm(float alt_above_home) const = 0;
+    virtual float alt_wgs84_cm_to_alt_above_home_cm(float alt_wgs84) const = 0;
+    virtual float alt_wgs84_cm_to_alt_above_origin_cm(float alt_wgs84) const = 0;
 };
 
 #if AP_AHRS_NAVEKF_AVAILABLE

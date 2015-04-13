@@ -112,12 +112,30 @@ float AP_InertialNav_NavEKF::get_velocity_xy() const
 }
 
 /**
- * get_altitude - get latest altitude estimate in cm
+ * get_alt_above_origin_cm - get latest altitude estimate in cm above origin
  * @return
  */
-float AP_InertialNav_NavEKF::get_altitude() const
+float AP_InertialNav_NavEKF::get_alt_above_origin_cm() const
 {
     return _relpos_cm.z;
+}
+
+/**
+ * get_alt_above_home_cm - get latest altitude estimate in cm above home
+ * @return
+ */
+float AP_InertialNav_NavEKF::get_alt_above_home_cm() const
+{
+    return alt_above_origin_cm_to_alt_above_home_cm(_relpos_cm.z);
+}
+
+/**
+ * get_alt_wgs84_cm - get latest altitude estimate in cm above sea level according to wgs84
+ * @return
+ */
+float AP_InertialNav_NavEKF::get_alt_wgs84_cm() const
+{
+    return alt_above_origin_cm_to_alt_wgs84_cm(_relpos_cm.z);
 }
 
 /**
@@ -144,6 +162,50 @@ bool AP_InertialNav_NavEKF::get_hagl(float height) const
 float AP_InertialNav_NavEKF::get_velocity_z() const
 {
     return _velocity_cm.z;
+}
+
+float AP_InertialNav_NavEKF::alt_above_origin_cm_to_alt_above_home_cm(float alt_above_origin_cm) const
+{
+    float origin_alt_cm = get_origin().alt;
+    float home_alt_cm = _ahrs_ekf.get_home().alt;
+
+    return alt_above_origin_cm + (origin_alt_cm - home_alt_cm);
+}
+
+float AP_InertialNav_NavEKF::alt_above_origin_cm_to_alt_wgs84_cm(float alt_above_origin_cm) const
+{
+    float origin_alt_cm = get_origin().alt;
+
+    return alt_above_origin_cm + origin_alt_cm;
+}
+
+float AP_InertialNav_NavEKF::alt_above_home_cm_to_alt_above_origin_cm(float alt_above_home_cm) const
+{
+    float origin_alt_cm = get_origin().alt;
+    float home_alt_cm = _ahrs_ekf.get_home().alt;
+
+    return alt_above_home_cm + (home_alt_cm - origin_alt_cm);
+}
+
+float AP_InertialNav_NavEKF::alt_above_home_cm_to_alt_wgs84_cm(float alt_above_home_cm) const
+{
+    float home_alt_cm = _ahrs_ekf.get_home().alt;
+
+    return alt_above_home_cm + home_alt_cm;
+}
+
+float AP_InertialNav_NavEKF::alt_wgs84_cm_to_alt_above_home_cm(float alt_wgs84_cm) const
+{
+    float home_alt_cm = _ahrs_ekf.get_home().alt;
+
+    return alt_wgs84_cm - home_alt_cm;
+}
+
+float AP_InertialNav_NavEKF::alt_wgs84_cm_to_alt_above_origin_cm(float alt_wgs84_cm) const
+{
+    float origin_alt_cm = get_origin().alt;
+
+    return alt_wgs84_cm - origin_alt_cm;
 }
 
 #endif // AP_AHRS_NAVEKF_AVAILABLE

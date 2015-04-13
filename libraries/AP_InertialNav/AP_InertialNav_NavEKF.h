@@ -83,10 +83,22 @@ public:
     float        get_velocity_xy() const;
 
     /**
-     * get_altitude - get latest altitude estimate in cm
+     * get_alt_above_origin_cm - get latest altitude estimate in cm above origin
      * @return
      */
-    float       get_altitude() const;
+    float       get_alt_above_origin_cm() const;
+
+    /**
+     * get_alt_above_home_cm - get latest altitude estimate in cm above home
+     * @return
+     */
+    float       get_alt_above_home_cm() const;
+
+    /**
+     * get_alt_wgs84_cm - get latest altitude estimate in cm above sea level according to wgs84
+     * @return
+     */
+    float       get_alt_wgs84_cm() const;
 
     /**
      * getHgtAboveGnd - get latest altitude estimate above ground level in centimetres and validity flag
@@ -102,6 +114,13 @@ public:
      * @return climbrate in cm/s
      */
     float       get_velocity_z() const;
+
+    float alt_above_origin_cm_to_alt_above_home_cm(float alt_above_origin) const;
+    float alt_above_origin_cm_to_alt_wgs84_cm(float alt_above_origin) const;
+    float alt_above_home_cm_to_alt_above_origin_cm(float alt_above_home) const;
+    float alt_above_home_cm_to_alt_wgs84_cm(float alt_above_home) const;
+    float alt_wgs84_cm_to_alt_above_home_cm(float alt_wgs84) const;
+    float alt_wgs84_cm_to_alt_above_origin_cm(float alt_wgs84) const;
 
 private:
     Vector3f _relpos_cm;   // NEU
