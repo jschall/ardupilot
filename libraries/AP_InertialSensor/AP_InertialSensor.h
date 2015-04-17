@@ -34,6 +34,15 @@ class AP_InertialSensor_Backend;
  * blog post describing the method: http://chionophilous.wordpress.com/2011/10/24/accelerometer-calibration-iv-1-implementing-gauss-newton-on-an-atmega/
  * original sketch available at http://rolfeschmidt.com/mathtools/skimetrics/adxl_gn_calibration.pde
  */
+
+enum gyro_init_status_t {
+    INITIAL=0,
+    COLLECTION=1,
+    TEST_STABLE=2,
+    BLOCKING_TEST_STABLE=3,
+    COMPLETE=4
+};
+
 class AP_InertialSensor
 {
     friend class AP_InertialSensor_Backend;
@@ -216,6 +225,8 @@ private:
 
     // gyro initialisation
     void _init_gyro();
+    void _collection();
+    void _test_stable();
 
 #if !defined( __AVR_ATmega1280__ )
     // Calibration routines borrowed from Rolfe Schmidt
@@ -314,6 +325,9 @@ private:
     // health of gyros and accels
     bool _gyro_healthy[INS_MAX_INSTANCES];
     bool _accel_healthy[INS_MAX_INSTANCES];
+    
+    //status of gyro init
+    gyro_init_status_t _init_state; 
 
     uint32_t _accel_error_count[INS_MAX_INSTANCES];
     uint32_t _gyro_error_count[INS_MAX_INSTANCES];
