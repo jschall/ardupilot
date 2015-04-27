@@ -4175,17 +4175,10 @@ void NavEKF::readHgtData()
             RecallStates(statesAtHgtTime, (imuSampleTime_ms - msecHgtDelay));
         }
 
-        // filtered baro data used to provide a reference for takeoff
-        // it is is reset to last height measurement on disarming in performArmingChecks()
-        if (!vehicleArmed || !getTakeoffExpected()) {
-            static const float gndHgtFiltTC = 1.0f;
-            static const float dtBaro = msecHgtAvg*1.0e-3f;
-            float alpha = constrain_float(dtBaro / (dtBaro+gndHgtFiltTC),0.0f,1.0f);
-            meaHgtAtTakeOff += (hgtMea-meaHgtAtTakeOff)*alpha;
-        } else if (vehicleArmed && getTakeoffExpected()) {
-            // If we are in takeoff mode, the height measurement is limited to be no less than the measurement at start of takeoff
-            // This prevents negative baro disturbances due to copter downwash corrupting the EKF altitude during initial ascent
-            hgtMea = max(hgtMea, meaHgtAtTakeOff);
+        if (getTakeoffExpected()) {
+            // a saved height floor is applied to the measured height while taking off
+            // this prevent barometer errors caused by ground effect from affecting the height state
+            hgtMea = max(hgtMea, takeoffBaroFloor);
         }
 
         // set flag to let other functions know new data has arrived
@@ -4194,6 +4187,28 @@ void NavEKF::readHgtData()
         lastHgtMeasTime = _baro.get_last_update();
     } else {
         newDataHgt = false;
+    }
+}
+
+
+void NavEKF::updateTakeoffBaroFloor()
+{
+    static bool prev_vehicleArmed = false;
+    static bool prev_landed = true;
+
+    bool landed = getVehicleLanded();
+
+    // on the following transitions reset the barometer floor:
+    // disarmed -> armed
+    // landed -> not landed
+    // not landed -> landed
+
+    // armed -> disarmed doesn't matter - resetting is fine
+
+    if (vehicleArmed != prev_vehicleArmed || landed != prev_landed) {
+        takeoffBaroFloor = constrain_float(state.position.z, hgtMea-4.5f, hgtMea+1.5f);
+        prev_vehicleArmed = vehicleArmed;
+        prev_landed = landed;
     }
 }
 
@@ -4816,9 +4831,6 @@ void NavEKF::performArmingChecks()
             // store the current position to be used to keep reporting the last known position when disarmed
             lastKnownPositionNE.x = state.position.x;
             lastKnownPositionNE.y = state.position.y;
-            // initialise filtered altitude used to provide a takeoff reference to current baro on disarm
-            // this reduces the time required for the filter to settle before the estimate can be used
-            meaHgtAtTakeOff = hgtMea;
             // reset the vertical position state to faster recover from baro errors experienced during touchdown
             state.position.z = -hgtMea;
         } else if (_fusionModeGPS == 3) { // arming when GPS useage has been prohibited

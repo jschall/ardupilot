@@ -446,6 +446,9 @@ private:
     // determine if a touchdown is expected so that we can compensate for expected barometer errors due to ground effect
     bool getTouchdownExpected();
 
+    // update the takeoff barometer floor
+    void updateTakeoffBaroFloor();
+
     // Assess GPS data quality and return true if good enough to align the EKF
     bool calcGpsGoodToAlign(void);
 
@@ -753,7 +756,7 @@ private:
     uint32_t takeoffExpectedSet_ms;   // system time at which takeoffExpected was set
     bool touchdownExpected;           // external state from ArduCopter - touchdown expected
     uint32_t touchdownExpectedSet_ms; // system time at which touchdownExpected was set
-    float meaHgtAtTakeOff;            // height measured at commencement of takeoff
+    float takeoffBaroFloor;           // height at commencement of takeoff
 
     // states held by optical flow fusion across time steps
     // optical flow X,Y motion compensated rate measurements are fused across two time steps
