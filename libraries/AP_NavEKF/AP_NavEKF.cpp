@@ -2172,7 +2172,7 @@ void NavEKF::FuseVelPosNED()
                 // Only height and height rate observations are used to update z accel bias estimate
                 // Protect Kalman gain from ill-conditioning
                 // Don't update Z accel bias if off-level by greater than 60 degrees to avoid scale factor error effects
-                if ((obsIndex == 5 || obsIndex == 2) && prevTnb.c.z > 0.5f) {
+                if ((obsIndex == 5 || obsIndex == 2) && prevTnb.c.z > 0.5f && !(getTakeoffExpected() && getVehicleLanded())) {
                     Kfusion[13] = constrain_float(P[13][stateIndex]*SK,-1.0f,0.0f);
                 } else {
                     Kfusion[13] = 0.0f;
