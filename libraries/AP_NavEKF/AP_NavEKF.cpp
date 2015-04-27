@@ -4937,6 +4937,24 @@ bool NavEKF::setOriginLLH(struct Location &loc)
     return true;
 }
 
+// determine if the vehicle is landed so that we can save a height floor for takeoff
+bool NavEKF::getVehicleLanded()
+{
+    if (vehicleLanded && imuSampleTime_ms - vehicleLandedSet_ms > gndEffectTimeout_ms) {
+        vehicleLanded = false;
+    }
+
+    return vehicleLanded;
+}
+
+// called by vehicle code to specify whether the vehicle is landed
+// used by the EKF to save a height floor for takeoff
+void NavEKF::setVehicleLanded(bool val)
+{
+    vehicleLandedSet_ms = imuSampleTime_ms;
+    vehicleLanded = val;
+}
+
 // determine if a takeoff is expected so that we can compensate for expected barometer errors due to ground effect
 bool NavEKF::getTakeoffExpected()
 {

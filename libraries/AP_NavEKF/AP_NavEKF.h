@@ -200,6 +200,10 @@ public:
     // return data for debugging optical flow fusion
     void getFlowDebug(float &varFlow, float &gndOffset, float &flowInnovX, float &flowInnovY, float &auxInnov, float &HAGL, float &rngInnov, float &range, float &gndOffsetErr) const;
 
+    // called by vehicle code to specify whether the vehicle is landed
+    // used by the EKF to save a height floor for takeoff
+    void setVehicleLanded(bool val);
+
     // called by vehicle code to specify that a takeoff is happening
     // causes the EKF to compensate for expected barometer errors due to ground effect
     void setTakeoffExpected(bool val);
@@ -432,6 +436,9 @@ private:
 
     // Set the NED origin to be used until the next filter reset
     void setOrigin();
+
+    // determine if the vehicle is landed so that we can save a height floor for takeoff
+    bool getVehicleLanded();
 
     // determine if a takeoff is expected so that we can compensate for expected barometer errors due to ground effect
     bool getTakeoffExpected();
@@ -740,6 +747,8 @@ private:
     float dtDelVel2;
 
     // baro ground effect
+    bool vehicleLanded;               // external state from ArduCopter - landed
+    uint32_t vehicleLandedSet_ms;     // system time at which vehicleLanded was set
     bool takeoffExpected;             // external state from ArduCopter - takeoff expected
     uint32_t takeoffExpectedSet_ms;   // system time at which takeoffExpected was set
     bool touchdownExpected;           // external state from ArduCopter - touchdown expected
