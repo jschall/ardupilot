@@ -350,7 +350,7 @@ int8_t Plane::test_ins(uint8_t argc, const Menu::arg *argv)
     ahrs.set_fly_forward(true);
     ahrs.set_wind_estimation(true);
 
-    ins.init(scheduler.get_loop_rate_hz());
+    ins.init(scheduler.get_loop_rate_hz(), &accelcal);
     ahrs.reset();
 
     print_hit_enter();
@@ -411,7 +411,7 @@ int8_t Plane::test_mag(uint8_t argc, const Menu::arg *argv)
     ahrs.set_compass(&compass);
 
     // we need the AHRS initialised for this test
-    ins.init(scheduler.get_loop_rate_hz());
+    ins.init(scheduler.get_loop_rate_hz(),&accelcal);
     ahrs.reset();
 
     uint16_t counter = 0;
