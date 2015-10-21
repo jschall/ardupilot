@@ -20,6 +20,7 @@
 #include <fenv.h>
 #include <AP_Math/AP_Math.h>
 #include <AP_HAL/AP_HAL.h>
+#include <AP_AccelCal/AP_AccelCal.h>
 #include <AP_ADC/AP_ADC.h>
 #include <AP_Declination/AP_Declination.h>
 #include <Filter/Filter.h>
@@ -76,6 +77,7 @@ public:
     void setup();
     void load_parameters(void);
 
+    AP_AccelCal acal;
     AP_InertialSensor ins;
     AP_Baro barometer;
     AP_GPS gps;
@@ -633,7 +635,7 @@ void Replay::setup()
 }
 
 void Replay::set_ins_update_rate(uint16_t _update_rate) {
-    _vehicle.ins.init(_update_rate);
+    _vehicle.ins.init(_update_rate, &_vehicle.acal);
 }
 
 void Replay::inhibit_gyro_cal() {
