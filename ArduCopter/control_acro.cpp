@@ -9,6 +9,7 @@
 // acro_init - initialise acro controller
 bool Copter::acro_init(bool ignore_checks)
 {
+    attitude_control.reset_angle_error_integrator();
     // always successfully enter acro
     return true;
 }
@@ -22,6 +23,7 @@ void Copter::acro_run()
 
     // if motors not running reset angle targets
     if(!motors.armed() || ap.throttle_zero) {
+        attitude_control.reset_angle_error_integrator();
         attitude_control.set_throttle_out_unstabilized(0,true,g.throttle_filt);
         // slow start if landed
         if (ap.land_complete) {
@@ -37,7 +39,7 @@ void Copter::acro_run()
     pilot_throttle_scaled = get_pilot_desired_throttle(channel_throttle->control_in);
 
     // run attitude controller
-    attitude_control.rate_bf_roll_pitch_yaw(target_roll, target_pitch, target_yaw);
+    attitude_control.rate_bf_roll_pitch_yaw_integrated(target_roll, target_pitch, target_yaw);
 
     // output pilot's throttle without angle boost
     attitude_control.set_throttle_out(pilot_throttle_scaled, false, g.throttle_filt);
