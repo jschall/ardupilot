@@ -441,7 +441,11 @@ void AC_AttitudeControl::rate_bf_roll_pitch_yaw_integrated(float roll_rate_bf, f
     // integrate error
     // NOTE: this should use delta angles from the ins, corrected using the gyro bias from the EKF
     // but the API is too deficient to do this cleanly
-    _angle_err_quat.rotate(_rate_bf_desired*radians(1.0f)/100.0f*_dt - _ahrs.get_gyro()*_dt);
+    Vector3f del_ang;
+    if(!_ahrs.get_ins().get_delta_angle(del_ang)) {
+        del_ang = _ahrs.get_ins().get_gyro()*_dt;
+    }
+    _angle_err_quat.rotate(_rate_bf_desired*radians(1.0f)/100.0f*_dt - del_ang);
 
     // compute angle_bf_error
     _angle_err_quat.to_axis_angle(_angle_bf_error);
