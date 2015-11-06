@@ -63,7 +63,7 @@ public:
     ///
     /// @param style	The initialisation startup style.
     ///
-    void init(uint16_t sample_rate_hz,AP_AccelCal *acal);
+    void init(uint16_t sample_rate_hz);
 
     /// Register a new gyro/accel driver, allocating an instance
     /// number
@@ -228,7 +228,7 @@ public:
     void detect_backends(void);
 
     //Returns accel calibrator interface object pointer
-    AP_AccelCal& get_acal() const { return *_acal; }
+    AP_AccelCal* get_acal() const { return _acal; }
 
     // Returns body fixed accelerometer level data averaged during accel calibration's first step
     bool get_fixed_mount_accel_cal_sample(uint8_t sample_num, Vector3f& ret) const;
