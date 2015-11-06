@@ -81,7 +81,7 @@ void Tracker::init_tracker()
     ahrs.init();
     ahrs.set_fly_forward(false);
 
-    ins.init(scheduler.get_loop_rate_hz(),&accelcal);
+    ins.init(scheduler.get_loop_rate_hz());
     ahrs.reset();
 
     init_barometer();
