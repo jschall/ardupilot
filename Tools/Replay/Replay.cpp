@@ -77,7 +77,6 @@ public:
     void setup();
     void load_parameters(void);
 
-    AP_AccelCal acal;
     AP_InertialSensor ins;
     AP_Baro barometer;
     AP_GPS gps;
@@ -635,7 +634,7 @@ void Replay::setup()
 }
 
 void Replay::set_ins_update_rate(uint16_t _update_rate) {
-    _vehicle.ins.init(_update_rate, &_vehicle.acal);
+    _vehicle.ins.init(_update_rate);
 }
 
 void Replay::inhibit_gyro_cal() {
