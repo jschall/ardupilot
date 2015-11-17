@@ -137,7 +137,7 @@ void Copter::poshold_run()
     const Vector3f& vel = inertial_nav.get_velocity();
 
     // if not auto armed or motor interlock not enabled set throttle to zero and exit immediately
-    if(!ap.auto_armed || !motors.get_interlock()) {
+    if(!motors.armed() || !motors.get_interlock()) {
         wp_nav.init_loiter_target();
         attitude_control.set_throttle_out_unstabilized(0,true,g.throttle_filt);
         pos_control.relax_alt_hold_controllers(get_throttle_pre_takeoff(channel_throttle->control_in)-throttle_average);
