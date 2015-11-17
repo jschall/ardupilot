@@ -62,7 +62,7 @@ void Copter::loiter_run()
     }
 
     // Loiter State Machine Determination
-    if(!ap.auto_armed || !motors.get_interlock()) {
+    if(!motors.armed() || !motors.get_interlock()) {
         loiter_state = Loiter_Disarmed;
     } else if (takeoff_state.running || (ap.land_complete && (channel_throttle->control_in > get_takeoff_trigger_throttle()))){
         loiter_state = Loiter_Takeoff;
