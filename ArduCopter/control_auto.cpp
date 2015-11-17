@@ -164,8 +164,8 @@ void Copter::auto_wp_start(const Vector3f& destination)
 //      called by auto_run at 100hz or more
 void Copter::auto_wp_run()
 {
-    // if not auto armed or motor interlock not enabled set throttle to zero and exit immediately
-    if(!ap.auto_armed || !motors.get_interlock()) {
+    // if landed or motor interlock not enabled set throttle to zero and exit immediately
+    if(ap.land_complete || !motors.get_interlock()) {
         // To-Do: reset waypoint origin to current location because copter is probably on the ground so we don't want it lurching left or right on take-off
         //    (of course it would be better if people just used take-off)
 #if FRAME_CONFIG == HELI_FRAME  // Helicopters always stabilize roll/pitch/yaw
@@ -228,8 +228,8 @@ void Copter::auto_spline_start(const Vector3f& destination, bool stopped_at_star
 //      called by auto_run at 100hz or more
 void Copter::auto_spline_run()
 {
-    // if not auto armed or motor interlock not enabled set throttle to zero and exit immediately
-    if(!ap.auto_armed || !motors.get_interlock()) {
+    // if landed or motor interlock not enabled set throttle to zero and exit immediately
+    if(ap.land_complete || !motors.get_interlock()) {
         // To-Do: reset waypoint origin to current location because copter is probably on the ground so we don't want it lurching left or right on take-off
         //    (of course it would be better if people just used take-off)
 #if FRAME_CONFIG == HELI_FRAME  // Helicopters always stabilize roll/pitch/yaw
@@ -303,8 +303,8 @@ void Copter::auto_land_run()
     int16_t roll_control = 0, pitch_control = 0;
     float target_yaw_rate = 0;
 
-    // if not auto armed or motor interlock not enabled set throttle to zero and exit immediately
-    if(!ap.auto_armed || ap.land_complete) {
+    // if landed or motor interlock not enabled set throttle to zero and exit immediately
+    if(ap.land_complete || !motors.get_interlock()) {
 #if FRAME_CONFIG == HELI_FRAME  // Helicopters always stabilize roll/pitch/yaw
         // call attitude controller
         attitude_control.angle_ef_roll_pitch_rate_ef_yaw_smooth(0, 0, 0, get_smoothing_gain());
@@ -475,8 +475,8 @@ bool Copter::auto_loiter_start()
 //      called by auto_run at 100hz or more
 void Copter::auto_loiter_run()
 {
-    // if not auto armed or motor interlock not enabled set throttle to zero and exit immediately
-    if(!ap.auto_armed || ap.land_complete || !motors.get_interlock()) {
+    // if landed or motor interlock not enabled set throttle to zero and exit immediately
+    if(ap.land_complete || !motors.get_interlock()) {
 #if FRAME_CONFIG == HELI_FRAME  // Helicopters always stabilize roll/pitch/yaw
         // call attitude controller
         attitude_control.angle_ef_roll_pitch_rate_ef_yaw_smooth(0, 0, 0, get_smoothing_gain());
