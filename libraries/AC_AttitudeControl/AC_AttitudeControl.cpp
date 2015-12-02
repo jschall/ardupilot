@@ -490,30 +490,19 @@ void AC_AttitudeControl::integrate_bf_rate_error_to_angle_errors()
 
 void AC_AttitudeControl::update_ang_vel_target_from_att_error()
 {
-    // Compute the roll angular velocity demand from the roll angle error
+    // Retrieve P term vector
+    Vector3f p = Vector3f(_p_angle_roll.kP(), _p_angle_pitch.kP(), _p_angle_yaw.kP());
+
+    // Retrieve accel lim vector
+    Vector3f accel_lim = Vector3f(0,0,0);
     if (_att_ctrl_use_accel_limit) {
-        _ang_vel_target_rads.x = sqrt_controller(_att_error_rot_vec_rad.x, _p_angle_roll.kP(), constrain_float(get_accel_roll_max_radss()/2.0f,  AC_ATTITUDE_ACCEL_RP_CONTROLLER_MIN_RADSS, AC_ATTITUDE_ACCEL_RP_CONTROLLER_MAX_RADSS));
-    }else{
-        _ang_vel_target_rads.x = _p_angle_roll.kP() * _att_error_rot_vec_rad.x;
+        accel_lim = Vector3f(constrain_float(get_accel_roll_max_radss()/2.0f,  AC_ATTITUDE_ACCEL_RP_CONTROLLER_MIN_RADSS, AC_ATTITUDE_ACCEL_RP_CONTROLLER_MAX_RADSS),
+                             constrain_float(get_accel_pitch_max_radss()/2.0f,  AC_ATTITUDE_ACCEL_RP_CONTROLLER_MIN_RADSS, AC_ATTITUDE_ACCEL_RP_CONTROLLER_MAX_RADSS),
+                             constrain_float(get_accel_yaw_max_radss()/2.0f,  AC_ATTITUDE_ACCEL_Y_CONTROLLER_MIN_RADSS, AC_ATTITUDE_ACCEL_Y_CONTROLLER_MAX_RADSS));
     }
 
-    // Compute the pitch angular velocity demand from the roll angle error
-    if (_att_ctrl_use_accel_limit) {
-        _ang_vel_target_rads.y = sqrt_controller(_att_error_rot_vec_rad.y, _p_angle_pitch.kP(), constrain_float(get_accel_pitch_max_radss()/2.0f,  AC_ATTITUDE_ACCEL_RP_CONTROLLER_MIN_RADSS, AC_ATTITUDE_ACCEL_RP_CONTROLLER_MAX_RADSS));
-    }else{
-        _ang_vel_target_rads.y = _p_angle_pitch.kP() * _att_error_rot_vec_rad.y;
-    }
-
-    // Compute the yaw angular velocity demand from the roll angle error
-    if (_att_ctrl_use_accel_limit) {
-        _ang_vel_target_rads.z = sqrt_controller(_att_error_rot_vec_rad.z, _p_angle_yaw.kP(), constrain_float(get_accel_yaw_max_radss()/2.0f,  AC_ATTITUDE_ACCEL_Y_CONTROLLER_MIN_RADSS, AC_ATTITUDE_ACCEL_Y_CONTROLLER_MAX_RADSS));
-    }else{
-        _ang_vel_target_rads.z = _p_angle_yaw.kP() * _att_error_rot_vec_rad.z;
-    }
-
-    // Account for precession of desired attitude about the body frame yaw axis
-    _ang_vel_target_rads.x += _att_error_rot_vec_rad.y * _ahrs.get_gyro().z;
-    _ang_vel_target_rads.y += -_att_error_rot_vec_rad.x * _ahrs.get_gyro().z;
+    // Call vector sqrt controller
+    ellipsoid_sqrt_controller(_att_error_rot_vec_rad, p, accel_lim, _ang_vel_target_rads);
 }
 
 float AC_AttitudeControl::rate_bf_to_motor_roll(float rate_target_rads)
@@ -630,6 +619,44 @@ void AC_AttitudeControl::set_throttle_out_unstabilized(float throttle_in, bool r
     _motors.set_stabilizing(false);
     _motors.set_throttle(throttle_in);
     _angle_boost = 0;
+}
+
+void AC_AttitudeControl::ellipsoid_sqrt_controller(const Vector3f& error, const Vector3f& p, const Vector3f& second_ord_lim, Vector3f& ret)
+{
+    if (is_zero(second_ord_lim.x) || is_zero(second_ord_lim.y) || is_zero(second_ord_lim.z)) {
+        // Constrain the axes separately because the ellipsoid is undefined. Output vector is not
+        // necessarily in the direction of the error vector
+        ret.x = sqrt_controller(error.x, p.x, second_ord_lim.x);
+        ret.y = sqrt_controller(error.y, p.y, second_ord_lim.y);
+        ret.z = sqrt_controller(error.z, p.z, second_ord_lim.z);
+    } else {
+        // 3-axis sqrt controller. Output is always in the same direction as error.
+        float error_norm = error.length();
+
+        if(is_zero(error_norm)) {
+            ret.zero();
+            return;
+        }
+
+        Vector3f error_unit = error/error_norm;
+
+        float p_in_dir = ellipsoid_radius_in_direction(p, error_unit);
+
+        float accel_lim_in_dir = ellipsoid_radius_in_direction(second_ord_lim, error_unit);
+
+        float rate_target = sqrt_controller(error_norm, p_in_dir, accel_lim_in_dir);
+
+        ret = error_unit * rate_target;
+
+        // Check output for nan and inf
+        if(ret.is_nan() || ret.is_inf()) {
+            ret.zero();
+        }
+    }
+}
+
+float AC_AttitudeControl::ellipsoid_radius_in_direction(const Vector3f& ellipsoid_axes, const Vector3f& unit_dir) {
+    return (ellipsoid_axes.x*ellipsoid_axes.y*ellipsoid_axes.z)/sqrtf(sq(ellipsoid_axes.y)*(sq(ellipsoid_axes.x)*sq(unit_dir.z)+sq(ellipsoid_axes.z)*sq(unit_dir.x))+sq(ellipsoid_axes.x)*sq(ellipsoid_axes.z)*sq(unit_dir.y));
 }
 
 float AC_AttitudeControl::sqrt_controller(float error, float p, float second_ord_lim)

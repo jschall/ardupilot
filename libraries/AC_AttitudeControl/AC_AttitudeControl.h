@@ -210,6 +210,13 @@ public:
     float lean_angle_max() const { return _aparm.angle_max; }
 
     // Proportional controller with piecewise sqrt sections to constrain second derivative
+    static void ellipsoid_sqrt_controller(const Vector3f& error, const Vector3f& p, const Vector3f& second_ord_lim, Vector3f& ret);
+
+    // Retrieve the radius of the origin-centered axis-aligned ellipsoid defined by
+    // ellipsoid_axes in direction unit_dir
+    static float ellipsoid_radius_in_direction(const Vector3f& ellipsoid_axes, const Vector3f& unit_dir);
+
+    // Proportional controller with piecewise sqrt sections to constrain second derivative
     static float sqrt_controller(float error, float p, float second_ord_lim);
 
     // User settable parameters
