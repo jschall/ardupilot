@@ -167,6 +167,12 @@ void AP_SerialManager::init()
                                          AP_SERIALMANAGER_SToRM32_BUFSIZE_RX,
                                          AP_SERIALMANAGER_SToRM32_BUFSIZE_TX);
                     break;
+                case SerialProtocol_Hydra:
+                    state[i].baud = AP_SERIALMANAGER_HYDRA_BAUD / 1000;
+                    state[i].uart->begin(map_baudrate(state[i].baud),
+                                         AP_SERIALMANAGER_HYDRA_BUFSIZE_RX,
+                                         AP_SERIALMANAGER_HYDRA_BUFSIZE_TX);
+                    break;
             }
         }
     }
