@@ -66,6 +66,10 @@
 #define AP_SERIALMANAGER_SToRM32_BUFSIZE_RX     128
 #define AP_SERIALMANAGER_SToRM32_BUFSIZE_TX     128
 
+#define AP_SERIALMANAGER_HYDRA_BAUD           115200
+#define AP_SERIALMANAGER_HYDRA_BUFSIZE_RX     32
+#define AP_SERIALMANAGER_HYDRA_BUFSIZE_TX     32
+
 
 class AP_SerialManager {
 
@@ -82,6 +86,7 @@ public:
         SerialProtocol_AlexMos = 7,
         SerialProtocol_SToRM32 = 8,
         SerialProtocol_Lidar = 9,
+        SerialProtocol_Hydra = 10,
     };
 
     // Constructor
