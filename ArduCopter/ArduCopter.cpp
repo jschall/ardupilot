@@ -399,6 +399,9 @@ void Copter::ten_hz_logging_loop()
 // should be run at 50hz
 void Copter::fifty_hz_logging_loop()
 {
+    hydra.read(0);
+    hydra.set_torque(0,500.0f*sinf(2.0f*M_PI*millis()*1.0e-3f));
+
 #if HIL_MODE != HIL_MODE_DISABLED
     // HIL for a copter needs very fast update of the servo values
     gcs_send_message(MSG_RADIO_OUT);
