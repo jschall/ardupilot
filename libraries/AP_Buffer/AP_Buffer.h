@@ -31,6 +31,7 @@ public:
     /// @param ret : the removed element, if exists
     /// @return : true if successful, false if not
     bool pop_front(T &ret);
+    bool pop_front();
 
     /// peek - returns a reference to an element of the buffer
     /// if position isn't valid (i.e. >= size()) 0 is returned
@@ -103,6 +104,13 @@ void AP_Buffer<T,SIZE>::push_back( const T &item )
             _head = 0;
         }
     }
+}
+
+template <class T, uint8_t SIZE>
+bool AP_Buffer<T,SIZE>::pop_front()
+{
+    uint8_t tmp;
+    return pop_front(tmp);
 }
 
 template <class T, uint8_t SIZE>
