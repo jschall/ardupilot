@@ -107,6 +107,7 @@
 #endif
 #include <AC_InputManager/AC_InputManager.h>        // Pilot input handling library
 #include <AC_InputManager/AC_InputManager_Heli.h>   // Heli specific pilot input handling library
+#include <AP_Hydra/AP_Hydra.h>
 
 
 // AP_HAL to Arduino compatibility layer
@@ -150,6 +151,7 @@ private:
 
     // AP_Notify instance
     AP_Notify notify;
+    AP_Hydra hydra;
 
     // used to detect MAVLink acks from GCS to stop compassmot
     uint8_t command_ack_counter;

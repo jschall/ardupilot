@@ -257,7 +257,6 @@ void Copter::loop()
 // Main loop - 400hz
 void Copter::fast_loop()
 {
-
     // IMU DCM Algorithm
     // --------------------
     read_AHRS();
