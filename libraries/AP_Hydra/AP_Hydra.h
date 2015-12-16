@@ -31,7 +31,7 @@ protected:
     uint32_t _rotor_pos_update_us = 0;
 };
 
-class AP_Hydra_SITL : AP_Hydra
+class AP_Hydra_SITL : public AP_Hydra
 {
 public:
     AP_Hydra_SITL(uint8_t instance, SITL::SITL& sitl) :
@@ -43,7 +43,7 @@ private:
     SITL::SITL &_sitl;
 };
 
-class AP_Hydra_UART : AP_Hydra
+class AP_Hydra_UART : public AP_Hydra
 {
 public:
     AP_Hydra_UART(uint8_t instance, const AP_SerialManager& serial_manager) :
