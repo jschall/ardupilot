@@ -262,6 +262,8 @@ void Copter::fast_loop()
     // --------------------
     read_AHRS();
 
+    balance_bot();
+
     // run low level rate controllers that only require IMU data
     attitude_control.rate_controller_run();
     

@@ -35,10 +35,17 @@ public:
         return new BalanceBot(home_str, frame_str);
     }
 private:
-    float Lwheel_ang_vel_y = 0;
-    float Rwheel_ang_vel_y = 0;
-    float Lwheel_ang_pos_y = 0;
-    float Rwheel_ang_pos_y = 0;
+    struct {
+        Quaternion attitude;
+        Vector3f pos_ned;
+        Vector3f vel_ned;
+        Vector3f ang_vel;
+        Vector3f proper_accel;
+        float Lwheel_ang_vel_y = 0;
+        float Rwheel_ang_vel_y = 0;
+        float Lwheel_ang_pos_y = 0;
+        float Rwheel_ang_pos_y = 0;
+    } _states;
 };
 
 } // namespace SITL

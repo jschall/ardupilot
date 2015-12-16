@@ -27,7 +27,7 @@ namespace SITL {
 BalanceBot::BalanceBot(const char *home_str, const char *frame_str) :
     Aircraft(home_str, frame_str)
 {
-    dcm.from_euler(0,radians(25),0);
+    dcm.from_euler(0,radians(0),0);
 }
 
 /*
@@ -37,7 +37,8 @@ void BalanceBot::update(const struct sitl_input &input)
 {
     const float dt = frame_time_us * 1.0e-6f;
 
-    const Matrix3f& body_to_ned = dcm;
+    Matrix3f body_to_ned;
+    _states.attitude.rotation_matrix(body_to_ned);
     Vector3f euler312 = body_to_ned.to_euler312();
     float yaw = euler312.z;
     float pitch = euler312.y;
@@ -49,25 +50,31 @@ void BalanceBot::update(const struct sitl_input &input)
     const float motor_Km = 0.308f;
     const float batt_voltage = 3.7f*4.0f;
 
-    const float floor_pos_down = .095f;
-
     const float stalk_len = 1.8f;
-    const Vector3f pos_cart_bf = Vector3f(0,0,0); // m
-    const Vector3f pos_head_bf = Vector3f(0,0,-stalk_len); // m
-    const Vector3f pos_stalk_bf = Vector3f(0,0,-stalk_len*0.5f); // m
-    const Vector3f pos_Lwheel = Vector3f(0,-0.15f, 0); // m
-    const Vector3f pos_Rwheel = Vector3f(0, 0.15f, 0); // m
+    Vector3f pos_cart_bf = Vector3f(0,0,0); // m
+    Vector3f pos_head_bf = Vector3f(0,0,-stalk_len); // m
+    Vector3f pos_stalk_bf = Vector3f(0,0,-stalk_len*0.5f); // m
+    Vector3f pos_Lwheel = Vector3f(0,-0.15f, 0); // m
+    Vector3f pos_Rwheel = Vector3f(0, 0.15f, 0); // m
     const float mass_head = .6f; // kg
     const float mass_stalk = .27f; // kg
     const float mass_cart = 1.0f; // kg
     const float mass_wheel = .26f; // kg
     const float total_mass = mass_head+mass_stalk+mass_cart+mass_wheel*2.0f;
     const Vector3f pos_cg = (pos_head_bf * mass_head + pos_stalk_bf * mass_stalk + pos_cart_bf * mass_cart + pos_Lwheel * mass_wheel + pos_Rwheel * mass_wheel) / total_mass; // m
+    pos_cart_bf -= pos_cg;
+    pos_head_bf -= pos_cg;
+    pos_stalk_bf -= pos_cg;
+    pos_Lwheel -= pos_cg;
+    pos_Rwheel -= pos_cg;
 
     const float radius_wheel = .095f; // m
+
+    const float floor_pos_down = pos_Lwheel.z+radius_wheel;
+
     const float Im_wheel_y = 0.5f*mass_wheel*radius_wheel*radius_wheel; // kg m^2
 
-    const float Im_xy = mass_cart*sq(pos_cart_bf.z-pos_cg.z) + mass_head * sq(pos_head_bf.z-pos_cg.z) + mass_stalk*sq(stalk_len)/12.0f;
+    const float Im_xy = mass_cart*sq(pos_cart_bf.z) + mass_head * sq(pos_head_bf.z) + mass_stalk*sq(stalk_len)/12.0f;
     const float Im_z = (mass_cart+mass_wheel*2.0f)*sq(0.3f)/12.0f;
 
     const float friction_coefficient = 1.0f;
@@ -77,17 +84,21 @@ void BalanceBot::update(const struct sitl_input &input)
     const float wheel_stiffness = 0.5f*total_mass*sq(wheel_freq*2.0f*M_PI); // N/m
     const float wheel_damping = 2*wheel_damping_ratio*sqrt(wheel_stiffness*0.5f*total_mass); // N/m/s
 
-    //float desired_vel = 0.0f;//constrain_float((10.0f-(ned_to_horizon_frame*position).x)*.7f,-2.0f,2.0f);
-    float desired_pitch = 0.0f;//constrain_float(((ned_to_horizon_frame*velocity_ef).x-desired_vel) * .3, -radians(10), radians(10));
+#if 0
+    float desired_vel = 2.0f*sinf(time_now_us*1.0e-6f);//constrain_float((10.0f-(ned_to_horizon_frame*_states.pos_ned).x)*.7f,-2.0f,2.0f);
+    float desired_pitch = constrain_float(((ned_to_horizon_frame*_states.vel_ned).x-desired_vel) * .3, -radians(10), radians(10));
     float desired_ang_vel_y = (desired_pitch-pitch) * 2.0f;
+    float torque_out = (desired_ang_vel_y-_states.ang_vel.y) * 10.0f;
 
-    float torque_out = constrain_float((desired_ang_vel_y-gyro.y)*100.0f, -1.0f, 1.0f);
+    float motorL_tdem = -torque_out;
+    float motorR_tdem = -torque_out;
+#else
+    float motorL_tdem = motor_Km*3.0f*(input.hydra0_torque/32767.0f);
+    float motorR_tdem = motor_Km*3.0f*(input.hydra1_torque/32767.0f);
+#endif
 
-    float motorL_tdem = -torque_out;//0.45f*((input.servos[0]-1000)/500.0f - 1.0f);
-    float motorR_tdem = -torque_out;//0.45f*((input.servos[2]-1000)/500.0f - 1.0f);
-
-    float motorL_angvel = Lwheel_ang_vel_y-gyro.y;
-    float motorR_angvel = Rwheel_ang_vel_y-gyro.y;
+    float motorL_angvel = _states.Lwheel_ang_vel_y-_states.ang_vel.y;
+    float motorR_angvel = _states.Rwheel_ang_vel_y-_states.ang_vel.y;
 
     float motorL_Vemf = motorL_angvel*motor_Km;
     float motorR_Vemf = motorR_angvel*motor_Km;
@@ -101,13 +112,11 @@ void BalanceBot::update(const struct sitl_input &input)
     float motorL_torque = motor_Km*(motorL_Vin+motorL_Vemf)/motor_R;
     float motorR_torque = motor_Km*(motorR_Vin+motorR_Vemf)/motor_R;
 
-    ::printf("motorL_Vin=% .4f motorR_Vin=% .4f pitch=% .2f gyro.y=% .2f v=% .2f\n", motorL_Vin, motorR_Vin, degrees(pitch), degrees(gyro.y), (ned_to_horizon_frame * velocity_ef).x);
+    Vector3f contact_Rwheel_bf = Vector3f(radius_wheel * -sin(pitch), 0, radius_wheel*cos(pitch)) + pos_Rwheel;
+    float Rwheel_compression = (body_to_ned*contact_Rwheel_bf + _states.pos_ned).z-floor_pos_down;
 
-    Vector3f contact_Rwheel_bf = Vector3f(radius_wheel * -sin(pitch), pos_Rwheel.y, radius_wheel*cos(pitch));
-    float Rwheel_compression = (body_to_ned*contact_Rwheel_bf + position).z-floor_pos_down;
-
-    Vector3f contact_Lwheel_bf = Vector3f(radius_wheel * -sin(pitch), pos_Lwheel.y, radius_wheel*cos(pitch));
-    float Lwheel_compression = (body_to_ned*contact_Lwheel_bf + position).z-floor_pos_down;
+    Vector3f contact_Lwheel_bf = Vector3f(radius_wheel * -sin(pitch), 0, radius_wheel*cos(pitch)) + pos_Lwheel;
+    float Lwheel_compression = (body_to_ned*contact_Lwheel_bf + _states.pos_ned).z-floor_pos_down;
 
     Vector3f Rwheel_force_bf = Vector3f(0,0,0);
     Vector3f Lwheel_force_bf = Vector3f(0,0,0);
@@ -118,13 +127,13 @@ void BalanceBot::update(const struct sitl_input &input)
     if (Rwheel_compression > 0) {
         Vector3f Rwheel_force_hf = Vector3f(0,0,0);
         Rwheel_force_hf.z = -wheel_stiffness * Rwheel_compression;
-        Vector3f Rwheel_contact_velocity = body_to_ned * (gyro % (contact_Rwheel_bf-pos_cg)) + velocity_ef;
+        Vector3f Rwheel_contact_velocity = body_to_ned * (_states.ang_vel % contact_Rwheel_bf) + _states.vel_ned;
         Rwheel_force_hf.z -= Rwheel_contact_velocity.z * wheel_damping;
 
         float horizontal_force_limit = fabs(Rwheel_force_hf.z * friction_coefficient);
 
         float longitudinal_velocity = (ned_to_horizon_frame * Rwheel_contact_velocity).x;
-        float wheel_velocity = Rwheel_ang_vel_y * radius_wheel;
+        float wheel_velocity = _states.Rwheel_ang_vel_y * radius_wheel;
         Rwheel_force_hf.x = constrain_float(-(wheel_velocity+longitudinal_velocity) * 200.0f, -horizontal_force_limit, horizontal_force_limit);
 
         Rwheel_total_torque += Rwheel_force_hf.x * radius_wheel;
@@ -138,13 +147,13 @@ void BalanceBot::update(const struct sitl_input &input)
     if (Lwheel_compression > 0) {
         Vector3f Lwheel_force_hf = Vector3f(0,0,0);
         Lwheel_force_hf.z = -wheel_stiffness * Lwheel_compression;
-        Vector3f Lwheel_contact_velocity = body_to_ned * (gyro % (contact_Lwheel_bf-pos_cg)) + velocity_ef;
+        Vector3f Lwheel_contact_velocity = body_to_ned * (_states.ang_vel % (contact_Lwheel_bf)) + _states.vel_ned;
         Lwheel_force_hf.z -= Lwheel_contact_velocity.z * wheel_damping;
 
         float horizontal_force_limit = fabs(Lwheel_force_hf.z * friction_coefficient);
 
         float longitudinal_velocity = (ned_to_horizon_frame * Lwheel_contact_velocity).x;
-        float wheel_velocity = Lwheel_ang_vel_y * radius_wheel;
+        float wheel_velocity = _states.Lwheel_ang_vel_y * radius_wheel;
         Lwheel_force_hf.x = constrain_float(-(wheel_velocity+longitudinal_velocity) * 200.0f, -horizontal_force_limit, horizontal_force_limit);
 
         Lwheel_total_torque += Lwheel_force_hf.x * radius_wheel;
@@ -159,7 +168,7 @@ void BalanceBot::update(const struct sitl_input &input)
     Vector3f gravity_bf = body_to_ned.mul_transpose(gravity_ned);
 
     Vector3f total_force_bf = Lwheel_force_bf + Rwheel_force_bf + gravity_bf*total_mass;
-    Vector3f total_moment_bf = (contact_Lwheel_bf-pos_cg) % Lwheel_force_bf + (contact_Rwheel_bf-pos_cg) % Rwheel_force_bf;
+    Vector3f total_moment_bf = contact_Lwheel_bf % Lwheel_force_bf + contact_Rwheel_bf % Rwheel_force_bf;
     total_moment_bf.y -= Lwheel_total_torque;
     total_moment_bf.y -= Rwheel_total_torque;
 
@@ -171,21 +180,27 @@ void BalanceBot::update(const struct sitl_input &input)
     angular_acceleration_bf.z = total_moment_bf.z / Im_z;
 
     // update states
-    Lwheel_ang_vel_y += Lwheel_total_torque / Im_wheel_y * dt;
-    Rwheel_ang_vel_y += Rwheel_total_torque / Im_wheel_y * dt;
+    _states.Lwheel_ang_vel_y += Lwheel_total_torque / Im_wheel_y * dt;
+    _states.Rwheel_ang_vel_y += Rwheel_total_torque / Im_wheel_y * dt;
+    _states.Lwheel_ang_pos_y = wrap_2PI(_states.Lwheel_ang_pos_y + motorL_angvel * dt);
+    _states.Rwheel_ang_pos_y = wrap_2PI(_states.Rwheel_ang_pos_y + motorR_angvel * dt);
+    _states.proper_accel = coordinate_accel_bf - gravity_bf;
+    _states.ang_vel += angular_acceleration_bf * dt;
+    _states.vel_ned += (body_to_ned * coordinate_accel_bf) * dt;
+    _states.pos_ned += _states.vel_ned * dt;
+    _states.attitude.rotate(_states.ang_vel * dt);
+    _states.attitude.normalize();
 
-    Lwheel_ang_pos_y = wrap_2PI(Lwheel_ang_pos_y + Lwheel_ang_vel_y * dt);
-    Rwheel_ang_pos_y = wrap_2PI(Rwheel_ang_pos_y + Rwheel_ang_vel_y * dt);
+    //::printf("wdot % .6f % .6f % .6f w % .6f % .6f % .6f v % .6f % .6f % .6f\n", angular_acceleration_bf.x,angular_acceleration_bf.y,angular_acceleration_bf.z, _states.ang_vel.x,_states.ang_vel.y,_states.ang_vel.z);
 
-    hydra0_ang_pos = Lwheel_ang_pos_y*65536.0f/(2.0f*M_PI);
-    hydra1_ang_pos = Rwheel_ang_pos_y*65536.0f/(2.0f*M_PI);
-
-    accel_body = coordinate_accel_bf - gravity_bf;
-    gyro += angular_acceleration_bf * dt;
-    dcm.rotate(gyro * dt);
-    dcm.normalize();
-    velocity_ef += (body_to_ned * coordinate_accel_bf) * dt;
-    position += velocity_ef * dt;
+    // update output
+    hydra0_ang_pos = (uint16_t)(_states.Lwheel_ang_pos_y*65536.0f/(2.0f*M_PI));
+    hydra1_ang_pos = (uint16_t)(_states.Rwheel_ang_pos_y*65536.0f/(2.0f*M_PI));
+    position = _states.pos_ned + body_to_ned*pos_cart_bf;
+    velocity_ef = _states.vel_ned + body_to_ned * (_states.ang_vel % pos_cart_bf);
+    accel_body = _states.proper_accel + angular_acceleration_bf % pos_cart_bf + _states.ang_vel % (_states.ang_vel % pos_cart_bf);
+    gyro = _states.ang_vel;
+    _states.attitude.rotation_matrix(dcm);
 
     // update lat/lon/altitude
     update_position();

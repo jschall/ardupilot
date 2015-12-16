@@ -23,6 +23,6 @@ void AP_Hydra_SITL::update()
             break;
     }
 
-    _rotor_pos_rad = rotor_pos * (2.0f*M_PI)/65536.0f;
+    _rotor_pos_rad = (float)rotor_pos * (2.0f*M_PI)/65536.0f;
     _rotor_pos_update_us = AP_HAL::micros();
 }

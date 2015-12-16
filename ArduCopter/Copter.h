@@ -134,6 +134,8 @@ public:
     void loop() override;
 
 private:
+    void balance_bot();
+
     // key aircraft parameters passed to multiple libraries
     AP_Vehicle::MultiCopter aparm;
 
