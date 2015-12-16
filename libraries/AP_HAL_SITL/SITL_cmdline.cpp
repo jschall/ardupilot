@@ -16,6 +16,7 @@
 #include <SITL/SIM_Multicopter.h>
 #include <SITL/SIM_Helicopter.h>
 #include <SITL/SIM_Rover.h>
+#include <SITL/SIM_BalanceBot.h>
 #include <SITL/SIM_CRRCSim.h>
 #include <SITL/SIM_Gazebo.h>
 #include <SITL/SIM_last_letter.h>
@@ -70,6 +71,7 @@ static const struct {
     { "heli-dual",          Helicopter::create },
     { "heli-compound",      Helicopter::create },
     { "rover",              SimRover::create },
+    { "balancebot",         BalanceBot::create },
     { "crrcsim",            CRRCSim::create },
     { "jsbsim",             JSBSim::create },
     { "gazebo",             Gazebo::create },
