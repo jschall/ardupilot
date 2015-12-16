@@ -342,6 +342,9 @@ void SITL_State::_simulator_servos(Aircraft::sitl_input &input)
     input.wind.direction = _sitl->wind_direction;
     input.wind.turbulence = _sitl->wind_turbulance;
 
+    input.hydra0_torque = _sitl->hydra0_torque;
+    input.hydra1_torque = _sitl->hydra0_torque;
+
     for (i=0; i<SITL_NUM_CHANNELS; i++) {
         if (pwm_output[i] == 0xFFFF) {
             input.servos[i] = 0;

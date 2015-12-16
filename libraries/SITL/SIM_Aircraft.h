@@ -43,6 +43,8 @@ public:
             float direction;  // degrees 0..360
             float turbulence;
         } wind;
+        int16_t hydra0_torque;
+        int16_t hydra1_torque;
     };
 
     /*
@@ -98,6 +100,8 @@ protected:
     float battery_current = 0;
     float rpm1 = 0;
     float rpm2 = 0;
+    uint16_t hydra0_ang_pos = 0;
+    uint16_t hydra1_ang_pos = 0;
 
     uint64_t time_now_us;
 

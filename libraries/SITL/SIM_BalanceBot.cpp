@@ -27,7 +27,7 @@ namespace SITL {
 BalanceBot::BalanceBot(const char *home_str, const char *frame_str) :
     Aircraft(home_str, frame_str)
 {
-    dcm.from_euler(0,radians(10),0);
+    dcm.from_euler(0,radians(25),0);
 }
 
 /*
@@ -44,6 +44,10 @@ void BalanceBot::update(const struct sitl_input &input)
     const Matrix3f ned_to_horizon_frame = Matrix3f(Vector3f(cos(yaw), sin(yaw), 0),
                                                    Vector3f(-sin(yaw), cos(yaw), 0),
                                                    Vector3f(0,0,1));
+
+    const float motor_R = 10.0f;
+    const float motor_Km = 0.308f;
+    const float batt_voltage = 3.7f*4.0f;
 
     const float floor_pos_down = .095f;
 
@@ -73,12 +77,31 @@ void BalanceBot::update(const struct sitl_input &input)
     const float wheel_stiffness = 0.5f*total_mass*sq(wheel_freq*2.0f*M_PI); // N/m
     const float wheel_damping = 2*wheel_damping_ratio*sqrt(wheel_stiffness*0.5f*total_mass); // N/m/s
 
-    float desired_pitch = constrain_float((ned_to_horizon_frame*velocity_ef).x * .3, -radians(10), radians(10));
+    //float desired_vel = 0.0f;//constrain_float((10.0f-(ned_to_horizon_frame*position).x)*.7f,-2.0f,2.0f);
+    float desired_pitch = 0.0f;//constrain_float(((ned_to_horizon_frame*velocity_ef).x-desired_vel) * .3, -radians(10), radians(10));
     float desired_ang_vel_y = (desired_pitch-pitch) * 2.0f;
-    float torque_out = constrain_float((desired_ang_vel_y-gyro.y)*100.0f, -0.45f, 0.45f);
 
-    float motorL_torque = -torque_out;//0.45f*((input.servos[0]-1000)/500.0f - 1.0f);
-    float motorR_torque = -torque_out;//0.45f*((input.servos[2]-1000)/500.0f - 1.0f);
+    float torque_out = constrain_float((desired_ang_vel_y-gyro.y)*100.0f, -1.0f, 1.0f);
+
+    float motorL_tdem = -torque_out;//0.45f*((input.servos[0]-1000)/500.0f - 1.0f);
+    float motorR_tdem = -torque_out;//0.45f*((input.servos[2]-1000)/500.0f - 1.0f);
+
+    float motorL_angvel = Lwheel_ang_vel_y-gyro.y;
+    float motorR_angvel = Rwheel_ang_vel_y-gyro.y;
+
+    float motorL_Vemf = motorL_angvel*motor_Km;
+    float motorR_Vemf = motorR_angvel*motor_Km;
+
+    float motorL_Vdem = motor_R*motorL_tdem/motor_Km;
+    float motorR_Vdem = motor_R*motorR_tdem/motor_Km;
+
+    float motorL_Vin = constrain_float(motorL_Vdem-motorL_Vemf, -batt_voltage, batt_voltage);
+    float motorR_Vin = constrain_float(motorR_Vdem-motorR_Vemf, -batt_voltage, batt_voltage);
+
+    float motorL_torque = motor_Km*(motorL_Vin+motorL_Vemf)/motor_R;
+    float motorR_torque = motor_Km*(motorR_Vin+motorR_Vemf)/motor_R;
+
+    ::printf("motorL_Vin=% .4f motorR_Vin=% .4f pitch=% .2f gyro.y=% .2f v=% .2f\n", motorL_Vin, motorR_Vin, degrees(pitch), degrees(gyro.y), (ned_to_horizon_frame * velocity_ef).x);
 
     Vector3f contact_Rwheel_bf = Vector3f(radius_wheel * -sin(pitch), pos_Rwheel.y, radius_wheel*cos(pitch));
     float Rwheel_compression = (body_to_ned*contact_Rwheel_bf + position).z-floor_pos_down;
@@ -151,14 +174,18 @@ void BalanceBot::update(const struct sitl_input &input)
     Lwheel_ang_vel_y += Lwheel_total_torque / Im_wheel_y * dt;
     Rwheel_ang_vel_y += Rwheel_total_torque / Im_wheel_y * dt;
 
+    Lwheel_ang_pos_y = wrap_2PI(Lwheel_ang_pos_y + Lwheel_ang_vel_y * dt);
+    Rwheel_ang_pos_y = wrap_2PI(Rwheel_ang_pos_y + Rwheel_ang_vel_y * dt);
+
+    hydra0_ang_pos = Lwheel_ang_pos_y*65536.0f/(2.0f*M_PI);
+    hydra1_ang_pos = Rwheel_ang_pos_y*65536.0f/(2.0f*M_PI);
+
     accel_body = coordinate_accel_bf - gravity_bf;
     gyro += angular_acceleration_bf * dt;
     dcm.rotate(gyro * dt);
     dcm.normalize();
     velocity_ef += (body_to_ned * coordinate_accel_bf) * dt;
     position += velocity_ef * dt;
-
-    ::printf("%.5f %.5f\n", (ned_to_horizon_frame*velocity_ef).x, degrees(pitch));
 
     // update lat/lon/altitude
     update_position();

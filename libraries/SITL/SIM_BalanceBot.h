@@ -37,6 +37,8 @@ public:
 private:
     float Lwheel_ang_vel_y = 0;
     float Rwheel_ang_vel_y = 0;
+    float Lwheel_ang_pos_y = 0;
+    float Rwheel_ang_pos_y = 0;
 };
 
 } // namespace SITL

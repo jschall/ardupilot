@@ -23,6 +23,8 @@ struct sitl_fdm {
     double battery_current; // Amps
     double rpm1;            // main prop RPM
     double rpm2;            // secondary RPM
+    uint16_t hydra0_ang_pos;
+    uint16_t hydra1_ang_pos;
 };
 
 // number of rc output channels
@@ -55,6 +57,9 @@ public:
 
     // true when motors are active
     bool motors_on;
+
+    int16_t hydra0_torque = 0;
+    int16_t hydra1_torque = 0;
 
     static const struct AP_Param::GroupInfo var_info[];
 
