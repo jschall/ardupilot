@@ -33,6 +33,21 @@ void AP_Hydra_UART::process_msg(const hydra_msg_t& msg)
     }
 }
 
+static inline uint8_t crc8(const uint8_t *data, int len, uint8_t initial_crc)
+{
+    unsigned crc = initial_crc;
+    int i, j;
+    for (j = len; j; j--, data++) {
+        crc ^= (*data << 8);
+        for(i = 8; i; i--) {
+            if (crc & 0x8000)
+                crc ^= (0x1070 << 3);
+            crc <<= 1;
+        }
+    }
+    return (uint8_t)(crc >> 8);
+}
+
 bool AP_Hydra_UART::write(uint8_t msg_id, uint8_t payload_len, uint8_t* payload)
 {
     if (_port == NULL || _port->txspace() < payload_len + HYDRA_OVERHEAD_SIZE) {
@@ -48,9 +63,9 @@ bool AP_Hydra_UART::write(uint8_t msg_id, uint8_t payload_len, uint8_t* payload)
 
     _port->write(header, sizeof(header));
     _port->write(payload, payload_len);
-    uint16_t crc;
-    crc = crc16_ccitt(header, sizeof(header), 0);
-    crc = crc16_ccitt(payload, payload_len, crc);
+    uint8_t crc;
+    crc = crc8(header, sizeof(header), 0);
+    crc = crc8(payload, payload_len, crc);
     _port->write((uint8_t*)&crc, sizeof(crc));
 
     return true;
@@ -103,22 +118,17 @@ bool AP_Hydra_UART::parse_stream(AP_Hydra_UART::hydra_msg_t& ret)
         return false;
     }
 
-    union {
-        uint16_t uint16_val;
-        uint8_t uint8_array[2];
-    } msg_crc;
-
-    msg_crc.uint16_val = 0;
+    uint8_t msg_crc = 0;
     for (uint8_t i=0; i<msg_len-2; i++) {
-        msg_crc.uint16_val = crc16_ccitt(&_buf.peek(i), 1, msg_crc.uint16_val);
+        msg_crc = crc8(&_buf.peek(i), 1, msg_crc);
     }
 
-    if (msg_crc.uint8_array[0] != _buf.peek(msg_len-2) || msg_crc.uint8_array[1] != _buf.peek(msg_len-1)) {
+    if (msg_crc != _buf.peek(msg_len-1)) {
         // failed CRC - remove message from buffer
         for (uint8_t i=0; i<msg_len; i++) {
             _buf.pop_front();
         }
-        hal.console->printf("crc %u %u expected %u %u\n", msg_crc.uint8_array[0], msg_crc.uint8_array[1], _buf.peek(msg_len-2), _buf.peek(msg_len-1));
+        hal.console->printf("crc %u expected %u\n", msg_crc, _buf.peek(msg_len-1));
         return false;
     }
 
