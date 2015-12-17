@@ -842,6 +842,7 @@ bool Copter::arm_checks(bool display_failure, bool arming_from_gcs)
 // init_disarm_motors - disarm motors
 void Copter::init_disarm_motors()
 {
+#if 0
     // return immediately if we are already disarmed
     if (!motors.armed()) {
         return;
@@ -883,6 +884,7 @@ void Copter::init_disarm_motors()
     // disable gps velocity based centrefugal force compensation
     ahrs.set_correct_centrifugal(false);
     hal.util->set_soft_armed(false);
+#endif
 }
 
 // motors_output - send output to motors library which will adjust and send to ESCs and servos

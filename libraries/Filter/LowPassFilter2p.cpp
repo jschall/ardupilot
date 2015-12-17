@@ -95,6 +95,7 @@ void LowPassFilter2p<T>::reset(void) {
  * Make an instances
  * Otherwise we have to move the constructor implementations to the header file :P
  */
+template class DigitalBiquadFilter<float>;
 template class LowPassFilter2p<int>;
 template class LowPassFilter2p<long>;
 template class LowPassFilter2p<float>;

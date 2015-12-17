@@ -232,6 +232,15 @@ void Vector3<T>::rotate(enum Rotation rotation)
         z = -0.932324f * tmpx +  0.361625f * tmpy +  0.000000f * tmpz;
         return;
     }
+    case ROTATION_BALANCE_BOT: {
+        float tmpx = x;
+        float tmpy = y;
+        float tmpz = z;
+        x = tmpz;
+        y = -tmpx;
+        z = -tmpy;
+        return;
+    }
     }
 }
 

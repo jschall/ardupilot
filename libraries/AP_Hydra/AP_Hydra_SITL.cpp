@@ -12,6 +12,8 @@ void AP_Hydra_SITL::update()
             break;
     }
 
+    //::printf("%u %d\n", _instance, _torque_out);
+
     // read angular position
     uint16_t rotor_pos = 0;
     switch(_instance) {
@@ -24,5 +26,5 @@ void AP_Hydra_SITL::update()
     }
 
     _rotor_pos_rad = (float)rotor_pos * (2.0f*M_PI)/65536.0f;
-    _rotor_pos_update_us = AP_HAL::micros();
+    _rotor_pos_update_us = (uint32_t)_sitl.state.timestamp_us;
 }

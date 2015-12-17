@@ -26,6 +26,7 @@ void AP_Hydra_UART::process_msg(const hydra_msg_t& msg)
                 memcpy(&rotor_pos, &msg.payload, sizeof(uint16_t));
                 _rotor_pos_rad = rotor_pos * (2.0f*M_PI)/65536.0f;
                 _rotor_pos_update_us = AP_HAL::micros();
+//                 //hal.console->printf("%u pos %f\n", _instance, degrees(_rotor_pos_rad));
             }
             break;
         default:
@@ -33,9 +34,9 @@ void AP_Hydra_UART::process_msg(const hydra_msg_t& msg)
     }
 }
 
-static inline uint8_t crc8(const uint8_t *data, int len, uint8_t initial_crc)
+static inline uint8_t crc8(const uint8_t *data, int len, uint8_t prev_crc)
 {
-    unsigned crc = initial_crc;
+    unsigned crc = prev_crc<<8;
     int i, j;
     for (j = len; j; j--, data++) {
         crc ^= (*data << 8);
@@ -48,7 +49,7 @@ static inline uint8_t crc8(const uint8_t *data, int len, uint8_t initial_crc)
     return (uint8_t)(crc >> 8);
 }
 
-bool AP_Hydra_UART::write(uint8_t msg_id, uint8_t payload_len, uint8_t* payload)
+bool AP_Hydra_UART::write(uint8_t msg_id, uint8_t payload_len, const uint8_t* payload)
 {
     if (_port == NULL || _port->txspace() < payload_len + HYDRA_OVERHEAD_SIZE) {
         return false;
@@ -119,16 +120,17 @@ bool AP_Hydra_UART::parse_stream(AP_Hydra_UART::hydra_msg_t& ret)
     }
 
     uint8_t msg_crc = 0;
-    for (uint8_t i=0; i<msg_len-2; i++) {
-        msg_crc = crc8(&_buf.peek(i), 1, msg_crc);
+    for (uint8_t i=0; i<msg_len-1; i++) {
+        uint8_t byte = _buf.peek(i);
+        msg_crc = crc8(&byte, 1, msg_crc);
     }
 
     if (msg_crc != _buf.peek(msg_len-1)) {
+        hal.console->printf("crc %u expected %u len %u\n", _buf.peek(msg_len-1), msg_crc, msg_len);
         // failed CRC - remove message from buffer
         for (uint8_t i=0; i<msg_len; i++) {
             _buf.pop_front();
         }
-        hal.console->printf("crc %u expected %u\n", msg_crc, _buf.peek(msg_len-1));
         return false;
     }
 

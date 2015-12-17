@@ -58,9 +58,10 @@ void BalanceBot::update(const struct sitl_input &input)
     Vector3f pos_Rwheel = Vector3f(0, 0.15f, 0); // m
     const float mass_head = .6f; // kg
     const float mass_stalk = .27f; // kg
-    const float mass_cart = 1.0f; // kg
-    const float mass_wheel = .26f; // kg
+    const float mass_cart = 1.6f; // kg
+    const float mass_wheel = .3f; // kg
     const float total_mass = mass_head+mass_stalk+mass_cart+mass_wheel*2.0f;
+    //::printf("%f\n", total_mass);
     const Vector3f pos_cg = (pos_head_bf * mass_head + pos_stalk_bf * mass_stalk + pos_cart_bf * mass_cart + pos_Lwheel * mass_wheel + pos_Rwheel * mass_wheel) / total_mass; // m
     pos_cart_bf -= pos_cg;
     pos_head_bf -= pos_cg;
@@ -83,22 +84,26 @@ void BalanceBot::update(const struct sitl_input &input)
     const float wheel_freq = 10.0f; // Hz
     const float wheel_stiffness = 0.5f*total_mass*sq(wheel_freq*2.0f*M_PI); // N/m
     const float wheel_damping = 2*wheel_damping_ratio*sqrt(wheel_stiffness*0.5f*total_mass); // N/m/s
+    {
+        float desired_vel = 1.0f;//2.0f*sinf(time_now_us*1.0e-6f);//constrain_float((10.0f-(ned_to_horizon_frame*_states.pos_ned).x)*.7f,-2.0f,2.0f);
+        float desired_pitch = constrain_float(((ned_to_horizon_frame*velocity_ef).x-desired_vel) * .3, -radians(10), radians(10));
+        float desired_ang_vel_y = (desired_pitch-pitch) * 2.0f;
+        float torque_out = -(desired_ang_vel_y-_states.ang_vel.y) * 10.0f;
+    }
+    //float motorL_tdem = -torque_out;
+    //float motorR_tdem = -torque_out;
 
-#if 0
-    float desired_vel = 2.0f*sinf(time_now_us*1.0e-6f);//constrain_float((10.0f-(ned_to_horizon_frame*_states.pos_ned).x)*.7f,-2.0f,2.0f);
-    float desired_pitch = constrain_float(((ned_to_horizon_frame*_states.vel_ned).x-desired_vel) * .3, -radians(10), radians(10));
-    float desired_ang_vel_y = (desired_pitch-pitch) * 2.0f;
-    float torque_out = (desired_ang_vel_y-_states.ang_vel.y) * 10.0f;
+    float motorL_tdem = input.hydra0_torque/(2000.0f/0.065f);
+    float motorR_tdem = input.hydra1_torque/(2000.0f/0.065f);
 
-    float motorL_tdem = -torque_out;
-    float motorR_tdem = -torque_out;
-#else
-    float motorL_tdem = motor_Km*3.0f*(input.hydra0_torque/32767.0f);
-    float motorR_tdem = motor_Km*3.0f*(input.hydra1_torque/32767.0f);
-#endif
+    //::printf("%d ", (int16_t)input.hydra0_torque);
+
+    //::printf("%f %f\n",motorL_tdem, dbg1);
 
     float motorL_angvel = _states.Lwheel_ang_vel_y-_states.ang_vel.y;
     float motorR_angvel = _states.Rwheel_ang_vel_y-_states.ang_vel.y;
+
+    //::printf("%f %f\n",motorL_tdem, motorR_tdem);
 
     float motorL_Vemf = motorL_angvel*motor_Km;
     float motorR_Vemf = motorR_angvel*motor_Km;
@@ -108,6 +113,8 @@ void BalanceBot::update(const struct sitl_input &input)
 
     float motorL_Vin = constrain_float(motorL_Vdem-motorL_Vemf, -batt_voltage, batt_voltage);
     float motorR_Vin = constrain_float(motorR_Vdem-motorR_Vemf, -batt_voltage, batt_voltage);
+
+    dbg1 = (ned_to_horizon_frame*_states.vel_ned).x;
 
     float motorL_torque = motor_Km*(motorL_Vin+motorL_Vemf)/motor_R;
     float motorR_torque = motor_Km*(motorR_Vin+motorR_Vemf)/motor_R;
@@ -191,6 +198,8 @@ void BalanceBot::update(const struct sitl_input &input)
     _states.attitude.rotate(_states.ang_vel * dt);
     _states.attitude.normalize();
 
+    //::printf("tru % .2f ", _states.Lwheel_ang_vel_y);
+
     //::printf("wdot % .6f % .6f % .6f w % .6f % .6f % .6f v % .6f % .6f % .6f\n", angular_acceleration_bf.x,angular_acceleration_bf.y,angular_acceleration_bf.z, _states.ang_vel.x,_states.ang_vel.y,_states.ang_vel.z);
 
     // update output
@@ -201,6 +210,10 @@ void BalanceBot::update(const struct sitl_input &input)
     accel_body = _states.proper_accel + angular_acceleration_bf % pos_cart_bf + _states.ang_vel % (_states.ang_vel % pos_cart_bf);
     gyro = _states.ang_vel;
     _states.attitude.rotation_matrix(dcm);
+
+    float predicted_Lwheel_ang_vel = (-(ned_to_horizon_frame*velocity_ef).x + (body_to_ned*gyro).z*(.295/2.0f))/radius_wheel;
+    //dbg2 = _states.Lwheel_ang_vel_y;
+    //::printf("% .2f % .2f\n", predicted_Lwheel_ang_vel, _states.Lwheel_ang_vel_y);
 
     // update lat/lon/altitude
     update_position();

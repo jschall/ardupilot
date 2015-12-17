@@ -294,6 +294,8 @@ void Aircraft::fill_fdm(struct sitl_fdm &fdm) const
     fdm.rpm2 = rpm2;
     fdm.hydra0_ang_pos = hydra0_ang_pos;
     fdm.hydra1_ang_pos = hydra1_ang_pos;
+    fdm.dbg1 = dbg1;
+    fdm.dbg2 = dbg2;
 }
 
 uint64_t Aircraft::get_wall_time_us() const

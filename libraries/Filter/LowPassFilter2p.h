@@ -44,7 +44,7 @@ public:
     T apply(const T &sample, const struct biquad_params &params);
     void reset();
     static void compute_params(float sample_freq, float cutoff_freq, biquad_params &ret);
-    
+
 private:
     T _delay_element_1;
     T _delay_element_2;

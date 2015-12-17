@@ -92,9 +92,26 @@ void AP_InertialSensor_Backend::_notify_new_gyro_raw_sample(uint8_t instance,
     _imu._last_delta_angle[instance] = delta_angle;
     _imu._last_raw_gyro[instance] = gyro;
 
+
     _imu._gyro_filtered[instance] = _imu._gyro_filter[instance].apply(gyro);
     if (_imu._gyro_filtered[instance].is_nan() || _imu._gyro_filtered[instance].is_inf()) {
         _imu._gyro_filter[instance].reset();
+    }
+
+    static const DigitalBiquadFilter<float>::biquad_params cheby_params[4] = {
+        {1, 1, -1.773642102982381230091846191499, 0.839741808120223476308296994830, 0.808886332583891087821825749415, -1.568930561383591548718641206506, 0.808886328657099085148729500361},
+        {1, 1, -1.846700798549125943637250202300, 0.881642741300373788959632292972, 1.000000000000000000000000000000, -1.955752087497172109209486734471, 1.000000006669415908433506956499},
+        {1, 1, -1.815876999095727306610115192598, 0.919906940013360929775387830887, 1.000000000000000000000000000000, -1.924975546715988361512472692993, 1.000000001585017006533462335938},
+        {1, 1, -1.936715992102418626430448966858, 0.960710835147688513302455248777, 1.000000000000000000000000000000, -1.964442366176722076787086734839, 0.999999996600132612378786234331}
+    };
+
+    static DigitalBiquadFilter<float> cheby_sec[INS_MAX_INSTANCES][3][4];
+    for(uint8_t axis=0; axis<3; axis++) {
+        float cheby_output = _imu._gyro_filtered[instance][axis];
+        for (uint8_t i=0; i<4; i++) {
+            cheby_output = cheby_sec[instance][axis][i].apply(cheby_output, cheby_params[i]);
+        }
+        _imu._gyro_filtered[instance][axis] = cheby_output;
     }
 
     _imu._new_gyro_data[instance] = true;

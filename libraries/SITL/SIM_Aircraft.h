@@ -117,6 +117,9 @@ protected:
     const char *autotest_dir;
     const char *frame;
 
+    float dbg1;
+    float dbg2;
+
     bool on_ground(const Vector3f &pos) const;
 
     /* update location from position */
