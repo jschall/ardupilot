@@ -108,7 +108,7 @@ const AP_Scheduler::Task Copter::scheduler_tasks[] = {
     SCHED_TASK(update_batt_compass,   40,    120),
     SCHED_TASK(read_aux_switches,     40,     50),
     SCHED_TASK(arm_motors_check,      40,     50),
-    SCHED_TASK(auto_disarm_check,     40,     50),
+    //SCHED_TASK(auto_disarm_check,     40,     50),
     SCHED_TASK(auto_trim,             40,     75),
     SCHED_TASK(update_altitude,       40,    140),
     SCHED_TASK(run_nav_updates,        8,    100),

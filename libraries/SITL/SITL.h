@@ -25,6 +25,8 @@ struct sitl_fdm {
     double rpm2;            // secondary RPM
     uint16_t hydra0_ang_pos;
     uint16_t hydra1_ang_pos;
+    double dbg1;
+    double dbg2;
 };
 
 // number of rc output channels
