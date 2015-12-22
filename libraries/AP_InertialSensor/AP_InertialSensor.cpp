@@ -1349,7 +1349,7 @@ bool AP_InertialSensor::get_primary_accel_cal_sample_avg(uint8_t sample_num, Vec
 {
     uint8_t count = 0;
     Vector3f avg = Vector3f(0,0,0);
-    for(uint8_t i=0; i<min(_accel_count,2); i++) {
+    for(uint8_t i=0; i<MIN(_accel_count,2); i++) {
         if (_accel_calibrator[i].get_status() != ACCEL_CAL_SUCCESS || sample_num>=_accel_calibrator[i].get_num_samples_collected()) {
             continue;
         }
