@@ -47,6 +47,7 @@ class AP_InertialSensor : AP_AccelCal_Client
     friend class AP_InertialSensor_Backend;
 
 public:
+    AP_InertialSensor();
 
     static AP_InertialSensor *get_instance();
 
