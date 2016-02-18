@@ -909,6 +909,8 @@ const AP_Param::Info Copter::var_info[] = {
     // @Group: POSCON_
     // @Path: ../libraries/AC_AttitudeControl/AC_PosControl.cpp
     GOBJECT(pos_control, "PSC", AC_PosControl),
+    
+    GOBJECT(accel_control, "ACON", AC_AccelControl),
 
     // @Group: SR0_
     // @Path: GCS_Mavlink.cpp

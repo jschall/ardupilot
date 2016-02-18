@@ -28,7 +28,7 @@ void Copter::stabilize_run()
     int16_t pilot_throttle_scaled;
 
     // if not armed or throttle at zero, set throttle to zero and exit immediately
-    if(!motors.armed() || ap.throttle_zero) {
+    if(!motors.armed()) {
         attitude_control.set_throttle_out_unstabilized(0,true,g.throttle_filt);
         // slow start if landed
         if (ap.land_complete) {
@@ -37,24 +37,27 @@ void Copter::stabilize_run()
         return;
     }
 
-    // apply SIMPLE mode transform to pilot inputs
-    update_simple_mode();
+    if (ap.land_complete && !(channel_throttle->control_in > get_takeoff_trigger_throttle())) {
+        attitude_control.set_throttle_out_unstabilized(get_throttle_pre_takeoff(channel_throttle->control_in),true,g.throttle_filt);
+    } else {
+        set_land_complete(false);
+        // apply SIMPLE mode transform to pilot inputs
+        update_simple_mode();
 
-    // convert pilot input to lean angles
-    // To-Do: convert get_pilot_desired_lean_angles to return angles as floats
-    get_pilot_desired_lean_angles(channel_roll->control_in, channel_pitch->control_in, target_roll, target_pitch, aparm.angle_max);
+        float mid_stick = channel_throttle->get_control_mid();
 
-    // get pilot's desired yaw rate
-    target_yaw_rate = get_pilot_desired_yaw_rate(channel_yaw->control_in);
+        Vector3f coordinate_accel_demanded_horizon = Vector3f(-6.869f * channel_pitch->control_in/(float)ROLL_PITCH_INPUT_MAX,
+                                                        6.869f * channel_roll->control_in/(float)ROLL_PITCH_INPUT_MAX,
+                                                        -0.5f * GRAVITY_MSS * (channel_throttle->control_in - mid_stick) / MAX(mid_stick - (float)g.throttle_min, 1000.0f - mid_stick));
 
-    // get pilot's desired throttle
-    pilot_throttle_scaled = get_pilot_desired_throttle(channel_throttle->control_in);
+        Vector3f coordinate_accel_demanded_ned = Matrix3f(
+            Vector3f( cosf(ahrs.yaw), -sinf(ahrs.yaw),            0.0f),
+            Vector3f( sinf(ahrs.yaw),  cosf(ahrs.yaw),            0.0f),
+            Vector3f(           0.0f,            0.0f,            1.0f)
+        ) * coordinate_accel_demanded_horizon;
 
-    // call attitude controller
-    attitude_control.input_euler_angle_roll_pitch_euler_rate_yaw_smooth(target_roll, target_pitch, target_yaw_rate, get_smoothing_gain());
+        float yaw_rate_desired_rads = get_pilot_desired_yaw_rate(channel_yaw->control_in) * 0.01f * radians(1.0f);
 
-    // body-frame rate controller is run directly from 100hz loop
-
-    // output pilot's throttle
-    attitude_control.set_throttle_out(pilot_throttle_scaled, true, g.throttle_filt);
+        accel_control.input_coordinate_accel_ned_yaw_rate_bf(coordinate_accel_demanded_ned, yaw_rate_desired_rads);
+    }
 }

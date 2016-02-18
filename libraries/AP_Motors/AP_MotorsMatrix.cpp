@@ -388,6 +388,16 @@ void AP_MotorsMatrix::output_armed_stabilizing()
         }
     }
     hal.rcout->push();
+
+    float motor_sum = 0;
+    uint8_t motor_count = 0;
+    for (i=0; i<AP_MOTORS_MAX_NUM_MOTORS; i++) {
+        if (motor_enabled[i]) {
+            motor_count++;
+            motor_sum += motor_out[i];
+        }
+    }
+    _throttle_out = rel_pwm_to_thr_range(motor_sum/motor_count - _throttle_radio_min);
 }
 
 // output_disarmed - sends commands to the motors

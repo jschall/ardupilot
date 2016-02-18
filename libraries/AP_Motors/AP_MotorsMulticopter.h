@@ -97,6 +97,8 @@ public:
     // get_throttle_limit - throttle limit ratio - for logging purposes only
     float               get_throttle_limit() const { return _throttle_limit; }
 
+    float               get_throttle_out() const { return _throttle_out; }
+
     // var_info for holding Parameter information
     static const struct AP_Param::GroupInfo        var_info[];
 
@@ -176,5 +178,7 @@ protected:
     int16_t             _batt_timer;            // timer used in battery resistance calcs
     float               _lift_max;              // maximum lift ratio from battery voltage
     float               _throttle_limit;        // ratio of throttle limit between hover and maximum
+
+    float               _throttle_out;
 };
 #endif  // __AP_MOTORS_MULTICOPTER_H__

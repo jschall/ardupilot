@@ -219,6 +219,7 @@ public:
         k_param_rtl_speed_cms = 135,
         k_param_fs_batt_curr_rtl,
         k_param_rtl_cone_slope, // 137
+        k_param_accel_control,
 
         //
         // 140: Sensor parameters
