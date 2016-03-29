@@ -266,6 +266,25 @@ void Copter::fast_loop()
     update_heli_control_dynamics();
 #endif //HELI_FRAME
 
+    if (control_mode == LOITER) {
+        uint8_t step = (millis()/500) % 6;
+        switch(step) {
+            case 0:
+                // spin ccw motors down
+                motors.set_yaw(5000);
+                break;
+            case 1:
+            case 2:
+                // step ccw motors, spin cw motors down
+                motors.set_yaw(-5000);
+                break;
+            case 3:
+                // step cw motors
+                motors.set_yaw(5000);
+                break;
+        }
+    }
+
     // send outputs to the motors library
     motors_output();
 
