@@ -434,6 +434,13 @@ void NavEKF2_core::UpdateFilter(bool predict)
 
     // Run the EKF equations to estimate at the fusion time horizon if new IMU data is available in the buffer
     if (runUpdates) {
+        bool dbgToggleNew = (AP_HAL::millis() > 30000 && (AP_HAL::millis()/30000)%2 == 0);
+        if (dbgToggleNew != dbgToggle) {
+            stateStruct.quat.rotate(Vector3f(radians(dbgToggleNew?5.0f:-5.0f),0.0f,0.0f));
+            stateStruct.quat.normalize();
+        }
+        dbgToggle = dbgToggleNew;
+
         // Predict states using IMU data from the delayed time horizon
         UpdateStrapdownEquationsNED();
 
