@@ -298,6 +298,8 @@ public:
     static const struct AP_Param::GroupInfo var_info[];
 
 private:
+    bool dbgToggle;
+
     NavEKF &frontend;
     const AP_AHRS *_ahrs;
     AP_Baro &_baro;

@@ -259,6 +259,7 @@ public:
     uint8_t getFramesSincePredict(void) const;
 
 private:
+    bool dbgToggle;
     // Reference to the global EKF frontend for parameters
     NavEKF2 *frontend;
     uint8_t imu_index;
