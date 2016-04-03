@@ -20,23 +20,7 @@ extern const AP_HAL::HAL& hal;
 // maximum gyro bias in rad/sec that can be compensated for
 #define MAX_GYRO_BIAS 0.1745f
 
-#if APM_BUILD_TYPE(APM_BUILD_ArduCopter)
-// copter defaults
-#define INIT_ACCEL_BIAS_UNCERTAINTY 0.1f
-
-#elif APM_BUILD_TYPE(APM_BUILD_APMrover2)
-// rover defaults
-#define INIT_ACCEL_BIAS_UNCERTAINTY 0.3f
-
-#elif APM_BUILD_TYPE(APM_BUILD_ArduPlane)
-// generic defaults (and for plane)
-#define INIT_ACCEL_BIAS_UNCERTAINTY 0.3f
-
-#else
-#define INIT_ACCEL_BIAS_UNCERTAINTY 0.1f
-
-#endif // APM_BUILD_DIRECTORY
-
+#define INIT_ACCEL_BIAS_UNCERTAINTY 0.0f
 
 // constructor
 NavEKF_core::NavEKF_core(NavEKF &_frontend, const AP_AHRS *ahrs, AP_Baro &baro, const RangeFinder &rng) :
@@ -4608,7 +4592,7 @@ bool NavEKF_core::assume_zero_sideslip(void) const
 float NavEKF_core::InitialGyroBiasUncertainty(void) const
 {
     // this is the assumed uncertainty in gyro bias in rad/sec used to initialise the covariance matrix.
-    return 0.035f;
+    return 0.0f;
 }
 
 /*

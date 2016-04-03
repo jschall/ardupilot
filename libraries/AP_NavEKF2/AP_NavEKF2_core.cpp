@@ -19,8 +19,7 @@ extern const AP_HAL::HAL& hal;
 // assume 3m/s to start
 #define STARTUP_WIND_SPEED 3.0f
 
-// initial imu bias uncertainty (deg/sec)
-#define INIT_ACCEL_BIAS_UNCERTAINTY 0.5f
+#define INIT_ACCEL_BIAS_UNCERTAINTY 0.0f
 
 // maximum allowed gyro bias (rad/sec)
 #define GYRO_BIAS_LIMIT 0.5f
