@@ -252,6 +252,7 @@ void NavEKF2_core::InitialiseVariables()
     lastMagOffsetsValid = false;
     referenceYawAngle = 0.0f;
     posdAtLastYawReset = 0.0f;
+    testStep = 0;
 
     // zero data buffers
     storedIMU.reset();
@@ -434,10 +435,34 @@ void NavEKF2_core::UpdateFilter(bool predict)
 
     // Run the EKF equations to estimate at the fusion time horizon if new IMU data is available in the buffer
     if (runUpdates) {
-        bool dbgToggleNew = (AP_HAL::millis() > 30000 && (AP_HAL::millis()/30000)%2 == 0);
+        bool dbgToggleNew = (AP_HAL::millis() > 60000 && (AP_HAL::millis()/60000)%2 == 0);
         if (dbgToggleNew != dbgToggle) {
-            stateStruct.quat.rotate(Vector3f(radians(dbgToggleNew?5.0f:-5.0f),0.0f,0.0f));
-            stateStruct.quat.normalize();
+            if (++testStep > 11) {
+                testStep = 1;
+            }
+
+            ::printf("EKF2: test %u\n", testStep);
+            switch(testStep) {
+                case 1:
+                    stateStruct.quat.rotate(Vector3f(radians(0.0f),0.0f,radians(5.0f)));
+                    stateStruct.quat.normalize();
+                    break;
+                case 2:
+                    stateStruct.velocity.x += 1.0f;
+                    break;
+                case 3:
+                    stateStruct.velocity.z += 1.0f;
+                    break;
+                case 4:
+                    stateStruct.position.x += 1.0f;
+                    break;
+                case 5:
+                    stateStruct.position.z += 1.0f;
+                    break;
+                case 6:
+                    stateStruct.gyro_bias.z += radians(1.0f)*dtEkfAvg;
+                    break;
+            }
         }
         dbgToggle = dbgToggleNew;
 

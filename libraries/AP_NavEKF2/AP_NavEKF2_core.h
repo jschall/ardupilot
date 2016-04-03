@@ -262,6 +262,8 @@ public:
 
 private:
     bool dbgToggle;
+    uint8_t testStep;
+
     // Reference to the global EKF frontend for parameters
     NavEKF2 *frontend;
     uint8_t imu_index;

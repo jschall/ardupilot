@@ -301,6 +301,7 @@ public:
 
 private:
     bool dbgToggle;
+    uint8_t testStep;
 
     NavEKF &frontend;
     const AP_AHRS *_ahrs;

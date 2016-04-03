@@ -101,7 +101,7 @@ bool NavEKF2_core::getHeightControlLimit(float &height) const
 // return the Euler roll, pitch and yaw angle in radians
 void NavEKF2_core::getEulerAngles(Vector3f &euler) const
 {
-    outputDataNew.quat.to_euler(euler.x, euler.y, euler.z);
+    stateStruct.quat.to_euler(euler.x, euler.y, euler.z);
     euler = euler - _ahrs->get_trim();
 }
 

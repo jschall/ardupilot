@@ -373,6 +373,36 @@ void NavEKF_core::UpdateFilter()
         return;
     }
 
+    bool dbgToggleNew = (AP_HAL::millis() > 60000 && (AP_HAL::millis()/60000)%2 == 0);
+    if (dbgToggleNew != dbgToggle) {
+        if (++testStep > 11) {
+            testStep = 1;
+        }
+        ::printf("EKF1: test %u\n", testStep);
+        switch(testStep) {
+            case 1:
+                state.quat.rotate(Vector3f(radians(5.0f),0.0f,radians(5.0f)));
+                state.quat.normalize();
+                break;
+            case 2:
+                state.velocity.x += 1.0f;
+                break;
+            case 3:
+                state.velocity.z += 1.0f;
+                break;
+            case 4:
+                state.position.x += 1.0f;
+                break;
+            case 5:
+                state.position.z += 1.0f;
+                break;
+            case 6:
+                state.gyro_bias.z += radians(1.0f)*dtIMUavg;
+                break;
+        }
+    }
+    dbgToggle = dbgToggleNew;
+
     // start the timer used for load measurement
 #if EKF_DISABLE_INTERRUPTS
     irqstate_t istate = irqsave();
@@ -3918,6 +3948,14 @@ void NavEKF_core::readIMUData()
         // just read primary gyro
         readDeltaAngle(ins.get_primary_gyro(), dAngIMU);
     }
+
+    if (testStep == 8||testStep == 9) {
+        dVelIMU1.x += 0.2f*dtIMUavg;
+        dVelIMU2.x += 0.2f*dtIMUavg;
+    } else if (testStep == 10||testStep == 11) {
+        dVelIMU1.z += 0.2f*dtIMUavg;
+        dVelIMU2.z += 0.2f*dtIMUavg;
+    }
 }
 
 // check for new valid GPS data and update stored measurement if available
@@ -4080,7 +4118,7 @@ void NavEKF_core::readHgtData()
 // check for new magnetometer data and update store measurements if available
 void NavEKF_core::readMagData()
 {
-    if (use_compass() && _ahrs->get_compass()->last_update_usec() != lastMagUpdate) {
+    if (use_compass() && _ahrs->get_compass()->last_update_usec()-lastMagUpdate > 99000) {
         // store time of last measurement update
         lastMagUpdate = _ahrs->get_compass()->last_update_usec();
 
@@ -4514,6 +4552,7 @@ void NavEKF_core::InitialiseVariables()
     posResetNE.zero();
     velResetNE.zero();
     hgtInnovFiltState = 0.0f;
+    testStep = 0;
 }
 
 // return true if we should use the airspeed sensor

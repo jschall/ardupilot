@@ -155,7 +155,7 @@ void NavEKF2_core::readMagData()
 
     // do not accept new compass data faster than 14Hz (nominal rate is 10Hz) to prevent high processor loading
     // because magnetometer fusion is an expensive step and we could overflow the FIFO buffer
-    if (use_compass() && _ahrs->get_compass()->last_update_usec() - lastMagUpdate_us > 70000) {
+    if (use_compass() && _ahrs->get_compass()->last_update_usec() - lastMagUpdate_us > 99000) {
         // If the magnetometer has timed out (been rejected too long) we find another magnetometer to use if available
         // Don't do this if we are on the ground because there can be magnetic interference and we need to know if there is a problem
         // before taking off. Don't do this within the first 30 seconds from startup because the yaw error could be due to large yaw gyro bias affsets
@@ -262,6 +262,11 @@ void NavEKF2_core::readIMUData()
     // remove sensor bias errors
     imuDataNew.delAng -= stateStruct.gyro_bias * (imuDataNew.delAngDT / dtEkfAvg);
     imuDataNew.delVel.z -= stateStruct.accel_zbias * (imuDataNew.delVelDT / dtEkfAvg);
+    if (testStep == 8||testStep == 9) {
+        imuDataNew.delVel.x += 0.2f*dtEkfAvg;
+    } else if (testStep == 10||testStep == 11) {
+        imuDataNew.delVel.z += 0.2f*dtEkfAvg;
+    }
 
     // Accumulate the measurement time interval for the delta velocity and angle data
     imuDataDownSampledNew.delAngDT += imuDataNew.delAngDT;
