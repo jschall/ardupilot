@@ -68,6 +68,7 @@ public:
         uint32_t waiting_for_throw  : 1;    // 1 when copter is in THROW mode and waiting to detect the user hand launch
 
         uint32_t powering_off       : 1;    // 1 when the vehicle is powering off
+        uint32_t ch7_high           : 1;    // 1 when ch7 is high
     };
 
     /// notify_events_type - bitmask of active events.
