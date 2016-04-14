@@ -138,6 +138,7 @@ void Copter::read_aux_switches()
         // invoke the appropriate function
         do_aux_switch_function(g.ch7_option, aux_con.CH7_flag);
     }
+    AP_Notify::flags.ch7_high = aux_con.CH7_flag?1:0;
 
     // check if Ch8 switch has changed position
     switch_position = read_3pos_switch(g.rc_8.radio_in);
