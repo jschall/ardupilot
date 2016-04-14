@@ -91,7 +91,7 @@ void OreoLED_PX4::update()
         return;
     }
 
-    // slow rate from 50Hz to 10hz
+    // slow rate from 50Hz to 16.67hz
     counter++;
     if (counter < 5) {
         return;
@@ -100,13 +100,13 @@ void OreoLED_PX4::update()
 
     // move forward one step
     step++;
-    if (step >= 10) {
+    if (step >= 12) {
         step = 0;
     }
 
     // save trim and esc calibration pattern
     if (AP_Notify::flags.save_trim || AP_Notify::flags.esc_calibration) {
-        switch(step) {
+        switch(step%10) {
             case 0:
             case 3:
             case 6:
@@ -139,7 +139,7 @@ void OreoLED_PX4::update()
 
     // radio failsafe pattern: Alternate between front red/rear black and front black/rear red
     if (AP_Notify::flags.failsafe_radio) {
-        switch(step) {
+        switch(step%10) {
             case 0:
             case 1:
             case 2:
@@ -167,18 +167,76 @@ void OreoLED_PX4::update()
         return;
     }
 
+    if (_flags.ch7_high) {
+        switch(step%6) {
+            case 0:
+                // RED
+                set_rgb(OREOLED_FRONTLEFT, 255, 0, 0);
+                set_rgb(OREOLED_FRONTRIGHT, 255, 0, 0);
+                break;
+
+            case 1:
+                // OFF
+                set_rgb(OREOLED_FRONTLEFT, 0, 0, 0);
+                set_rgb(OREOLED_FRONTRIGHT, 0, 0, 0);
+                break;
+
+            case 2:
+                // RED
+                set_rgb(OREOLED_FRONTLEFT, 255, 0, 0);
+                set_rgb(OREOLED_FRONTRIGHT, 255, 0, 0);
+                break;
+
+            case 3:
+                // BLUE
+                set_rgb(OREOLED_FRONTLEFT, 0, 0, 255);
+                set_rgb(OREOLED_FRONTRIGHT, 0, 0, 255);
+                break;
+
+            case 4:
+                // OFF
+                set_rgb(OREOLED_FRONTLEFT, 0, 0, 0);
+                set_rgb(OREOLED_FRONTRIGHT, 0, 0, 0);
+                break;
+
+            case 5:
+                // BLUE
+                set_rgb(OREOLED_FRONTLEFT, 0, 0, 255);
+                set_rgb(OREOLED_FRONTRIGHT, 0, 0, 255);
+                break;
+
+            default:
+                break;
+        }
+
+        switch(step) {
+            case 9:
+            case 11:
+                set_rgb(OREOLED_BACKLEFT, 255,255,255);
+                set_rgb(OREOLED_BACKRIGHT, 255,255,255);
+                break;
+            default:
+                set_rgb(OREOLED_BACKLEFT, 255,0,0);
+                set_rgb(OREOLED_BACKRIGHT, 0,255,0);
+                break;
+        }
+    }
+
     static bool first_run = true;
-    if (AP_Notify::flags.autopilot_mode != _flags.autopilot_mode || first_run) {
-        if (AP_Notify::flags.autopilot_mode) {
-            // autopilot flight modes start breathing macro
-            set_macro(OREOLED_INSTANCE_ALL, OREOLED_PARAM_MACRO_AUTOMOBILE);
-            set_macro(OREOLED_INSTANCE_ALL, OREOLED_PARAM_MACRO_BREATH);
-        } else {
-            // manual flight modes stop breathing -- solid color
-            set_macro(OREOLED_INSTANCE_ALL, OREOLED_PARAM_MACRO_AUTOMOBILE);
+    if (AP_Notify::flags.autopilot_mode != _flags.autopilot_mode || AP_Notify::flags.ch7_high != _flags.ch7_high || first_run) {
+        if (!AP_Notify::flags.ch7_high) {
+            if (AP_Notify::flags.autopilot_mode) {
+                // autopilot flight modes start breathing macro
+                set_macro(OREOLED_INSTANCE_ALL, OREOLED_PARAM_MACRO_AUTOMOBILE);
+                set_macro(OREOLED_INSTANCE_ALL, OREOLED_PARAM_MACRO_BREATH);
+            } else {
+                // manual flight modes stop breathing -- solid color
+                set_macro(OREOLED_INSTANCE_ALL, OREOLED_PARAM_MACRO_AUTOMOBILE);
+            }
         }
 
         _flags.autopilot_mode = AP_Notify::flags.autopilot_mode;
+        _flags.ch7_high = AP_Notify::flags.ch7_high;
         first_run = false;
     }
 }

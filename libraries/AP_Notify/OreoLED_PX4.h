@@ -80,6 +80,7 @@ private:
 
     struct {
         uint8_t autopilot_mode : 1;
+        uint8_t ch7_high       : 1;
     } _flags;
 
     // private members
