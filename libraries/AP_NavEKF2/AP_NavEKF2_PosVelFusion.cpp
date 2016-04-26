@@ -87,8 +87,8 @@ void NavEKF2_core::ResetPosition(void)
         stateStruct.position.y = lastKnownPositionNE.y;
     } else if (!gpsNotAvailable) {
         // write to state vector and compensate for offset  between last GPs measurement and the EKF time horizon
-        stateStruct.position.x = gpsDataNew.pos.x  + 0.001f*gpsDataNew.vel.x*(float(imuDataDelayed.time_ms) - float(gpsDataNew.time_ms));
-        stateStruct.position.y = gpsDataNew.pos.y  + 0.001f*gpsDataNew.vel.y*(float(imuDataDelayed.time_ms) - float(gpsDataNew.time_ms));
+        stateStruct.position.x = gpsDataNew.pos.x  + 0.001f*gpsDataNew.vel.x*((float)(imuDataDelayed.time_ms-gpsDataNew.time_ms));
+        stateStruct.position.y = gpsDataNew.pos.y  + 0.001f*gpsDataNew.vel.y*((float)(imuDataDelayed.time_ms-gpsDataNew.time_ms));
     }
     for (uint8_t i=0; i<imu_buffer_length; i++) {
         storedOutput[i].position.x = stateStruct.position.x;
