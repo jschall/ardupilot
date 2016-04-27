@@ -626,7 +626,7 @@ private:
     Vector28 Kfusion;               // Kalman gain vector
     Matrix24 KH;                    // intermediate result used for covariance updates
     Matrix24 KHP;                   // intermediate result used for covariance updates
-    float SPP[66];
+    float PP_S[123];
     float nextP[300];
     Matrix24 P;                     // covariance matrix
     imu_ring_buffer_t<imu_elements> storedIMU;      // IMU data buffer
