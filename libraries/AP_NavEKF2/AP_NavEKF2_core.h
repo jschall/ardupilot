@@ -31,6 +31,10 @@
 #include <stdio.h>
 #include <AP_Math/vectorN.h>
 #include <AP_NavEKF2/AP_NavEKF2_Buffer.h>
+#include "ekf_defines.h"
+
+#define P_IDX(ROW,COL) ((COL-ROW)+EKF_NUM_STATES*ROW-ROW*(ROW-1)/2)
+#define P_IDX_DIAG(IDX) P_IDX(IDX,IDX)
 
 // GPS pre-flight check bit locations
 #define MASK_GPS_NSATS      (1<<0)
@@ -658,7 +662,6 @@ private:
     bool fusePosData;               // this boolean causes the posNE measurements to be fused
     bool fuseHgtData;               // this boolean causes the hgtMea measurements to be fused
     Vector3f innovMag;              // innovation output from fusion of X,Y,Z compass measurements
-    Vector3f varInnovMag;           // innovation variance output from fusion of X,Y,Z compass measurements
     ftype innovVtas;                // innovation output from fusion of airspeed measurements
     ftype varInnovVtas;             // innovation variance output from fusion of airspeed measurements
     bool magFusePerformed;          // boolean set to true when magnetometer fusion has been perfomred in that time step
@@ -693,7 +696,7 @@ private:
     float velTestRatio;             // sum of squares of GPS velocity innovation divided by fail threshold
     float posTestRatio;             // sum of squares of GPS position innovation divided by fail threshold
     float hgtTestRatio;             // sum of squares of baro height innovation divided by fail threshold
-    Vector3f magTestRatio;          // sum of squares of magnetometer innovations divided by fail threshold
+    Vector3f magTestRatio;             // sum of squares of magnetometer innovations divided by fail threshold
     float tasTestRatio;             // sum of squares of true airspeed innovation divided by fail threshold
     bool inhibitWindStates;         // true when wind states and covariances are to remain constant
     bool inhibitMagStates;          // true when magnetic field states and covariances are to remain constant
