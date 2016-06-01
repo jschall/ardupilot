@@ -60,6 +60,10 @@ bool Copter::set_home(const Location& loc, bool lock)
 
     // set ahrs home (used for RTL)
     ahrs.set_home(loc);
+    set_home_terrain_alt_cm(0,Location_Class::ALT_FRAME_ABOVE_HOME);
+
+    // set home terrain altitude
+    Location_Class(loc).get_alt_cm(Location_Class::ALT_FRAME_ABSOLUTE, home_terrain_alt_cm);
 
     // init inav and compass declination
     if (ap.home_state == HOME_UNSET) {
@@ -90,6 +94,13 @@ bool Copter::set_home(const Location& loc, bool lock)
 
     // return success
     return true;
+}
+
+// sets the assumed terrain altitude at home
+void Copter::set_home_terrain_alt_cm(int32_t alt, Location_Class::ALT_FRAME frame)
+{
+    // TODO need an altitude class
+    Location_Class(0, 0, alt, frame).get_alt_cm(Location_Class::ALT_FRAME_ABSOLUTE, home_terrain_alt_cm);
 }
 
 // far_from_EKF_origin - checks if a location is too far from the EKF origin

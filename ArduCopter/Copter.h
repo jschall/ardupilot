@@ -412,6 +412,7 @@ private:
     int32_t baro_alt;            // barometer altitude in cm above home
     float baro_climbrate;        // barometer climbrate in cm/s
     LowPassFilterVector3f land_accel_ef_filter; // accelerations for land and crash detector tests
+    int32_t home_terrain_alt_cm; // assumed terrain altitude at home
 
     // filtered pilot's throttle input used to cancel landing if throttle held high
     LowPassFilterFloat rc_throttle_control_in_filter;
@@ -696,6 +697,7 @@ private:
     bool set_home_to_current_location_with_origin_alt(bool lock);
     bool set_home_to_current_location(bool lock);
     bool set_home(const Location& loc, bool lock);
+    void set_home_terrain_alt_cm(int32_t alt, Location_Class::ALT_FRAME frame);
     bool far_from_EKF_origin(const Location& loc);
     void set_system_time_from_GPS();
     void exit_mission();

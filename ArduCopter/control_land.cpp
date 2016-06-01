@@ -241,18 +241,29 @@ float Copter::get_land_descent_speed()
 
     // get position controller's target altitude above terrain
     Location_Class target_loc = pos_control.get_pos_target();
-    int32_t target_alt_cm;
+    int32_t target_alt_above_terrain_cm;
 
-    // get altitude target above home by default
-    target_loc.get_alt_cm(Location_Class::ALT_FRAME_ABOVE_HOME, target_alt_cm);
+    // try to use terrain first
+    bool terrain_success = terrain_use() && target_loc.get_alt_cm(Location_Class::ALT_FRAME_ABOVE_TERRAIN, target_alt_above_terrain_cm);
+    if (!terrain_success) {
+        target_loc.get_alt_cm(Location_Class::ALT_FRAME_ABOVE_HOME, target_alt_above_terrain_cm);
 
-    // try to use terrain if enabled
-    if (terrain_use() && !target_loc.get_alt_cm(Location_Class::ALT_FRAME_ABOVE_TERRAIN, target_alt_cm)) {
-        Log_Write_Error(ERROR_SUBSYSTEM_TERRAIN, ERROR_CODE_MISSING_TERRAIN_DATA);
+        if (ap.home_state != HOME_UNSET) {
+            // if there is a home location set, assume terrain altitude is home_terrain_alt_cm
+            int32_t terrain_alt_home_relative_cm;
+            Location_Class loc(0, 0, home_terrain_alt_cm, Location_Class::ALT_FRAME_ABSOLUTE);
+            loc.get_alt_cm(Location_Class::ALT_FRAME_ABOVE_HOME, terrain_alt_home_relative_cm);
+
+            target_alt_above_terrain_cm -= home_terrain_alt_cm;
+        }
+
+        if (terrain_use()) {
+            Log_Write_Error(ERROR_SUBSYSTEM_TERRAIN, ERROR_CODE_MISSING_TERRAIN_DATA);
+        }
     }
 
     // if we are above 10m and the rangefinder does not sense anything perform regular alt hold descent
-    if ((target_alt_cm >= LAND_START_ALT) && !rangefinder_ok) {
+    if ((target_alt_above_terrain_cm >= LAND_START_ALT) && !rangefinder_ok) {
         if (g.land_speed_high > 0) {
             // user has asked for a different landing speed than normal descent rate
             return -abs(g.land_speed_high);
