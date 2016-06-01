@@ -1239,7 +1239,7 @@ void GCS_MAVLINK_Copter::handleMessage(mavlink_message_t* msg)
             // param7 : altitude (absolute)
             result = MAV_RESULT_FAILED; // assume failure
             if(is_equal(packet.param1,1.0f) || (is_zero(packet.param5) && is_zero(packet.param6) && is_zero(packet.param7))) {
-                if (copter.set_home_to_current_location_and_lock()) {
+                if (copter.set_home_to_current_location(true)) {
                     result = MAV_RESULT_ACCEPTED;
                 }
             } else {
@@ -1252,7 +1252,7 @@ void GCS_MAVLINK_Copter::handleMessage(mavlink_message_t* msg)
                 new_home_loc.lng = (int32_t)(packet.param6 * 1.0e7f);
                 new_home_loc.alt = (int32_t)(packet.param7 * 100.0f);
                 if (!copter.far_from_EKF_origin(new_home_loc)) {
-                    if (copter.set_home_and_lock(new_home_loc)) {
+                    if (copter.set_home(new_home_loc, true)) {
                         result = MAV_RESULT_ACCEPTED;
                     }
                 }
@@ -2019,7 +2019,7 @@ void GCS_MAVLINK_Copter::handleMessage(mavlink_message_t* msg)
         mavlink_set_home_position_t packet;
         mavlink_msg_set_home_position_decode(msg, &packet);
         if((packet.latitude == 0) && (packet.longitude == 0) && (packet.altitude == 0)) {
-            copter.set_home_to_current_location_and_lock();
+            copter.set_home_to_current_location(true);
         } else {
             // sanity check location
             if (labs(packet.latitude) > 90*10e7 || labs(packet.longitude) > 180 * 10e7) {
@@ -2032,7 +2032,7 @@ void GCS_MAVLINK_Copter::handleMessage(mavlink_message_t* msg)
             if (copter.far_from_EKF_origin(new_home_loc)) {
                 break;
             }
-            copter.set_home_and_lock(new_home_loc);
+            copter.set_home(new_home_loc, true);
         }
         break;
     }

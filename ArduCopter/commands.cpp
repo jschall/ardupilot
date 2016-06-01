@@ -19,51 +19,31 @@ void Copter::update_home_from_EKF()
 
     // special logic if home is set in-flight
     if (motors.armed()) {
-        set_home_to_current_location_inflight();
+        set_home_to_current_location_with_origin_alt(false);
     } else {
         // move home to current ekf location (this will set home_state to HOME_SET)
-        set_home_to_current_location();
+        set_home_to_current_location(false);
     }
 }
 
 // set_home_to_current_location_inflight - set home to current GPS location (horizontally) and EKF origin vertically
-void Copter::set_home_to_current_location_inflight() {
+bool Copter::set_home_to_current_location_with_origin_alt(bool lock) {
     // get current location from EKF
-    Location temp_loc;
-    if (inertial_nav.get_location(temp_loc)) {
+    Location curr_loc;
+    if (inertial_nav.get_location(curr_loc)) {
         const struct Location &ekf_origin = inertial_nav.get_origin();
-        temp_loc.alt = ekf_origin.alt;
-        set_home(temp_loc);
+        curr_loc.alt = ekf_origin.alt;
+        return set_home(curr_loc, lock);
     }
+    return false;
 }
 
-// set_home_to_current_location - set home to current GPS location
-bool Copter::set_home_to_current_location() {
+bool Copter::set_home_to_current_location(bool lock)
+{
     // get current location from EKF
-    Location temp_loc;
-    if (inertial_nav.get_location(temp_loc)) {
-        return set_home(temp_loc);
-    }
-    return false;
-}
-
-// set_home_to_current_location_and_lock - set home to current location and lock so it cannot be moved
-bool Copter::set_home_to_current_location_and_lock()
-{
-    if (set_home_to_current_location()) {
-        set_home_state(HOME_SET_AND_LOCKED);
-        return true;
-    }
-    return false;
-}
-
-// set_home_and_lock - sets ahrs home (used for RTL) to specified location and locks so it cannot be moved
-//  unless this function is called again
-bool Copter::set_home_and_lock(const Location& loc)
-{
-    if (set_home(loc)) {
-        set_home_state(HOME_SET_AND_LOCKED);
-        return true;
+    Location curr_loc;
+    if (inertial_nav.get_location(curr_loc)) {
+        return set_home(curr_loc, lock);
     }
     return false;
 }
@@ -71,7 +51,7 @@ bool Copter::set_home_and_lock(const Location& loc)
 // set_home - sets ahrs home (used for RTL) to specified location
 //  initialises inertial nav and compass on first call
 //  returns true if home location set successfully
-bool Copter::set_home(const Location& loc)
+bool Copter::set_home(const Location& loc, bool lock)
 {
     // check location is valid
     if (loc.lat == 0 && loc.lng == 0) {
@@ -89,8 +69,6 @@ bool Copter::set_home(const Location& loc)
         }
         // update navigation scalers.  used to offset the shrinking longitude as we go towards the poles
         scaleLongDown = longitude_scale(loc);
-        // record home is set
-        set_home_state(HOME_SET_NOT_LOCKED);
 
         // log new home position which mission library will pull from ahrs
         if (should_log(MASK_LOG_CMD)) {
@@ -100,6 +78,9 @@ bool Copter::set_home(const Location& loc)
             }
         }
     }
+
+    // record home is set
+    set_home_state(lock ? HOME_SET_AND_LOCKED : HOME_SET_NOT_LOCKED);
 
     // log ahrs home and ekf origin dataflash
     Log_Write_Home_And_Origin();
