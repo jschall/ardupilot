@@ -83,7 +83,7 @@ private:
     //  angles stored in _angle_to_target
     //  earth-frame angles stored in _ef_angle_to_target
     //  position estimate is stored in _target_pos
-    void calc_angles_and_pos(float alt_above_terrain_cm);
+    void run_estimation(float alt_above_terrain_cm);
 
     // returns enabled parameter as an behaviour
     enum PrecLandBehaviour get_behaviour() const { return (enum PrecLandBehaviour)(_enabled.get()); }

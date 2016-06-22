@@ -87,8 +87,17 @@ void AC_PrecLand::update(float alt_above_terrain_cm)
         // read from sensor
         _backend->update();
 
-        // calculate angles to target and position estimate
-        calc_angles_and_pos(alt_above_terrain_cm);
+        if (_backend->get_angle_to_target(_angle_to_target.x, _angle_to_target.y)) {
+            _angle_to_target.x = -_angle_to_target.x;
+            _angle_to_target.y = -_angle_to_target.y;
+
+            // compensate for delay
+            _angle_to_target.x -= _ahrs.get_gyro().x*4.0e-2f;
+            _angle_to_target.y -= _ahrs.get_gyro().y*4.0e-2f;
+
+            // calculate angles to target and position estimate
+            run_estimation(alt_above_terrain_cm);
+        }
     }
 }
 
@@ -126,55 +135,38 @@ bool AC_PrecLand::get_target_velocity_relative(Vector3f& ret)
 //  raw sensor angles stored in _angle_to_target (might be in earth frame, or maybe body frame)
 //  earth-frame angles stored in _ef_angle_to_target
 //  position estimate is stored in _target_pos
-void AC_PrecLand::calc_angles_and_pos(float alt_above_terrain_cm)
+void AC_PrecLand::run_estimation(float alt_above_terrain_cm)
 {
-    // exit immediately if not enabled
-    if (_backend == NULL) {
-        return;
-    }
-
-    // get angles to target from backend
-    if (!_backend->get_angle_to_target(_angle_to_target.x, _angle_to_target.y)) {
-        return;
-    }
-
-    _angle_to_target.x = -_angle_to_target.x;
-    _angle_to_target.y = -_angle_to_target.y;
-
-    // compensate for delay
-    _angle_to_target.x -= _ahrs.get_gyro().x*4.0e-2f;
-    _angle_to_target.y -= _ahrs.get_gyro().y*4.0e-2f;
-
-    Vector3f target_vec_ned;
+    Vector3f unit_vec_to_target_ned;
 
     if (_angle_to_target.is_zero()) {
-        target_vec_ned = Vector3f(0.0f,0.0f,1.0f);
+        unit_vec_to_target_ned = Vector3f(0.0f,0.0f,1.0f);
     } else {
         float theta = _angle_to_target.length();
         Vector3f axis = Vector3f(_angle_to_target.x, _angle_to_target.y, 0.0f)/theta;
         float sin_theta = sinf(theta);
         float cos_theta = cosf(theta);
 
-        target_vec_ned.x = axis.x*axis.z*(1.0f - cos_theta) + axis.y*sin_theta;
-        target_vec_ned.y = axis.y*axis.z*(1.0f - cos_theta) - axis.x*sin_theta;
-        target_vec_ned.z = cos_theta + sq(axis.z)*(1.0f-cos_theta);
+        unit_vec_to_target_ned.x = axis.x*axis.z*(1.0f - cos_theta) + axis.y*sin_theta;
+        unit_vec_to_target_ned.y = axis.y*axis.z*(1.0f - cos_theta) - axis.x*sin_theta;
+        unit_vec_to_target_ned.z = cos_theta + sq(axis.z)*(1.0f-cos_theta);
     }
 
     // rotate into NED frame
-    target_vec_ned = _ahrs.get_rotation_body_to_ned()*target_vec_ned;
+    unit_vec_to_target_ned = _ahrs.get_rotation_body_to_ned()*unit_vec_to_target_ned;
 
     // extract the angles to target (logging only)
-    _ef_angle_to_target.x = atan2f(target_vec_ned.z,target_vec_ned.x);
-    _ef_angle_to_target.y = atan2f(target_vec_ned.z,target_vec_ned.y);
+    _ef_angle_to_target.x = atan2f(unit_vec_to_target_ned.z,unit_vec_to_target_ned.x);
+    _ef_angle_to_target.y = atan2f(unit_vec_to_target_ned.z,unit_vec_to_target_ned.y);
 
     // ensure that the angle to target is no more than 70 degrees
-    if (target_vec_ned.z > 0.26f) {
+    if (unit_vec_to_target_ned.z > 0.26f) {
         // get current altitude (constrained to be positive)
         float alt = MAX(alt_above_terrain_cm, 0.0f);
-        float dist = alt/target_vec_ned.z;
+        float dist = alt/unit_vec_to_target_ned.z;
         //
-        _target_pos_rel.x = target_vec_ned.x*dist;
-        _target_pos_rel.y = target_vec_ned.y*dist;
+        _target_pos_rel.x = unit_vec_to_target_ned.x*dist;
+        _target_pos_rel.y = unit_vec_to_target_ned.y*dist;
         _target_pos_rel.z = alt;  // not used
         _target_pos = _inav.get_position()+_target_pos_rel;
 
