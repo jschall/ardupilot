@@ -147,9 +147,9 @@ void AC_PrecLand::run_estimation(float alt_above_terrain_cm)
         float sin_theta = sinf(theta);
         float cos_theta = cosf(theta);
 
-        unit_vec_to_target_ned.x = axis.x*axis.z*(1.0f - cos_theta) + axis.y*sin_theta;
-        unit_vec_to_target_ned.y = axis.y*axis.z*(1.0f - cos_theta) - axis.x*sin_theta;
-        unit_vec_to_target_ned.z = cos_theta + sq(axis.z)*(1.0f-cos_theta);
+        unit_vec_to_target_ned.x = axis.y*sin_theta;
+        unit_vec_to_target_ned.y = axis.x*sin_theta;
+        unit_vec_to_target_ned.z = cos_theta;
     }
 
     // rotate into NED frame
