@@ -87,6 +87,21 @@ void AC_PrecLand::update(float alt_above_terrain_cm)
         // read from sensor
         _backend->update();
 
+        if (target_acquired()) {
+            _land_ekf.predict((1.0f/400.0f), (_ahrs.get_accel_ef()+Vector3f(0.0f,0.0f,GRAVITY_MSS))*(1.0f/400.0f));
+
+            Vector3f vel = _inav.get_velocity()*0.01f;
+            vel.z = -vel.z;
+
+            nav_filter_status ekf_status = _inav.get_filter_status();
+            if (ekf_status.flags.horiz_pos_rel) {
+                _land_ekf.prepFuseVelNE(Vector2f(vel.x,vel.y));
+                _land_ekf.commitOperation();
+            }
+            _land_ekf.prepFuseVelD(vel.z);
+            _land_ekf.commitOperation();
+        }
+
         if (_backend->get_angle_to_target(_angle_to_target.x, _angle_to_target.y)) {
             _angle_to_target.x = -_angle_to_target.x;
             _angle_to_target.y = -_angle_to_target.y;
@@ -97,6 +112,16 @@ void AC_PrecLand::update(float alt_above_terrain_cm)
 
             // calculate angles to target and position estimate
             run_estimation(alt_above_terrain_cm);
+        }
+
+        if (target_acquired()) {
+            _land_ekf.getTargetPosition(_target_pos_rel);
+            _target_pos_rel *= 100.0f;
+            _target_pos_rel.z = -_target_pos_rel.z;
+            _target_pos = _inav.get_position()+_target_pos_rel;
+            _land_ekf.getTargetVelocity(_target_vel_rel);
+            _target_vel_rel *= 100.0f;
+            _target_vel_rel.z = -_target_vel_rel.z;
         }
     }
 }
@@ -128,7 +153,12 @@ bool AC_PrecLand::get_target_position_relative(Vector3f& ret)
 
 bool AC_PrecLand::get_target_velocity_relative(Vector3f& ret)
 {
-    return false;
+    if (!target_acquired()) {
+        return false;
+    }
+
+    ret = _target_vel_rel;
+    return true;
 }
 
 // converts sensor's body-frame angles to earth-frame angles and position estimate
@@ -137,41 +167,18 @@ bool AC_PrecLand::get_target_velocity_relative(Vector3f& ret)
 //  position estimate is stored in _target_pos
 void AC_PrecLand::run_estimation(float alt_above_terrain_cm)
 {
-    Vector3f unit_vec_to_target_ned;
-
-    if (_angle_to_target.is_zero()) {
-        unit_vec_to_target_ned = Vector3f(0.0f,0.0f,1.0f);
+    Vector3f vel = _inav.get_velocity()*0.01f;
+    vel.z = -vel.z;
+    if (!target_acquired()) {
+        _land_ekf.initialize(_ahrs.get_rotation_body_to_ned(), _angle_to_target, alt_above_terrain_cm*0.01f, vel);
     } else {
-        float theta = _angle_to_target.length();
-        Vector3f axis = Vector3f(_angle_to_target.x, _angle_to_target.y, 0.0f)/theta;
-        float sin_theta = sinf(theta);
-        float cos_theta = cosf(theta);
-
-        unit_vec_to_target_ned.x = axis.y*sin_theta;
-        unit_vec_to_target_ned.y = axis.x*sin_theta;
-        unit_vec_to_target_ned.z = cos_theta;
+        // TODO check NIS values before fusing measurements
+        _land_ekf.prepFuseAngle(_ahrs.get_rotation_body_to_ned(), _angle_to_target);
+        _land_ekf.commitOperation();
+        _land_ekf.prepFuseHeight(alt_above_terrain_cm*0.01f);
+        _land_ekf.commitOperation();
     }
-
-    // rotate into NED frame
-    unit_vec_to_target_ned = _ahrs.get_rotation_body_to_ned()*unit_vec_to_target_ned;
-
-    // extract the angles to target (logging only)
-    _ef_angle_to_target.x = atan2f(unit_vec_to_target_ned.z,unit_vec_to_target_ned.x);
-    _ef_angle_to_target.y = atan2f(unit_vec_to_target_ned.z,unit_vec_to_target_ned.y);
-
-    // ensure that the angle to target is no more than 70 degrees
-    if (unit_vec_to_target_ned.z > 0.26f) {
-        // get current altitude (constrained to be positive)
-        float alt = MAX(alt_above_terrain_cm, 0.0f);
-        float dist = alt/unit_vec_to_target_ned.z;
-        //
-        _target_pos_rel.x = unit_vec_to_target_ned.x*dist;
-        _target_pos_rel.y = unit_vec_to_target_ned.y*dist;
-        _target_pos_rel.z = alt;  // not used
-        _target_pos = _inav.get_position()+_target_pos_rel;
-
-        _last_update_ms = AP_HAL::millis();
-    }
+    _last_update_ms = AP_HAL::millis();
 }
 
 // handle_msg - Process a LANDING_TARGET mavlink message
