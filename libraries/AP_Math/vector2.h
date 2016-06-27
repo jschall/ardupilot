@@ -92,6 +92,22 @@ struct Vector2
     // cross product
     T operator %(const Vector2<T> &v) const;
 
+    T & operator[](uint8_t i) {
+        T *_v = &x;
+        #if MATH_CHECK_INDEXES
+        assert(i >= 0 && i < 3);
+        #endif
+        return _v[i];
+    }
+
+    const T & operator[](uint8_t i) const {
+        const T *_v = &x;
+        #if MATH_CHECK_INDEXES
+        assert(i >= 0 && i < 3);
+        #endif
+        return _v[i];
+    }
+
     // computes the angle between this vector and another vector
     float angle(const Vector2<T> &v2) const;
 
