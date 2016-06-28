@@ -57,6 +57,7 @@ bool AP_IRLock_PX4::update()
     // read position of all objects
     struct irlock_s report;
     uint16_t count = 0;
+    bool have_new_data = false;
     while(::read(_fd, &report, sizeof(struct irlock_s)) == sizeof(struct irlock_s) && report.timestamp >_last_timestamp) {
         _target_info[count].timestamp = report.timestamp;
         _target_info[count].target_num = report.target_num;
@@ -67,6 +68,7 @@ bool AP_IRLock_PX4::update()
         count++;
         _last_timestamp = report.timestamp;
         _last_update = AP_HAL::millis();
+        have_new_data = true;
     }
 
     // update num_blocks and implement timeout
@@ -77,7 +79,7 @@ bool AP_IRLock_PX4::update()
     }
 
     // return true if new data found
-    return (_num_targets > 0);
+    return have_new_data;
 }
 
 #endif // CONFIG_HAL_BOARD == HAL_BOARD_PX4
