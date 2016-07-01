@@ -5,6 +5,8 @@
 #include "AC_PrecLand_Companion.h"
 #include "AC_PrecLand_IRLock.h"
 
+#include <stdio.h>
+
 extern const AP_HAL::HAL& hal;
 
 const AP_Param::GroupInfo AC_PrecLand::var_info[] = {
@@ -101,14 +103,22 @@ void AC_PrecLand::update(float alt_above_terrain_cm)
             _land_ekf.prepFuseVelD(vel.z);
             _land_ekf.commitOperation();
         }
-
+        
         if (_backend->get_angle_to_target(_angle_to_target.x, _angle_to_target.y)) {
-            _angle_to_target.x = -_angle_to_target.x;
+            _angle_to_target.x = _angle_to_target.x;
             _angle_to_target.y = -_angle_to_target.y;
 
             // compensate for delay
             _angle_to_target.x -= _ahrs.get_gyro().x*4.0e-2f;
             _angle_to_target.y -= _ahrs.get_gyro().y*4.0e-2f;
+
+            _updates_since_last_print++;
+
+            if (AP_HAL::millis()-_last_print_ms > 500) {
+                hal.console->printf("%.1f %.1f %.2f %u\n", degrees(_angle_to_target.x), degrees(_angle_to_target.y), alt_above_terrain_cm*0.01f, _updates_since_last_print);
+                _last_print_ms = AP_HAL::millis();
+                _updates_since_last_print = 0;
+            }
 
             // calculate angles to target and position estimate
             run_estimation(alt_above_terrain_cm);
@@ -169,15 +179,15 @@ void AC_PrecLand::run_estimation(float alt_above_terrain_cm)
 {
     Vector3f vel = _inav.get_velocity()*0.01f;
     vel.z = -vel.z;
-    if (!target_acquired()) {
+    //if (!target_acquired()) {
         _land_ekf.initialize(_ahrs.get_rotation_body_to_ned(), _angle_to_target, alt_above_terrain_cm*0.01f, vel);
-    } else {
+    /*} else {
         // TODO check NIS values before fusing measurements
         _land_ekf.prepFuseAngle(_ahrs.get_rotation_body_to_ned(), _angle_to_target);
         _land_ekf.commitOperation();
         _land_ekf.prepFuseHeight(alt_above_terrain_cm*0.01f);
         _land_ekf.commitOperation();
-    }
+    }*/
     _last_update_ms = AP_HAL::millis();
 }
 

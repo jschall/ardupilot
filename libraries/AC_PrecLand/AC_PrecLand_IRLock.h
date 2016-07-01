@@ -41,6 +41,6 @@ public:
 
 private:
     AP_IRLock_PX4 irlock;
-
+    uint32_t _last_update_ms;
 };
 #endif

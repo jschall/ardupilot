@@ -98,6 +98,8 @@ private:
     AP_Int8                     _type;              // precision landing controller type
 
     uint32_t                    _last_update_ms;      // epoch time in millisecond when update is called
+    uint32_t _last_print_ms;
+    uint32_t _updates_since_last_print;
 
     // output from sensor (stored for logging)
     Vector2f                    _angle_to_target;   // last raw sensor angle to target

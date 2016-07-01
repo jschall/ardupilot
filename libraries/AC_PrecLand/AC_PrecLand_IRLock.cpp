@@ -36,7 +36,12 @@ bool AC_PrecLand_IRLock::update()
 //  y_angle_rad : body-frame pitch direction, postiive = target is forward (looking down)
 bool AC_PrecLand_IRLock::get_angle_to_target(float &x_angle_rad, float &y_angle_rad)
 {
-    return irlock.get_angle_to_target(x_angle_rad, y_angle_rad);
+    uint32_t update_ms = irlock.last_update();
+    if (update_ms != _last_update_ms) {
+        _last_update_ms = update_ms;
+        return irlock.get_angle_to_target(x_angle_rad, y_angle_rad);
+    }
+    return false;
 }
 
 #endif // PX4
