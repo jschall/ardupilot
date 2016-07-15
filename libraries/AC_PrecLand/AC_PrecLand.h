@@ -6,6 +6,7 @@
 #include <AP_InertialNav/AP_InertialNav.h>
 #include <GCS_MAVLink/GCS_MAVLink.h>
 #include <stdint.h>
+#include "VelEKF.h"
 
 // declare backend classes
 class AC_PrecLand_Backend;
@@ -48,7 +49,7 @@ public:
     uint32_t last_update_ms() { return _last_update_ms; }
 
     // give chance to driver to get updates from sensor
-    void update(float alt_above_terrain_cm);
+    void update(float alt_above_terrain_cm, bool alt_from_rangefinder);
 
     // returns 3D vector of earth-frame position adjustments to target
     Vector3f get_target_shift(const Vector3f& orig_target);
@@ -83,7 +84,7 @@ private:
     //  angles stored in _angle_to_target
     //  earth-frame angles stored in _ef_angle_to_target
     //  position estimate is stored in _target_pos
-    void calc_angles_and_pos(const Vector3f& target_vec_unit_body, float alt_above_terrain_cm);
+    bool calc_angles_and_pos(const Vector3f& target_vec_unit_body, float alt_above_terrain_cm);
 
     // returns enabled parameter as an behaviour
     enum PrecLandBehaviour get_behaviour() const { return (enum PrecLandBehaviour)(_enabled.get()); }
@@ -98,6 +99,7 @@ private:
 
     uint32_t                    _last_update_ms;      // epoch time in millisecond when update is called
     uint32_t                    _last_backend_los_meas_ms;
+    uint32_t                    _outlier_reject_count;
 
     // output from sensor (stored for logging)
     Vector2f                    _angle_to_target;   // last raw sensor angle to target
@@ -106,6 +108,11 @@ private:
     // estimator output
     Vector3f                    _target_pos_rel;    // estimate target position relative to vehicle in NEU cm
     Vector3f                    _target_pos;        // estimate target position in NEU cm
+    Vector3f                    _target_vel_rel;    // estimate target velocity relative to vehicle in NEU cm/s
+
+    VelEKF                      _vel_ekf_x, _vel_ekf_y;
+
+    bool _using_rangefinder;
 
     // backend state
     struct precland_state {
