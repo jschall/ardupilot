@@ -262,6 +262,7 @@ void Copter::fast_loop()
     // Inertial Nav
     // --------------------
     read_inertia();
+    pos_control.set_vehicle_velocity(inertial_nav.get_velocity());
 
     // check if ekf has reset target heading
     check_ekf_yaw_reset();
