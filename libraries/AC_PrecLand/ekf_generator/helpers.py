@@ -1,0 +1,264 @@
+from sympy import *
+import math
+import itertools
+import datetime
+
+def toVec(*args):
+    ret = Matrix([Matrix([x]) for x in args]).vec()
+    return ret
+
+def skew(_v):
+    v = toVec(_v)
+    assert v.rows == 3
+
+    return Matrix([
+        [0, -v[2], v[1]],
+        [v[2], 0, -v[0]],
+        [-v[1], v[0], 0]
+    ])
+
+def vec_norm(_v):
+    v = toVec(_v)
+    return sqrt(sum([x**2 for x in v]))
+
+def rot_vec_to_quat(_v):
+    v = toVec(_v)
+    assert v.rows == 3
+
+    theta = sqrt(v[0]**2+v[1]**2+v[2]**2)
+    axis = v/theta
+    return toVec(cos(theta/2.), sin(theta/2.) * axis[0], sin(theta/2.) * axis[1], sin(theta/2.) * axis[2])
+
+def rot_vec_to_quat_approx(_v):
+    v = toVec(_v)
+    assert v.rows == 3
+
+    return toVec(1,v*0.5)
+
+def quat_to_ef_yaw_matrix(_q):
+    q = toVec(_q)
+    assert q.rows == 4
+
+    sin_theta = 2*(q[0]*q[3] + q[1]*q[2])
+    cos_theta = 1-2*(q[2]**2+q[3]**2)
+
+    return Matrix([
+        [ cos_theta, -sin_theta,          0],
+        [ sin_theta,  cos_theta,          0],
+        [         0,          0,          1]
+    ])
+
+def quat_to_rot_vec_approx(_q):
+    q = toVec(_q)
+    assert q.rows == 4
+
+    return 2.*toVec(q[1],q[2],q[3])
+
+def quat_rotate_approx(_q, _v):
+    return quat_multiply(_q,rot_vec_to_quat_approx(_v))
+
+def quat_to_rot_vec(_q):
+    q = toVec(_q)
+    assert q.rows == 4
+
+    theta = 2.*acos(q[0])
+    axis = toVec(q[1],q[2],q[3])/sqrt(q[1]**2+q[2]**2+q[3]**2)
+
+    return theta*axis
+
+def quat_inverse(_q):
+    q = toVec(_q)
+    assert q.rows == 4
+
+    q[1] = -q[1]
+    q[2] = -q[2]
+    q[3] = -q[3]
+    return q
+
+def quat_multiply(_q1, _q2):
+    q1 = toVec(_q1)
+    q2 = toVec(_q2)
+    assert q1.rows == 4 and q2.rows == 4
+
+    return toVec(q1[0]*q2[0] - q1[1]*q2[1] - q1[2]*q2[2] - q1[3]*q2[3],
+                 q1[0]*q2[1] + q1[1]*q2[0] + q1[2]*q2[3] - q1[3]*q2[2],
+                 q1[0]*q2[2] - q1[1]*q2[3] + q1[2]*q2[0] + q1[3]*q2[1],
+                 q1[0]*q2[3] + q1[1]*q2[2] - q1[2]*q2[1] + q1[3]*q2[0])
+
+def quat_normalize(_q):
+    q = toVec(_q)
+    assert q.rows == 4
+
+    return q/sqrt(q[0]**2+q[1]**2+q[2]**2+q[3]**2)
+
+def quat_to_matrix(_q):
+    q = toVec(_q)
+    assert q.rows == 4
+
+    return (q[0]**2-(q[1:,0].T*q[1:,0])[0])*eye(3) + 2.*(q[1:,0]*q[1:,0].T) + 2.*q[0]*skew(q[1:,0])
+
+def rot_vec_to_matrix(_v):
+    v = toVec(_v)
+    assert v.rows == 3
+
+    theta = sqrt(v[0]**2+v[1]**2+v[2]**2)
+    axis = v/theta
+    return eye(3)*cos(theta)+(1-cos(theta))*axis*axis.T+skew(axis)*sin(theta)
+
+def Ry(theta):
+    return Matrix([[cos(theta), 0, sin(theta)],[0,1,0],[-sin(theta),0,cos(theta)]])
+
+def Rz(theta):
+    return Matrix([[cos(theta), -sin(theta), 0],[sin(theta),cos(theta),0],[0,0,1]])
+
+def polarInvToNED(posPolarInv):
+    posPolarInvSym = toVec(symbols('_pos_polar_inv[0:3]'))
+    return simplify(toVec(Rz(posPolarInvSym[0])*Ry(posPolarInvSym[1])*toVec(1.,0.,0.)/posPolarInvSym[2])).xreplace(dict(list(zip(posPolarInvSym, posPolarInv))))
+
+def NEDToPolarInv(posNED):
+    posNEDSym = toVec(symbols('_pos_ned[0:3]'))
+
+    return simplify(toVec(atan2(posNEDSym[1], posNEDSym[0]), atan2(-posNEDSym[2], vec_norm((posNEDSym[0],posNEDSym[1]))), 1/vec_norm(posNEDSym))).xreplace(dict(list(zip(posNEDSym, posNED))))
+
+def polarInvDerivToVelNED(velPolarInv, posPolarInv):
+    t = Symbol('_t')
+    velPolarInvSym = toVec(symbols('_vel_polar_inv[0:3]'))
+    posPolarInvSym = toVec(symbols('_pos_polar_inv[0:3]'))
+
+    return simplify(polarInvToNED(posPolarInvSym+velPolarInvSym*t).diff(t).subs(t,0)).xreplace(dict(list(zip(toVec(velPolarInvSym, posPolarInvSym), toVec(velPolarInv, posPolarInv)))))
+
+def velNEDToPolarInvDeriv(velNED, posPolarInv):
+    t = Symbol('_t')
+
+    velNEDSym = toVec(symbols('_vel_ned[0:3]'))
+    posPolarInvSym = toVec(symbols('_pos_polar_inv[0:3]'))
+
+    return simplify(NEDToPolarInv(polarInvToNED(posPolarInvSym)+velNEDSym*t).diff(t).subs(t,0)).xreplace(dict(list(zip(toVec(velNEDSym, posPolarInvSym), toVec(velNED, posPolarInv)))))
+
+
+def quickinv_sym(M):
+    assert isinstance(M,MatrixBase) and M.rows == M.cols
+    n = M.rows
+    A = Matrix(n,n,symbols('_X[0:%u][0:%u]' % (n,n)))
+    A = copy_upper_to_lower_offdiagonals(A)
+    B = Matrix(simplify(A.inv()))
+    return B.xreplace(dict(list(zip(A,M))))
+
+def zero_lower_offdiagonals(M):
+    assert isinstance(M,MatrixBase) and M.rows == M.cols
+
+    ret = M[:,:]
+
+    for r in range(ret.rows):
+        for c in range(ret.cols):
+            if r > c:
+                ret[r,c] = 0
+    return ret
+
+def copy_upper_to_lower_offdiagonals(M):
+    assert isinstance(M,MatrixBase) and M.rows == M.cols
+
+    ret = M[:,:]
+
+    for r in range(ret.rows):
+        for c in range(ret.cols):
+            if r > c:
+                ret[r,c] = ret[c,r]
+    return ret
+
+def average_upper_lower_offdiagonals(M):
+    assert isinstance(M,MatrixBase) and M.rows == M.cols
+
+    n = M.rows
+
+    ret = zeros(n)
+
+    for r in range(n):
+        for c in range(n):
+            if r == c:
+                ret[r,c] = M[r,c]
+            else:
+                ret[r,c] = M[r,c]*0.5+M[c,r]*0.5
+
+    return ret
+
+def count_subexpression(subexpr, expr):
+    if hasattr(expr, "__getitem__"):
+        return sum([count_subexpression(subexpr, x) for x in expr])
+    else:
+        return expr.count(subexpr)
+
+def extractSubexpressions(inexprs, prefix='X', threshold=0, prev_subx=[]):
+    subexprs, outexprs = cse(inexprs, symbols=numbered_symbols('__TMP__'), order='none')
+
+    subexprs = prev_subx+subexprs
+
+    for i in reversed(list(range(len(subexprs)))):
+        from sympy.logic.boolalg import Boolean
+        ops_saved = (count_subexpression(subexprs[i][0], [[x[1] for x in subexprs], outexprs])-1)*subexprs[i][1].count_ops()
+        if ops_saved < threshold or isinstance(subexprs[i][1], Boolean):
+            sub = dict([subexprs.pop(i)])
+            subexprs = [(x[0],x[1].xreplace(sub)) for x in subexprs]
+            outexprs = [x.xreplace(sub) for x in outexprs]
+
+    for i in range(len(subexprs)):
+        newSym = Symbol('%s[%u]' % (prefix,i+len(prev_subx)))
+        sub = {subexprs[i][0]:newSym}
+        subexprs[i] = (newSym,subexprs[i][1])
+        subexprs = [(x[0],x[1].xreplace(sub)) for x in subexprs]
+        outexprs = [x.xreplace(sub) for x in outexprs]
+
+    outexprs = [Matrix(x) if type(x) is ImmutableDenseMatrix else x for x in outexprs]
+
+    return tuple(outexprs+[subexprs])
+
+def serialize_exprs_in_structure(obj):
+    if isinstance(obj, dict):
+        return {k: serialize_exprs_in_structure(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [serialize_exprs_in_structure(x) for x in obj]
+    else:
+        return srepr(obj)
+
+def deserialize_exprs_in_structure(obj):
+    if isinstance(obj, dict):
+        return {k: deserialize_exprs_in_structure(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [deserialize_exprs_in_structure(x) for x in obj]
+    else:
+        return sympify(obj)
+
+def loadExprsFromJSON(fname):
+    with open(fname, 'r') as f:
+        import json
+        return json.load(f)
+
+def saveExprsToJSON(fname, input_dict):
+    with open(fname, 'w') as f:
+        f.truncate()
+        import json
+        json.dump(input_dict, f)
+
+def upperTriangularToVec(M):
+    assert M.rows == M.cols
+
+    N = M.rows
+    r = lambda k: int(math.floor((2*N+1-math.sqrt((2*N+1)*(2*N+1)-8*k))/2))
+    c = lambda k: int(k - N*r(k) + r(k)*(r(k)-1)/2 + r(k))
+
+    return toVec([M[r(k),c(k)] for k in range(int((N**2-N)/2+N))])
+
+def listSymbols(expr):
+    if hasattr(expr, "__getitem__"):
+        return set([item for sublist in [listSymbols(x) for x in expr] for item in sublist])
+    else:
+        return expr.atoms(Symbol)
+
+def check_funcs(funcs):
+    for v in list(funcs.values()):
+        insymbols = listSymbols(list(v['params'].values()))
+        if 'retsymbols' in v:
+            insymbols = insymbols.union(listSymbols(v['retsymbols']))
+        funcsymbols = listSymbols(v['ret'])
+        straysymbols = funcsymbols-insymbols
+        assert not straysymbols, 'stray symbols: %s' % (str(straysymbols),)

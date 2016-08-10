@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include "PosVelEKF.h"
 #include <AP_Buffer/AP_Buffer.h>
+#include "ekf_defines.h"
 
 // declare backend classes
 class AC_PrecLand_Backend;
@@ -46,9 +47,6 @@ public:
     // returns true if precision landing is healthy
     bool healthy() const { return _backend_state.healthy; }
 
-    // returns time of last update
-    uint32_t last_update_ms() const { return _last_update_ms; }
-
     // give chance to driver to get updates from sensor
     void update(float rangefinder_alt_cm, bool rangefinder_alt_valid);
 
@@ -77,6 +75,18 @@ private:
     // returns enabled parameter as an behaviour
     enum PrecLandBehaviour get_behaviour() const { return (enum PrecLandBehaviour)(_enabled.get()); }
 
+    void update_target_acquired();
+    Vector2f retrieve_cam_meas();
+    void plekf_check_nan();
+    void plekf_reset();
+    void plekf_get_target_pos_vel(Vector3f& pos, Vector3f& vel);
+    void plekf_init();
+    void plekf_predict();
+    void plekf_fuseCam();
+    void plekf_fuseVertVel();
+    void plekf_fuseHorizVel();
+    void plekf_fuseRange();
+
     // references to inertial nav and ahrs libraries
     const AP_AHRS&              _ahrs;
     const AP_InertialNav&       _inav;
@@ -85,14 +95,37 @@ private:
     AP_Int8                     _enabled;           // enabled/disabled and behaviour
     AP_Int8                     _type;              // precision landing controller type
     AP_Float                    _yaw_align;         // sensor yaw alignment
+    AP_Vector3f                 _camera_ofs_cm;     // sensor position relative to IMU in body frame
+    AP_Float                    _land_ofs_cm_x;     // desired landing position of the camera forward of the target
+    AP_Float                    _land_ofs_cm_y;     // desired landing position of the camera right of the target
 
-    uint32_t                    _last_update_ms;      // epoch time in millisecond when update is called
-    uint32_t                    _last_backend_los_meas_ms;
+    uint32_t                    _last_cam_meas_ms;
+    uint32_t                    _ekf_timeout_begin_ms;
+    uint32_t                    _target_acquired_timeout_begin_ms;
 
-    PosVelEKF                   _ekf_x, _ekf_y;
-    uint32_t                    _outlier_reject_count;
-    
-    AP_Buffer<Matrix3f,8>       _attitude_history;
+    Vector3f                    _target_pos_est;
+    Vector3f                    _target_vel_est;
+
+    struct inertial_data_s {
+        Matrix3f Tbn;
+        Vector3f delVelNED;
+        float dt;
+    };
+    AP_Buffer<struct inertial_data_s,9>       _inertial_history;
+
+    float _next_state[EKF_NUM_STATES];
+    float _state[EKF_NUM_STATES];
+    float _cov[(EKF_NUM_STATES*EKF_NUM_STATES-EKF_NUM_STATES)/2+EKF_NUM_STATES];
+    float _next_cov[(EKF_NUM_STATES*EKF_NUM_STATES-EKF_NUM_STATES)/2+EKF_NUM_STATES];
+    float _subx[EKF_MAX_NUM_SUBX];
+
+    bool _ekf_running;
+    bool _target_acquired;
+    uint8_t _cam_reject_count;
+
+    float _rangefinder_height_m;
+    bool _rangefinder_height_valid;
+    uint8_t _fuse_step;
 
     // backend state
     struct precland_state {

@@ -31,6 +31,49 @@ const AP_Param::GroupInfo AC_PrecLand::var_info[] = {
     // @Units: Centi-degrees
     AP_GROUPINFO("YAW_ALIGN",    2, AC_PrecLand, _yaw_align, 0),
 
+    // @Param: CAM_OFS_X
+    // @DisplayName: Sensor offset forward
+    // @Description: Sensor offset forward from IMU
+    // @Range: -50 50
+    // @Increment: 1
+    // @User: Advanced
+    // @Units: Centimeters
+
+    // @Param: CAM_OFS_Y
+    // @DisplayName: Sensor offset right
+    // @Description: Sensor offset right from IMU
+    // @Range: -50 50
+    // @Increment: 1
+    // @User: Advanced
+    // @Units: Centimeters
+
+    // @Param: CAM_OFS_Z
+    // @DisplayName: Sensor offset down
+    // @Description: Sensor offset down from IMU
+    // @Range: -50 50
+    // @Increment: 1
+    // @User: Advanced
+    // @Units: Centimeters
+    AP_GROUPINFO("CAM_OFS", 3, AC_PrecLand, _camera_ofs_cm, 0),
+
+    // @Param: CAM_OFS_X
+    // @DisplayName: Land offset forward
+    // @Description: Desired landing position of the camera forward of the target in vehicle body frame
+    // @Range: -20 20
+    // @Increment: 1
+    // @User: Advanced
+    // @Units: Centimeters
+    AP_GROUPINFO("LAND_OFS_X",    4, AC_PrecLand, _land_ofs_cm_x, 0),
+
+    // @Param: CAM_OFS_Y
+    // @DisplayName: Land offset right
+    // @Description: desired landing position of the camera right of the target in vehicle body frame
+    // @Range: -20 20
+    // @Increment: 1
+    // @User: Advanced
+    // @Units: Centimeters
+    AP_GROUPINFO("LAND_OFS_Y",    5, AC_PrecLand, _land_ofs_cm_y, 0),
+
     AP_GROUPEND
 };
 
@@ -41,8 +84,9 @@ const AP_Param::GroupInfo AC_PrecLand::var_info[] = {
 AC_PrecLand::AC_PrecLand(const AP_AHRS& ahrs, const AP_InertialNav& inav) :
     _ahrs(ahrs),
     _inav(inav),
-    _last_update_ms(0),
-    _last_backend_los_meas_ms(0),
+    _last_cam_meas_ms(0),
+    _ekf_running(false),
+    _target_acquired(false),
     _backend(NULL)
 {
     // set parameters to defaults
@@ -90,87 +134,317 @@ void AC_PrecLand::init()
 }
 
 // update - give chance to driver to get updates from sensor
+// currently at ~200 micros worst-case
 void AC_PrecLand::update(float rangefinder_alt_cm, bool rangefinder_alt_valid)
 {
-    _attitude_history.push_back(_ahrs.get_rotation_body_to_ned());
-    
+    _rangefinder_height_m = rangefinder_alt_cm*0.01f;
+    _rangefinder_height_valid = rangefinder_alt_valid;
+
     // run backend update
     if (_backend != NULL && _enabled) {
         // read from sensor
         _backend->update();
 
-        Vector3f vehicleVelocityNED = _inav.get_velocity()*0.01f;
-        vehicleVelocityNED.z = -vehicleVelocityNED.z;
-
-        if (target_acquired()) {
-            // EKF prediction step
-            float dt = _ahrs.get_ins().get_delta_velocity_dt();
-            Vector3f targetDelVel;
-            _ahrs.get_ins().get_delta_velocity(targetDelVel);
-            targetDelVel = _ahrs.get_rotation_body_to_ned() * _ahrs.get_rotation_autopilot_body_to_vehicle_body() * targetDelVel;
-            targetDelVel.z += GRAVITY_MSS*dt;
-            targetDelVel = -targetDelVel;
-
-            _ekf_x.predict(dt, targetDelVel.x, 0.5f*dt);
-            _ekf_y.predict(dt, targetDelVel.y, 0.5f*dt);
-
-            if (_inav.get_filter_status().flags.horiz_pos_rel) {
-                _ekf_x.fuseVel(-vehicleVelocityNED.x, sq(1.0f));
-                _ekf_y.fuseVel(-vehicleVelocityNED.y, sq(1.0f));
-            }
+        if (_ekf_running) {
+            plekf_predict();
         }
 
-        if (_backend->have_los_meas() && _backend->los_meas_time_ms() != _last_backend_los_meas_ms) {
+        bool new_cam_meas = _backend->have_los_meas() && _backend->los_meas_time_ms() != _last_cam_meas_ms;
+        if (new_cam_meas) {
             // we have a new, unique los measurement
-            _last_backend_los_meas_ms = _backend->los_meas_time_ms();
+            if (!_ekf_running && _inertial_history.is_full()) {
+                plekf_init();
+                _ekf_running = true;
+            } else {
+                plekf_fuseCam();
+            }
 
-            Vector3f target_vec_unit_sensor;
-            _backend->get_los_body(target_vec_unit_sensor);
+            _last_cam_meas_ms = _backend->los_meas_time_ms();
+        }
 
-            float sin_theta = sinf(radians(_yaw_align*0.01f));
-            float cos_theta = cosf(radians(_yaw_align*0.01f));
-            Vector3f target_vec_unit_body = Vector3f(cos_theta*target_vec_unit_sensor.x - sin_theta*target_vec_unit_sensor.y, sin_theta*target_vec_unit_sensor.x + cos_theta*target_vec_unit_sensor.y, target_vec_unit_sensor.z);
-
-            Vector3f target_vec_unit_ned = _attitude_history.front()*target_vec_unit_body;
-
-            bool target_vec_valid = target_vec_unit_ned.z > 0.0f;
-
-            if (target_vec_valid && rangefinder_alt_valid && rangefinder_alt_cm > 0.0f) {
-                float alt = MAX(rangefinder_alt_cm*0.01f, 0.0f);
-                float dist = alt/target_vec_unit_ned.z;
-                Vector3f targetPosRelMeasNED = Vector3f(target_vec_unit_ned.x*dist, target_vec_unit_ned.y*dist, alt);
-
-                float xy_pos_var = sq(targetPosRelMeasNED.z*(0.01f + 0.01f*_ahrs.get_gyro().length()) + 0.02f);
-                if (!target_acquired()) {
-                    // reset filter state
-                    if (_inav.get_filter_status().flags.horiz_pos_rel) {
-                        _ekf_x.init(targetPosRelMeasNED.x, xy_pos_var, -vehicleVelocityNED.x, sq(1.0f));
-                        _ekf_y.init(targetPosRelMeasNED.y, xy_pos_var, -vehicleVelocityNED.y, sq(1.0f));
-                    } else {
-                        _ekf_x.init(targetPosRelMeasNED.x, xy_pos_var, 0.0f, sq(10.0f));
-                        _ekf_y.init(targetPosRelMeasNED.y, xy_pos_var, 0.0f, sq(10.0f));
-                    }
-                    _last_update_ms = AP_HAL::millis();
-                } else {
-                    float NIS_x = _ekf_x.getPosNIS(targetPosRelMeasNED.x, xy_pos_var);
-                    float NIS_y = _ekf_y.getPosNIS(targetPosRelMeasNED.y, xy_pos_var);
-                    if (MAX(NIS_x, NIS_y) < 3.0f || _outlier_reject_count >= 3) {
-                        _outlier_reject_count = 0;
-                        _ekf_x.fusePos(targetPosRelMeasNED.x, xy_pos_var);
-                        _ekf_y.fusePos(targetPosRelMeasNED.y, xy_pos_var);
-                        _last_update_ms = AP_HAL::millis();
-                    } else {
-                        _outlier_reject_count++;
-                    }
+        if (_ekf_running) {
+            // simple load balancing on fusion
+            // don't fuse more than one measurement per timestep
+            if (!new_cam_meas) {
+                // fuse these measurements at ~50hz
+                _fuse_step = (_fuse_step+1)%8;
+                switch(_fuse_step) {
+                    case 0:
+                        plekf_fuseVertVel();
+                        break;
+                    case 1:
+                        if (_inav.get_filter_status().flags.horiz_pos_rel) {
+                            plekf_fuseHorizVel();
+                        }
+                        break;
+                    case 2:
+                        if (_rangefinder_height_valid) {
+                            plekf_fuseRange();
+                        }
+                        break;
                 }
             }
         }
+    }
+
+    plekf_check_nan();
+    update_target_acquired();
+
+    if (target_acquired()) {
+        _ekf_timeout_begin_ms = AP_HAL::millis();
+    } else if (_ekf_running && AP_HAL::millis() - _ekf_timeout_begin_ms > 3000) {
+        plekf_reset();
+    }
+
+    // insert inertial data into _inertial_history
+    // doing this last means we need one less element
+    float dt;
+    Vector3f delVelNED;
+    _ahrs.getCorrectedDeltaVelocityNED(delVelNED, dt);
+    struct inertial_data_s inertial_data {_ahrs.get_rotation_body_to_ned(), delVelNED, dt};
+    _inertial_history.push_back(inertial_data);
+
+    if (_ekf_running) {
+        // retrieve state from ekf and predict forward
+        // this removes the delay introduced by _inertial_history
+        plekf_get_target_pos_vel(_target_pos_est, _target_vel_est);
+        for (uint8_t i=0; i<_inertial_history.size(); i++) {
+            const struct inertial_data_s& buf_el = _inertial_history.peek(i);
+            _target_pos_est += _target_vel_est*buf_el.dt;
+            _target_vel_est -= buf_el.delVelNED;
+        }
+
+        // Convert from IMU-relative target position to camera-relative landing position
+        _target_pos_est += _ahrs.get_rotation_body_to_ned()*(Vector3f(_land_ofs_cm_x,_land_ofs_cm_y,0) - _camera_ofs_cm)*0.01f;
+    }
+}
+
+Vector2f AC_PrecLand::retrieve_cam_meas()
+{
+    Vector3f target_vec_unit_sensor;
+    _backend->get_los_body(target_vec_unit_sensor);
+
+    float sin_theta = sinf(radians(_yaw_align*0.01f));
+    float cos_theta = cosf(radians(_yaw_align*0.01f));
+
+    Vector2f ret;
+    ret.x = cos_theta*target_vec_unit_sensor.x - sin_theta*target_vec_unit_sensor.y;
+    ret.y = sin_theta*target_vec_unit_sensor.x + cos_theta*target_vec_unit_sensor.y;
+    ret /= target_vec_unit_sensor.z;
+
+    return ret;
+}
+
+void AC_PrecLand::plekf_check_nan()
+{
+    // check for nan and inf
+    for (uint8_t i=0; i<EKF_NUM_STATES; i++) {
+        if (isnan(_state[i]) || isinf(_state[i])) {
+            plekf_reset();
+            return;
+        }
+    }
+    for (uint8_t i=0; i<(EKF_NUM_STATES*EKF_NUM_STATES-EKF_NUM_STATES)/2+EKF_NUM_STATES; i++) {
+        if (isnan(_cov[i]) || isinf(_cov[i])) {
+            plekf_reset();
+            return;
+        }
+    }
+}
+
+void AC_PrecLand::plekf_reset()
+{
+    _ekf_running = false;
+    _target_acquired = false;
+
+    memset(_state,0,sizeof(_state));
+    memset(_cov,0,sizeof(_cov));
+}
+
+void AC_PrecLand::plekf_init()
+{
+    const Matrix3f& Tbn = _inertial_history.front().Tbn;
+    Vector2f cam_meas = retrieve_cam_meas();
+    float cam_meas_R[3];
+    Vector3f vel;
+    Vector3f vel_R;
+    float height;
+    float height_R;
+
+    if (_rangefinder_height_valid) {
+        height = _rangefinder_height_m;
+        height_R = sq(3.0f);
+    } else {
+        height = 10.0f;
+        height_R = sq(height);
+    }
+
+    if (_inav.get_filter_status().flags.horiz_pos_rel) {
+        vel = _inav.get_velocity()*0.01f;
+        vel.z = -vel.z;
+        vel_R = Vector3f(sq(1.0f), sq(1.0f), sq(1.0f));
+    } else {
+        vel = Vector3f(0.0f, 0.0f, -_inav.get_velocity().z*0.01f);
+        vel_R = Vector3f(sq(4.0f), sq(4.0f), sq(1.0f));
+    }
+
+    // compute camera covariance matrix
+    EKF_CAMERAR_CALC_SUBX(_ahrs.get_gyro(), cam_meas, _subx)
+    EKF_CAMERAR_CALC_R(_ahrs.get_gyro(), _subx, cam_meas, cam_meas_R)
+
+    EKF_INITIALIZATION_CALC_SUBX(Tbn, cam_meas, cam_meas_R, height, height_R, vel, vel_R, _subx)
+    EKF_INITIALIZATION_CALC_STATE(Tbn, cam_meas, cam_meas_R, height, height_R, _subx, vel, vel_R, _next_state)
+    EKF_INITIALIZATION_CALC_COV(Tbn, cam_meas, cam_meas_R, height, height_R, _subx, vel, vel_R, _next_cov)
+
+    memcpy(_state, _next_state, sizeof(_state));
+    memcpy(_cov, _next_cov, sizeof(_cov));
+
+    _cam_reject_count = 0;
+    _ekf_timeout_begin_ms = AP_HAL::millis();
+}
+
+void AC_PrecLand::plekf_predict()
+{
+    const struct inertial_data_s& inertial_data = _inertial_history.front();
+    float dt = inertial_data.dt;
+    Vector3f u = inertial_data.delVelNED;
+    Vector3f w_u_sigma = Vector3f(0.4f*dt, 0.4f*dt, 0.2f*dt);
+
+    EKF_PREDICTION_CALC_SUBX(_cov, dt, u, w_u_sigma, _state, _subx)
+    EKF_PREDICTION_CALC_STATE(_cov, dt, _subx, u, w_u_sigma, _state, _next_state)
+    EKF_PREDICTION_CALC_COV(_cov, dt, _subx, u, w_u_sigma, _state, _next_cov)
+
+    // constrain states
+    _next_state[EKF_STATE_IDX_PT_D] = constrain_float(_next_state[EKF_STATE_IDX_PT_D], 1.0f/100.0f, 1.0f/0.01f);
+    _next_state[EKF_STATE_IDX_PT_N] = constrain_float(_next_state[EKF_STATE_IDX_PT_N], -10.0f * _next_state[2], 10.0f * _next_state[2]);
+    _next_state[EKF_STATE_IDX_PT_E] = constrain_float(_next_state[EKF_STATE_IDX_PT_E], -10.0f * _next_state[2], 10.0f * _next_state[2]);
+    _next_state[EKF_STATE_IDX_VT_N] = constrain_float(_next_state[EKF_STATE_IDX_VT_N], -50.0f, 50.0f);
+    _next_state[EKF_STATE_IDX_VT_E] = constrain_float(_next_state[EKF_STATE_IDX_VT_E], -50.0f, 50.0f);
+    _next_state[EKF_STATE_IDX_VT_D] = constrain_float(_next_state[EKF_STATE_IDX_VT_D], -50.0f, 50.0f);
+
+    memcpy(_state, _next_state, sizeof(_state));
+    memcpy(_cov, _next_cov, sizeof(_cov));
+}
+
+void AC_PrecLand::plekf_fuseCam()
+{
+    Vector3f cam_ofs_m = _camera_ofs_cm.get()*0.01f;
+    Vector2f cam_meas = retrieve_cam_meas();
+    float cam_meas_R[3];
+
+    // compute camera covariance matrix
+    EKF_CAMERAR_CALC_SUBX(_ahrs.get_gyro(), cam_meas, _subx)
+    EKF_CAMERAR_CALC_R(_ahrs.get_gyro(), _subx, cam_meas, cam_meas_R)
+
+    float NIS;
+    const Matrix3f& Tbn = _inertial_history.front().Tbn;
+
+    EKF_CAMERA_CALC_SUBX(_cov, cam_meas_R, Tbn, cam_ofs_m, _state, cam_meas, _subx)
+    EKF_CAMERA_CALC_NIS(_cov, cam_meas_R, Tbn, cam_ofs_m, _subx, _state, cam_meas, NIS)
+
+    if (NIS < 5.0f) {
+        EKF_CAMERA_CALC_STATE(_cov, cam_meas_R, Tbn, cam_ofs_m, _subx, _state, cam_meas, _next_state)
+        EKF_CAMERA_CALC_COV(_cov, cam_meas_R, Tbn, cam_ofs_m, _subx, _state, cam_meas, _next_cov)
+
+        memcpy(_state, _next_state, sizeof(_state));
+        memcpy(_cov, _next_cov, sizeof(_cov));
+
+        _cam_reject_count = 0;
+    } else {
+        _cam_reject_count += 1;
+        if (_cam_reject_count > 25) {
+            plekf_init();
+        }
+    }
+}
+
+void AC_PrecLand::plekf_fuseVertVel()
+{
+    float z = -_inav.get_velocity().z*0.01f;
+    float R = sq(1.0f);
+
+    float NIS;
+
+    EKF_VELD_CALC_SUBX(_cov, R, _state, z, _subx)
+    EKF_VELD_CALC_NIS(_cov, R, _subx, _state, z, NIS)
+
+    if (NIS < 3.0f) {
+        EKF_VELD_CALC_STATE(_cov, R, _subx, _state, z, _next_state)
+        EKF_VELD_CALC_COV(_cov, R, _subx, _state, z, _next_cov)
+
+        memcpy(_state, _next_state, sizeof(_state));
+        memcpy(_cov, _next_cov, sizeof(_cov));
+    }
+}
+
+void AC_PrecLand::plekf_fuseHorizVel()
+{
+    Vector2f z = Vector2f(_inav.get_velocity().x*0.01f, _inav.get_velocity().y*0.01f);
+    float R = sq(1.0f);
+
+    float NIS;
+
+    EKF_VELNE_CALC_SUBX(_cov, R, _state, z, _subx)
+    EKF_VELNE_CALC_NIS(_cov, R, _subx, _state, z, NIS)
+    if (NIS < 3.0f) {
+        EKF_VELNE_CALC_STATE(_cov, R, _subx, _state, z, _next_state)
+        EKF_VELNE_CALC_COV(_cov, R, _subx, _state, z, _next_cov)
+
+        memcpy(_state, _next_state, sizeof(_state));
+        memcpy(_cov, _next_cov, sizeof(_cov));
+    }
+}
+
+void AC_PrecLand::plekf_fuseRange()
+{
+    float z = _rangefinder_height_m;
+    float R = sq(3.0f);
+    float NIS;
+    EKF_HEIGHT_CALC_SUBX(_cov, R, _state, z, _subx)
+    EKF_HEIGHT_CALC_NIS(_cov, R, _subx, _state, z, NIS)
+
+    if (NIS < 1.0f) {
+        EKF_HEIGHT_CALC_STATE(_cov, R, _subx, _state, z, _next_state)
+        EKF_HEIGHT_CALC_COV(_cov, R, _subx, _state, z, _next_cov)
+
+        memcpy(_state, _next_state, sizeof(_state));
+        memcpy(_cov, _next_cov, sizeof(_cov));
+    }
+}
+
+void AC_PrecLand::plekf_get_target_pos_vel(Vector3f& pos, Vector3f& vel)
+{
+    pos.x = _state[EKF_STATE_IDX_PT_N];
+    pos.y = _state[EKF_STATE_IDX_PT_E];
+    pos.z = _state[EKF_STATE_IDX_PT_D];
+
+    vel.x = _state[EKF_STATE_IDX_VT_N];
+    vel.y = _state[EKF_STATE_IDX_VT_E];
+    vel.z = _state[EKF_STATE_IDX_VT_D];
+}
+
+void AC_PrecLand::update_target_acquired()
+{
+    float horiz_pos_var = _cov[0]+_cov[6];
+    float horiz_vel_var = _cov[15]+_cov[18];
+
+    // require 5cm to 50cm of accuracy, dependent on estimated height
+    float tolerance_required = 0.05f*constrain_float(_state[EKF_STATE_IDX_PT_D], 1.0f, 10.0f);
+
+    bool reject = !_ekf_running || (AP_HAL::millis()-_target_acquired_timeout_begin_ms > 1000);
+    bool accept = _ekf_running && horiz_pos_var < sq(tolerance_required) && horiz_vel_var < sq(tolerance_required);
+
+    if (_target_acquired && reject) {
+        _target_acquired = false;
+    } else if (accept) {
+        _target_acquired = true;
+        _target_acquired_timeout_begin_ms = AP_HAL::millis();
     }
 }
 
 bool AC_PrecLand::target_acquired() const
 {
-    return (AP_HAL::millis()-_last_update_ms) < 2000;
+    return _target_acquired;
 }
 
 bool AC_PrecLand::get_target_position_cm(Vector2f& ret) const
@@ -179,8 +453,8 @@ bool AC_PrecLand::get_target_position_cm(Vector2f& ret) const
         return false;
     }
 
-    ret.x = _ekf_x.getPos()*100.0f + _inav.get_position().x;
-    ret.y = _ekf_y.getPos()*100.0f + _inav.get_position().y;
+    ret.x = _target_pos_est.x*100.0f + _inav.get_position().x;
+    ret.y = _target_pos_est.y*100.0f + _inav.get_position().y;
     return true;
 }
 
@@ -190,8 +464,8 @@ bool AC_PrecLand::get_target_position_relative_cm(Vector2f& ret) const
         return false;
     }
 
-    ret.x = _ekf_x.getPos()*100.0f;
-    ret.y = _ekf_y.getPos()*100.0f;
+    ret.x = _target_pos_est.x*100.0f;
+    ret.y = _target_pos_est.y*100.0f;
     return true;
 }
 
@@ -200,8 +474,8 @@ bool AC_PrecLand::get_target_velocity_relative_cms(Vector2f& ret) const
     if (!target_acquired()) {
         return false;
     }
-    ret.x = _ekf_x.getVel()*100.0f;
-    ret.y = _ekf_y.getVel()*100.0f;
+    ret.x = _target_vel_est.x*100.0f;
+    ret.y = _target_vel_est.x*100.0f;
     return true;
 }
 
