@@ -682,6 +682,17 @@ int8_t NavEKF2::getPrimaryCoreIndex(void) const
     return primary;
 }
 
+// returns the index of the IMU that the primary core is using
+// return -1 if no primary core selected
+int8_t NavEKF2::getPrimaryCoreIMUIndex(void) const
+{
+    if (!core) {
+        return -1;
+    }
+
+    return core[primary].getIMUIndex();
+}
+
 // Write the last calculated NE position relative to the reference point (m).
 // If a calculated solution is not available, use the best available data and return false
 // If false returned, do not use for flight control
