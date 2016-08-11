@@ -128,6 +128,9 @@ public:
         return get_accel_ef(_ins.get_primary_accel());
     };
 
+    // Retrieves the corrected NED delta velocity in use by the inertial navigation
+    void getCorrectedDeltaVelocityNED(Vector3f& ret, float& dt) const;
+
     // blended accelerometer values in the earth frame in m/s/s
     const Vector3f &get_accel_ef_blended(void) const;
 
