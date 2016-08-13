@@ -102,7 +102,7 @@ const AP_Scheduler::Task Copter::scheduler_tasks[] = {
     SCHED_TASK(compass_accumulate,   100,    100),
     SCHED_TASK(barometer_accumulate,  50,     90),
 #if PRECISION_LANDING == ENABLED
-    SCHED_TASK(update_precland,      400,     50),
+    SCHED_TASK(update_precland,      400,    300),
 #endif
 #if FRAME_CONFIG == HELI_FRAME
     SCHED_TASK(check_dynamic_flight,  50,     75),
