@@ -4,6 +4,7 @@
 #include "AC_PrecLand_Backend.h"
 #include "AC_PrecLand_Companion.h"
 #include "AC_PrecLand_IRLock.h"
+#include <DataFlash/DataFlash.h>
 
 extern const AP_HAL::HAL& hal;
 
@@ -155,6 +156,16 @@ void AC_PrecLand::update(float rangefinder_alt_cm, bool rangefinder_alt_valid)
             if (!_ekf_running && _inertial_history.is_full()) {
                 plekf_init();
                 _ekf_running = true;
+
+                // log innovations to assert that they are starting at zero
+                plekf_fuseCam(true);
+                plekf_fuseVertVel(true);
+                if (_inav.get_filter_status().flags.horiz_pos_rel) {
+                    plekf_fuseHorizVel(true);
+                }
+                if (_rangefinder_height_valid) {
+                    plekf_fuseRange(true);
+                }
             } else {
                 plekf_fuseCam();
             }
@@ -315,18 +326,20 @@ void AC_PrecLand::plekf_predict()
     EKF_PREDICTION_CALC_COV(_cov, dt, _subx, u, w_u_sigma, _state, _next_cov)
 
     // constrain states
-    _next_state[EKF_STATE_IDX_PT_D] = constrain_float(_next_state[EKF_STATE_IDX_PT_D], 1.0f/100.0f, 1.0f/0.01f);
-    _next_state[EKF_STATE_IDX_PT_N] = constrain_float(_next_state[EKF_STATE_IDX_PT_N], -10.0f * _next_state[2], 10.0f * _next_state[2]);
-    _next_state[EKF_STATE_IDX_PT_E] = constrain_float(_next_state[EKF_STATE_IDX_PT_E], -10.0f * _next_state[2], 10.0f * _next_state[2]);
+    _next_state[EKF_STATE_IDX_PT_D] = constrain_float(_next_state[EKF_STATE_IDX_PT_D], 0.05f, 100.0f);
+    _next_state[EKF_STATE_IDX_PT_N] = constrain_float(_next_state[EKF_STATE_IDX_PT_N], -10.0f * _next_state[EKF_STATE_IDX_PT_D], 10.0f * _next_state[EKF_STATE_IDX_PT_D]);
+    _next_state[EKF_STATE_IDX_PT_E] = constrain_float(_next_state[EKF_STATE_IDX_PT_E], -10.0f * _next_state[EKF_STATE_IDX_PT_D], 10.0f * _next_state[EKF_STATE_IDX_PT_D]);
     _next_state[EKF_STATE_IDX_VT_N] = constrain_float(_next_state[EKF_STATE_IDX_VT_N], -50.0f, 50.0f);
     _next_state[EKF_STATE_IDX_VT_E] = constrain_float(_next_state[EKF_STATE_IDX_VT_E], -50.0f, 50.0f);
     _next_state[EKF_STATE_IDX_VT_D] = constrain_float(_next_state[EKF_STATE_IDX_VT_D], -50.0f, 50.0f);
 
     memcpy(_state, _next_state, sizeof(_state));
     memcpy(_cov, _next_cov, sizeof(_cov));
+
+    DataFlash_Class::instance()->Log_Write("PLP", "TimeUS,TAcq,PTN,PTE,PTD,VTN,VTE,VTD", "QBffffff", AP_HAL::micros64(), _target_acquired, _state[EKF_STATE_IDX_PT_N], _state[EKF_STATE_IDX_PT_E], _state[EKF_STATE_IDX_PT_D], _state[EKF_STATE_IDX_VT_N], _state[EKF_STATE_IDX_VT_E], _state[EKF_STATE_IDX_VT_D]);
 }
 
-void AC_PrecLand::plekf_fuseCam()
+void AC_PrecLand::plekf_fuseCam(bool log_only)
 {
     Vector3f cam_ofs_m = _camera_ofs_cm.get()*0.01f;
     Vector2f cam_meas = retrieve_cam_meas();
@@ -337,79 +350,100 @@ void AC_PrecLand::plekf_fuseCam()
     EKF_CAMERAR_CALC_R(_ahrs.get_gyro(), _subx, cam_meas, cam_meas_R)
 
     float NIS;
+    float innov[2];
     const Matrix3f& Tbn = _inertial_history.front().Tbn;
 
     EKF_CAMERA_CALC_SUBX(_cov, cam_meas_R, Tbn, cam_ofs_m, _state, cam_meas, _subx)
     EKF_CAMERA_CALC_NIS(_cov, cam_meas_R, Tbn, cam_ofs_m, _subx, _state, cam_meas, NIS)
+    EKF_CAMERA_CALC_INNOV(_cov, cam_meas_R, Tbn, cam_ofs_m, _subx, _state, cam_meas, innov)
 
-    if (NIS < 5.0f) {
-        EKF_CAMERA_CALC_STATE(_cov, cam_meas_R, Tbn, cam_ofs_m, _subx, _state, cam_meas, _next_state)
-        EKF_CAMERA_CALC_COV(_cov, cam_meas_R, Tbn, cam_ofs_m, _subx, _state, cam_meas, _next_cov)
+    if (!log_only) {
+        if (NIS < 5.0f) {
+            EKF_CAMERA_CALC_STATE(_cov, cam_meas_R, Tbn, cam_ofs_m, _subx, _state, cam_meas, _next_state)
+            EKF_CAMERA_CALC_COV(_cov, cam_meas_R, Tbn, cam_ofs_m, _subx, _state, cam_meas, _next_cov)
 
-        memcpy(_state, _next_state, sizeof(_state));
-        memcpy(_cov, _next_cov, sizeof(_cov));
+            memcpy(_state, _next_state, sizeof(_state));
+            memcpy(_cov, _next_cov, sizeof(_cov));
 
-        _cam_reject_count = 0;
-    } else {
-        _cam_reject_count += 1;
-        if (_cam_reject_count > 25) {
-            plekf_init();
+            _cam_reject_count = 0;
+        } else {
+            _cam_reject_count += 1;
+            if (_cam_reject_count > 25) {
+                plekf_init();
+            }
         }
     }
+
+    DataFlash_Class::instance()->Log_Write(log_only ? "PLIFC" : "PLFC", "TimeUS,CNIS,ICX,ICY", "Qfff", AP_HAL::micros64(), NIS, innov[0], innov[1]);
 }
 
-void AC_PrecLand::plekf_fuseVertVel()
+void AC_PrecLand::plekf_fuseVertVel(bool log_only)
 {
     float z = -_inav.get_velocity().z*0.01f;
     float R = sq(1.0f);
 
     float NIS;
+    float innov;
 
     EKF_VELD_CALC_SUBX(_cov, R, _state, z, _subx)
     EKF_VELD_CALC_NIS(_cov, R, _subx, _state, z, NIS)
+    EKF_VELD_CALC_INNOV(_cov, R, _subx, _state, z, innov)
 
-    if (NIS < 3.0f) {
+    if (!log_only && NIS < 3.0f) {
         EKF_VELD_CALC_STATE(_cov, R, _subx, _state, z, _next_state)
         EKF_VELD_CALC_COV(_cov, R, _subx, _state, z, _next_cov)
 
         memcpy(_state, _next_state, sizeof(_state));
         memcpy(_cov, _next_cov, sizeof(_cov));
     }
+
+    DataFlash_Class::instance()->Log_Write(log_only ? "PLIFVV" : "PLFVV", "TimeUS,VVNIS,IVD", "Qff", AP_HAL::micros64(), NIS, innov);
 }
 
-void AC_PrecLand::plekf_fuseHorizVel()
+void AC_PrecLand::plekf_fuseHorizVel(bool log_only)
 {
     Vector2f z = Vector2f(_inav.get_velocity().x*0.01f, _inav.get_velocity().y*0.01f);
     float R = sq(1.0f);
 
     float NIS;
+    float innov[2];
 
     EKF_VELNE_CALC_SUBX(_cov, R, _state, z, _subx)
     EKF_VELNE_CALC_NIS(_cov, R, _subx, _state, z, NIS)
-    if (NIS < 3.0f) {
+    EKF_VELNE_CALC_INNOV(_cov, R, _subx, _state, z, innov)
+
+    if (!log_only && NIS < 3.0f) {
         EKF_VELNE_CALC_STATE(_cov, R, _subx, _state, z, _next_state)
         EKF_VELNE_CALC_COV(_cov, R, _subx, _state, z, _next_cov)
 
         memcpy(_state, _next_state, sizeof(_state));
         memcpy(_cov, _next_cov, sizeof(_cov));
     }
+
+    DataFlash_Class::instance()->Log_Write(log_only ? "PLIFHV" : "PLFHV", "TimeUS,HVNIS,IVN,IVE", "Qfff", AP_HAL::micros64(), NIS, innov[0], innov[1]);
 }
 
-void AC_PrecLand::plekf_fuseRange()
+void AC_PrecLand::plekf_fuseRange(bool log_only)
 {
     float z = _rangefinder_height_m;
     float R = sq(3.0f);
+
     float NIS;
+    float innov;
+
     EKF_HEIGHT_CALC_SUBX(_cov, R, _state, z, _subx)
     EKF_HEIGHT_CALC_NIS(_cov, R, _subx, _state, z, NIS)
+    EKF_HEIGHT_CALC_INNOV(_cov, R, _subx, _state, z, innov)
 
-    if (NIS < 1.0f) {
+    if (!log_only && NIS < 1.0f) {
         EKF_HEIGHT_CALC_STATE(_cov, R, _subx, _state, z, _next_state)
         EKF_HEIGHT_CALC_COV(_cov, R, _subx, _state, z, _next_cov)
 
         memcpy(_state, _next_state, sizeof(_state));
         memcpy(_cov, _next_cov, sizeof(_cov));
     }
+
+    DataFlash_Class::instance()->Log_Write(log_only ? "PLIFH" : "PLFH", "TimeUS,HNIS,IH", "Qff", AP_HAL::micros64(), NIS, innov);
 }
 
 void AC_PrecLand::plekf_get_target_pos_vel(Vector3f& pos, Vector3f& vel)

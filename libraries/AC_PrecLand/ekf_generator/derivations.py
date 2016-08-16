@@ -45,7 +45,6 @@ targetDist = Symbol("target_dist")
 vehicleDeltaVelocityNED = toVec(symbols('dvv_n dvv_e dvv_d'))
 
 # States
-# Parameterization: Target position is encoded as posNED = normalize(p_n, p_e, 1)/range_inv, and inverse range.
 targetPosNED = toVec(symbols('pt_n pt_e pt_d'))
 targetVelNED = toVec(symbols('vt_n vt_e vt_d'))
 stateVector = toVec(targetPosNED, targetVelNED)
@@ -273,7 +272,7 @@ def deriveCameraRObs(jsonfile):
 
 def deriveCameraFusion(jsonfile):
     targetPosBody = Tbn.T*targetPosNED - cameraOffset
-    measPred = toVec(targetPosBody[0]/targetPosBody[2], targetPosBody[1]/targetPosBody[2])
+    measPred = targetPosBody[0:2,0]/targetPosBody[2]
 
     deriveFusionSimultaneous('camera', jsonfile, measPred, additionalinputs={'Tbn':Tbn, 'ofs':cameraOffset}, R_type='matrix')
 

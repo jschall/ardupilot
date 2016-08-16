@@ -82,10 +82,10 @@ private:
     void plekf_get_target_pos_vel(Vector3f& pos, Vector3f& vel);
     void plekf_init();
     void plekf_predict();
-    void plekf_fuseCam();
-    void plekf_fuseVertVel();
-    void plekf_fuseHorizVel();
-    void plekf_fuseRange();
+    void plekf_fuseCam(bool log_only=false);
+    void plekf_fuseVertVel(bool log_only=false);
+    void plekf_fuseHorizVel(bool log_only=false);
+    void plekf_fuseRange(bool log_only=false);
 
     // references to inertial nav and ahrs libraries
     const AP_AHRS&              _ahrs;
