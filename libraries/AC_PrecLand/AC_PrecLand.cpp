@@ -203,7 +203,7 @@ void AC_PrecLand::update(float rangefinder_alt_cm, bool rangefinder_alt_valid)
 
     if (target_acquired()) {
         _ekf_timeout_begin_ms = AP_HAL::millis();
-    } else if (_ekf_running && AP_HAL::millis() - _ekf_timeout_begin_ms > 3000) {
+    } else if (_ekf_running && AP_HAL::millis() - _ekf_timeout_begin_ms > 2000) {
         plekf_reset();
     }
 
@@ -275,19 +275,20 @@ void AC_PrecLand::plekf_reset()
 void AC_PrecLand::plekf_init()
 {
     const Matrix3f& Tbn = _inertial_history.front().Tbn;
+    Vector3f cam_ofs_m = _camera_ofs_cm.get()*0.01f;
     Vector2f cam_meas = retrieve_cam_meas();
     float cam_meas_R[3];
     Vector3f vel;
     Vector3f vel_R;
-    float height;
-    float height_R;
+    float height_lower, height_upper;
 
     if (_rangefinder_height_valid) {
-        height = _rangefinder_height_m;
-        height_R = sq(3.0f);
+        // NOTE: The target height will NOT be initialized to the rangefinder height. This is NOT a bug.
+        height_lower = MAX(_rangefinder_height_m - 3.0f, 0.5f);
+        height_upper = MAX(_rangefinder_height_m + 3.0f, 3.5f);
     } else {
-        height = 10.0f;
-        height_R = sq(height);
+        height_lower = 0.5f;
+        height_upper = 30.0f;
     }
 
     if (_inav.get_filter_status().flags.horiz_pos_rel) {
@@ -303,9 +304,9 @@ void AC_PrecLand::plekf_init()
     EKF_CAMERAR_CALC_SUBX(_ahrs.get_gyro(), cam_meas, _subx)
     EKF_CAMERAR_CALC_R(_ahrs.get_gyro(), _subx, cam_meas, cam_meas_R)
 
-    EKF_INITIALIZATION_CALC_SUBX(Tbn, cam_meas, cam_meas_R, height, height_R, vel, vel_R, _subx)
-    EKF_INITIALIZATION_CALC_STATE(Tbn, cam_meas, cam_meas_R, height, height_R, _subx, vel, vel_R, _next_state)
-    EKF_INITIALIZATION_CALC_COV(Tbn, cam_meas, cam_meas_R, height, height_R, _subx, vel, vel_R, _next_cov)
+    EKF_INITIALIZATION_CALC_SUBX(Tbn, cam_ofs_m, cam_meas, cam_meas_R, height_lower, height_upper, vel, vel_R, _subx)
+    EKF_INITIALIZATION_CALC_STATE(Tbn, cam_ofs_m, cam_meas, cam_meas_R, height_lower, height_upper, _subx, vel, vel_R, _next_state)
+    EKF_INITIALIZATION_CALC_COV(Tbn, cam_ofs_m,  cam_meas,  cam_meas_R, height_lower, height_upper, _subx, vel, vel_R, _next_cov)
 
     memcpy(_state, _next_state, sizeof(_state));
     memcpy(_cov, _next_cov, sizeof(_cov));
@@ -319,24 +320,22 @@ void AC_PrecLand::plekf_predict()
     const struct inertial_data_s& inertial_data = _inertial_history.front();
     float dt = inertial_data.dt;
     Vector3f u = inertial_data.delVelNED;
-    Vector3f w_u_sigma = Vector3f(0.4f*dt, 0.4f*dt, 0.2f*dt);
+    Vector3f w_u_sigma = Vector3f(0.4f*dt, 0.4f*dt, 0.4f*dt);
 
     EKF_PREDICTION_CALC_SUBX(_cov, dt, u, w_u_sigma, _state, _subx)
     EKF_PREDICTION_CALC_STATE(_cov, dt, _subx, u, w_u_sigma, _state, _next_state)
     EKF_PREDICTION_CALC_COV(_cov, dt, _subx, u, w_u_sigma, _state, _next_cov)
 
-    // constrain states
-    _next_state[EKF_STATE_IDX_PT_D] = constrain_float(_next_state[EKF_STATE_IDX_PT_D], 0.05f, 100.0f);
-    _next_state[EKF_STATE_IDX_PT_N] = constrain_float(_next_state[EKF_STATE_IDX_PT_N], -10.0f * _next_state[EKF_STATE_IDX_PT_D], 10.0f * _next_state[EKF_STATE_IDX_PT_D]);
-    _next_state[EKF_STATE_IDX_PT_E] = constrain_float(_next_state[EKF_STATE_IDX_PT_E], -10.0f * _next_state[EKF_STATE_IDX_PT_D], 10.0f * _next_state[EKF_STATE_IDX_PT_D]);
-    _next_state[EKF_STATE_IDX_VT_N] = constrain_float(_next_state[EKF_STATE_IDX_VT_N], -50.0f, 50.0f);
-    _next_state[EKF_STATE_IDX_VT_E] = constrain_float(_next_state[EKF_STATE_IDX_VT_E], -50.0f, 50.0f);
-    _next_state[EKF_STATE_IDX_VT_D] = constrain_float(_next_state[EKF_STATE_IDX_VT_D], -50.0f, 50.0f);
-
     memcpy(_state, _next_state, sizeof(_state));
     memcpy(_cov, _next_cov, sizeof(_cov));
 
-    DataFlash_Class::instance()->Log_Write("PLP", "TimeUS,TAcq,PTN,PTE,PTD,VTN,VTE,VTD", "QBffffff", AP_HAL::micros64(), _target_acquired, _state[EKF_STATE_IDX_PT_N], _state[EKF_STATE_IDX_PT_E], _state[EKF_STATE_IDX_PT_D], _state[EKF_STATE_IDX_VT_N], _state[EKF_STATE_IDX_VT_E], _state[EKF_STATE_IDX_VT_D]);
+    Vector3f pos, vel;
+    plekf_get_target_pos_vel(pos, vel);
+
+    float tarPosCov[6];
+    EKF_TARGETPOSCOV_CALC_COV(_cov, _state, tarPosCov)
+
+    DataFlash_Class::instance()->Log_Write("PL", "TimeUS,TAq,PTN,PTE,PTD,VTN,VTE,VTD,PTNv,PTEv,PTDv,VTNv,VTEv,VTDv", "QBffffffffffff", AP_HAL::micros64(), _target_acquired, pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, tarPosCov[0], tarPosCov[3], tarPosCov[5], _cov[24], _cov[30], _cov[35]);
 }
 
 void AC_PrecLand::plekf_fuseCam(bool log_only)
@@ -369,12 +368,13 @@ void AC_PrecLand::plekf_fuseCam(bool log_only)
         } else {
             _cam_reject_count += 1;
             if (_cam_reject_count > 25) {
+                plekf_reset();
                 plekf_init();
             }
         }
     }
 
-    DataFlash_Class::instance()->Log_Write(log_only ? "PLIFC" : "PLFC", "TimeUS,CNIS,ICX,ICY", "Qfff", AP_HAL::micros64(), NIS, innov[0], innov[1]);
+    DataFlash_Class::instance()->Log_Write(log_only ? "PIC" : "PLC", "TimeUS,CNIS,ICX,ICY", "Qfff", AP_HAL::micros64(), NIS, innov[0], innov[1]);
 }
 
 void AC_PrecLand::plekf_fuseVertVel(bool log_only)
@@ -397,7 +397,7 @@ void AC_PrecLand::plekf_fuseVertVel(bool log_only)
         memcpy(_cov, _next_cov, sizeof(_cov));
     }
 
-    DataFlash_Class::instance()->Log_Write(log_only ? "PLIFVV" : "PLFVV", "TimeUS,VVNIS,IVD", "Qff", AP_HAL::micros64(), NIS, innov);
+    DataFlash_Class::instance()->Log_Write(log_only ? "PIVV" : "PLVV", "TimeUS,VVNIS,IVD", "Qff", AP_HAL::micros64(), NIS, innov);
 }
 
 void AC_PrecLand::plekf_fuseHorizVel(bool log_only)
@@ -420,7 +420,7 @@ void AC_PrecLand::plekf_fuseHorizVel(bool log_only)
         memcpy(_cov, _next_cov, sizeof(_cov));
     }
 
-    DataFlash_Class::instance()->Log_Write(log_only ? "PLIFHV" : "PLFHV", "TimeUS,HVNIS,IVN,IVE", "Qfff", AP_HAL::micros64(), NIS, innov[0], innov[1]);
+    DataFlash_Class::instance()->Log_Write(log_only ? "PIHV" : "PLHV", "TimeUS,HVNIS,IVN,IVE", "Qfff", AP_HAL::micros64(), NIS, innov[0], innov[1]);
 }
 
 void AC_PrecLand::plekf_fuseRange(bool log_only)
@@ -443,30 +443,36 @@ void AC_PrecLand::plekf_fuseRange(bool log_only)
         memcpy(_cov, _next_cov, sizeof(_cov));
     }
 
-    DataFlash_Class::instance()->Log_Write(log_only ? "PLIFH" : "PLFH", "TimeUS,HNIS,IH", "Qff", AP_HAL::micros64(), NIS, innov);
+    DataFlash_Class::instance()->Log_Write(log_only ? "PIH" : "PLH", "TimeUS,HNIS,IH", "Qff", AP_HAL::micros64(), NIS, innov);
 }
 
 void AC_PrecLand::plekf_get_target_pos_vel(Vector3f& pos, Vector3f& vel)
 {
-    pos.x = _state[EKF_STATE_IDX_PT_N];
-    pos.y = _state[EKF_STATE_IDX_PT_E];
-    pos.z = _state[EKF_STATE_IDX_PT_D];
+    pos.x = _state[EKF_STATE_IDX_PT_N]/_state[EKF_STATE_IDX_PT_D_INV]-_state[EKF_STATE_IDX_PV_N];
+    pos.y = _state[EKF_STATE_IDX_PT_E]/_state[EKF_STATE_IDX_PT_D_INV]-_state[EKF_STATE_IDX_PV_E];
+    pos.z = 1.0f/_state[EKF_STATE_IDX_PT_D_INV]-_state[EKF_STATE_IDX_PV_D];
 
-    vel.x = _state[EKF_STATE_IDX_VT_N];
-    vel.y = _state[EKF_STATE_IDX_VT_E];
-    vel.z = _state[EKF_STATE_IDX_VT_D];
+    vel.x = -_state[EKF_STATE_IDX_VV_N];
+    vel.y = -_state[EKF_STATE_IDX_VV_E];
+    vel.z = -_state[EKF_STATE_IDX_VV_D];
 }
 
 void AC_PrecLand::update_target_acquired()
 {
-    float horiz_pos_var = _cov[0]+_cov[6];
-    float horiz_vel_var = _cov[15]+_cov[18];
+    float tarPosCov[6];
+    EKF_TARGETPOSCOV_CALC_COV(_cov, _state, tarPosCov)
 
-    // require 5cm to 50cm of accuracy, dependent on estimated height
-    float tolerance_required = 0.05f*constrain_float(_state[EKF_STATE_IDX_PT_D], 1.0f, 10.0f);
+    float horiz_pos_var = tarPosCov[0]+tarPosCov[3];
+    float horiz_vel_var = _cov[24]+_cov[30];
 
-    bool reject = !_ekf_running || (AP_HAL::millis()-_target_acquired_timeout_begin_ms > 1000);
-    bool accept = _ekf_running && horiz_pos_var < sq(tolerance_required) && horiz_vel_var < sq(tolerance_required);
+    // require 5cm to 50cm of position accuracy, dependent on estimated initial depth
+    // require 20cm/s of velocity accuracy
+    float hgt = 1.0f/_state[EKF_STATE_IDX_PT_D_INV]-_state[EKF_STATE_IDX_PV_D];
+    float pos_tolerance_required = 0.1f*hgt;
+    float vel_tolerance_required = .2f;
+
+    bool reject = !_ekf_running || (AP_HAL::millis()-_target_acquired_timeout_begin_ms > 1000) || _cam_reject_count >= 3;
+    bool accept = _ekf_running && horiz_pos_var < sq(pos_tolerance_required) && horiz_vel_var < sq(vel_tolerance_required);
 
     if (_target_acquired && reject) {
         _target_acquired = false;

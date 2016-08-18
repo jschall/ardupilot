@@ -101,9 +101,6 @@ const AP_Scheduler::Task Copter::scheduler_tasks[] = {
     SCHED_TASK(three_hz_loop,          3,     75),
     SCHED_TASK(compass_accumulate,   100,    100),
     SCHED_TASK(barometer_accumulate,  50,     90),
-#if PRECISION_LANDING == ENABLED
-    SCHED_TASK(update_precland,      400,    300),
-#endif
 #if FRAME_CONFIG == HELI_FRAME
     SCHED_TASK(check_dynamic_flight,  50,     75),
 #endif
@@ -263,6 +260,10 @@ void Copter::fast_loop()
     // Inertial Nav
     // --------------------
     read_inertia();
+
+#if PRECISION_LANDING == ENABLED
+    update_precland();
+#endif
 
     // check if ekf has reset target heading
     check_ekf_yaw_reset();
@@ -431,7 +432,7 @@ void Copter::twentyfive_hz_logging()
 
 #if PRECISION_LANDING == ENABLED
     // log output
-    Log_Write_Precland();
+    //Log_Write_Precland();
 #endif
 }
 

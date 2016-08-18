@@ -4,6 +4,7 @@ from helpers import *
 from sys import exit
 import math
 
+
 # EKF to estimate target position and velocity relative to vehicle
 
 # Goals:
@@ -16,38 +17,22 @@ import math
 #   (e.g. if your computer vision algorithm provides an estimate of distance to
 #   target based on its size in the frame)
 
-
 # Parameters
 dt = Symbol('dt')
 Tbn = Matrix(3,3,symbols('Tbn[0:3][0:3]'))
 cameraOffset = toVec(symbols('cam_ofs_x cam_ofs_y cam_ofs_z'))
 
-vehicleVelNED_R = toVec(symbols('vv_n_R vv_e_R vv_d_R'))
-terrainDistD_R_sca = Symbol('gnd_dist_d_R')
-targetDist_R_sca = Symbol("target_dist_R")
-initFocLen = Symbol("foc_len_init")
-initFocLen_R = Symbol("foc_len_init_R")
-
-terrainDistD_R = toVec(terrainDistD_R_sca)
-targetDist_R = toVec(targetDist_R_sca)
-targetCameraPos_R = Matrix(2,2,symbols('cam_pos_R[0:2][0:2]'))
-targetCameraPos_R = copy_upper_to_lower_offdiagonals(targetCameraPos_R)
-
-vehicleDelVelNED_noise = toVec(symbols('vdv_n_noise vdv_e_noise vdv_d_noise'))
-
-# Observations
-terrainDistD = Symbol('gnd_dist_d')
-targetCameraPos = toVec(symbols('cam_pos_x cam_pos_y'))
-vehicleVelNED = toVec(symbols('vv_n vv_e vv_d'))
-targetDist = Symbol("target_dist")
-
-# Inputs
-vehicleDeltaVelocityNED = toVec(symbols('dvv_n dvv_e dvv_d'))
-
 # States
-targetPosNED = toVec(symbols('pt_n pt_e pt_d'))
-targetVelNED = toVec(symbols('vt_n vt_e vt_d'))
-stateVector = toVec(targetPosNED, targetVelNED)
+# The origin is the vehicle position at feature initialization. Thus, it is not included in the state vector.
+# Vehicle orientation is not included in the state vector. Instead, the inertial navigation is relied upon
+# to provide an accurate orientation.
+vehiclePosNED = toVec(symbols('pv_n pv_e pv_d')) # Vehicle position in NED frame relative to feature initialization. Starts at 0,0,0.
+vehicleVelNED = toVec(symbols('vv_n vv_e vv_d')) # Vehicle velocity in NED frame
+targetPosHomogeneousNED = toVec(symbols('pt_n pt_e pt_d_inv')) # Target position relative to feature initialization, homogeneous.
+stateVector = toVec(vehiclePosNED, vehicleVelNED, targetPosHomogeneousNED)
+
+# Target position relative to vehicle, NED
+targetPosNED = homogeneousNEDtoNED(targetPosHomogeneousNED)-vehiclePosNED
 
 nStates = len(stateVector)
 
@@ -59,28 +44,37 @@ def deriveInitialization(jsonfile):
     print('Beginning initialization derivation')
     t1 = datetime.datetime.now()
 
-    unitVecToTargetBody = toVec(targetCameraPos[0], targetCameraPos[1], 1.)
+    heightLowerBound, heightUpperBound = symbols('height_lower height_upper')
+    invHeightInit, invHeightInit_R = symbols('inv_height_init inv_height_init_R')
+    heightInit = 1/invHeightInit
+    vehicleVelNEDObs = toVec(symbols('vv_n_obs vv_e_obs vv_d_obs'))
+    vehicleVelNEDObs_R = toVec(symbols('vv_n_obs_R vv_e_obs_R vv_d_obs_R'))
+    targetCameraPosObs = toVec(symbols('cam_pos_x_obs cam_pos_y_obs'))
+    targetCameraPosObs_R = copy_upper_to_lower_offdiagonals(Matrix(2,2,symbols('cam_pos_R[0:2][0:2]')))
+
+    unitVecToTargetBody = toVec(targetCameraPosObs[0], targetCameraPosObs[1], 1.)
     unitVecToTargetBody /= vec_norm(unitVecToTargetBody)
     unitVecToTargetNED = Tbn*unitVecToTargetBody
 
-    heightInit, heightInit_R = symbols('height_init height_init_R')
+    initTargetPosNED = unitVecToTargetNED*heightInit/unitVecToTargetNED[2] + Tbn*cameraOffset
 
-    initTargetPosNED = unitVecToTargetNED*heightInit/unitVecToTargetNED[2]
-    initTargetVelNED = -vehicleVelNED
+    initVehiclePosNED = toVec(0,0,0)
+    initVehicleVelNED = vehicleVelNEDObs
+    initTargetPosHomogeneousNED = NEDtoHomogeneousNED(initTargetPosNED)
 
     # x_n: initial state
-    x_n = toVec(initTargetPosNED, initTargetVelNED)
+    x_n = toVec(initVehiclePosNED, initVehicleVelNED, initTargetPosHomogeneousNED)
 
     assert x_n.shape == stateVector.shape
 
     # z: initialization measurement vector
-    z = toVec(targetCameraPos, heightInit, vehicleVelNED)
+    z = toVec(targetCameraPosObs, invHeightInit, vehicleVelNEDObs)
 
     # R: covariance of additive noise on z
-    R = diag(*toVec(zeros(2,1), heightInit_R, vehicleVelNED_R))
+    R = diag(*toVec(zeros(2,1), invHeightInit_R, vehicleVelNEDObs_R))
     assert R.shape[0] == R.shape[1] and R.shape[0] == z.shape[0]
 
-    R[0:2,0:2] = targetCameraPos_R
+    R[0:2,0:2] = targetCameraPosObs_R
 
     # H: initialization measurement influence matrix
     H = x_n.jacobian(z)
@@ -90,12 +84,20 @@ def deriveInitialization(jsonfile):
 
     assert P_n.shape == P.shape
 
+    # p0 and sigma_p0 are initialized so that (p0-2*p0_sigma, p0+2*p0_sigma) == (1/heightUpperBound, 1/heightLowerBound)
+    p0_sym, p0_sigma_sym = symbols('p0, p0_sigma')
+    soln = solve([p0_sym-2*p0_sigma_sym-1/heightUpperBound, p0_sym+2*p0_sigma_sym-1/heightLowerBound],(p0_sym, p0_sigma_sym))
+    subs = {invHeightInit:soln[p0_sym], invHeightInit_R:soln[p0_sigma_sym]**2}
+
+    x_n = x_n.xreplace(subs)
+    P_n = P_n.xreplace(subs)
+
     # Optimizations
     P_n = upperTriangularToVec(P_n)
     x_n,P_n,subx = extractSubexpressions([x_n,P_n],'subx',threshold=1)
 
     # Output generation
-    funcParams = {'Tbn': Tbn, 'cam_pos': targetCameraPos, 'hgt':heightInit, 'hgt_R': heightInit_R, 'cam_pos_R': upperTriangularToVec(targetCameraPos_R), 'vel': vehicleVelNED, 'vel_R': vehicleVelNED_R}
+    funcParams = {'Tbn': Tbn, 'cam_pos': targetCameraPosObs, 'hgtLwr':heightLowerBound, 'hgtUpr': heightUpperBound, 'cam_pos_R': upperTriangularToVec(targetCameraPosObs_R), 'vel': vehicleVelNEDObs, 'vel_R': vehicleVelNEDObs_R, 'cam_ofs':cameraOffset}
 
     funcs = {}
 
@@ -127,17 +129,21 @@ def derivePrediction(jsonfile):
     print('Beginning prediction derivation')
     t1 = datetime.datetime.now()
 
-    # account for changes in yaw angle since initialization
-    yawRate, yawRateSigma = symbols('yaw_rate yaw_rate_sigma')
-    yawRot = Rz(yawRate*dt)
+    # Inputs
+    vehicleDeltaVelocityNED = toVec(symbols('dvv_n dvv_e dvv_d'))
+    vehicleDelVelNEDSigma = toVec(symbols('vdv_n_sigma vdv_e_sigma vdv_d_sigma'))
+
+    # The reference frame can be expected to change over time due to upstream estimator accuracy.
+    frameRotRate = toVec(symbols('fr_x fr_y fr_z'))
+    frameRotRateSigma = toVec(symbols('fr_x_sigma fr_y_sigma fr_z_sigma'))
+    frameRot = quat_to_matrix(rot_vec_to_quat_approx(frameRotRate*dt))
 
     # States at time k+1
-    targetPosNEDNew = yawRot*(targetPosNED+targetVelNED*dt)
-    targetVelNEDNew = yawRot*(targetVelNED-vehicleDeltaVelocityNED)
-
+    vehicleVelNEDNew = frameRot*vehicleVelNED+vehicleDeltaVelocityNED
+    vehiclePosNEDNew = frameRot*vehiclePosNED+vehicleVelNED*dt
+    targetPosHomogeneousNEDNew = NEDtoHomogeneousNED(frameRot*homogeneousNEDtoNED(targetPosHomogeneousNED))
     # f: state-transtition model
-    f = simplify(toVec(targetPosNEDNew, targetVelNEDNew))
-
+    f = simplify(toVec(vehiclePosNEDNew, vehicleVelNEDNew, targetPosHomogeneousNEDNew))
 
     assert f.shape == stateVector.shape
 
@@ -145,13 +151,13 @@ def derivePrediction(jsonfile):
     F = f.jacobian(stateVector)
 
     # u: control input vector
-    u = toVec(vehicleDeltaVelocityNED, yawRate)
+    u = toVec(vehicleDeltaVelocityNED, frameRotRate)
 
     # G: control-influence matrix, AKA "B" in literature
     G = f.jacobian(u)
 
     # w_u_sigma: additive noise on u
-    w_u_sigma = toVec(vehicleDelVelNED_noise, yawRateSigma)
+    w_u_sigma = toVec(vehicleDelVelNEDSigma, frameRotRateSigma)
 
     # Q_u: covariance of additive noise on u
     Q_u = diag(*w_u_sigma.multiply_elementwise(w_u_sigma))
@@ -165,7 +171,7 @@ def derivePrediction(jsonfile):
 
     x_n = f
 
-    subs = {yawRate:0, yawRateSigma:math.radians(1.)}
+    subs = dict(zip(frameRotRate, toVec(0,0,0))+zip(frameRotRateSigma, toVec(.003,.003,.03)))
     x_n = x_n.xreplace(subs)
     P_n = P_n.xreplace(subs)
 
@@ -174,7 +180,7 @@ def derivePrediction(jsonfile):
     x_n,P_n,subx = extractSubexpressions([x_n,P_n],'subx',threshold=1)
 
     # Output generation
-    funcParams = {'x':stateVector,'P':upperTriangularToVec(P),'u':vehicleDeltaVelocityNED,'w_u_sigma':vehicleDelVelNED_noise,'dt':dt}
+    funcParams = {'x':stateVector,'P':upperTriangularToVec(P),'u':vehicleDeltaVelocityNED,'w_u_sigma':vehicleDelVelNEDSigma,'dt':dt}
 
     funcs = {}
 
@@ -202,15 +208,43 @@ def derivePrediction(jsonfile):
     t2 = datetime.datetime.now()
     print(('%s prediction: derivation saved to %s. %u ops, %u subexpressions.' % (t2-t1,jsonfile,op_count,subx_count)))
 
+def deriveTargetPosCov(jsonfile):
+    print('Beginning targetPosCov derivation')
+    t1 = datetime.datetime.now()
+
+    # H: sensitivity matrix
+    H = targetPosNED.jacobian(stateVector)
+
+    # P_n: covariance of additive noise on targetPosNED
+    cov = H*P*H.T
+
+    funcs = {}
+
+    funcParams = {'x':stateVector,'P':upperTriangularToVec(P)}
+
+    funcs['cov'] = {}
+    funcs['cov']['params'] = funcParams
+    funcs['cov']['ret'] = upperTriangularToVec(cov)
+
+    check_funcs(funcs)
+
+    saveExprsToJSON(jsonfile, {'funcs':serialize_exprs_in_structure(funcs.copy())})
+
+    op_count, subx_count = getOpStats(funcs)
+    t2 = datetime.datetime.now()
+    print(('%s targetPosCov: derivation saved to %s. %u ops, %u subexpressions.' % (t2-t1,jsonfile,op_count,subx_count)))
+
 def deriveCameraRObs(jsonfile):
     print('Beginning cameraR derivation')
     t1 = datetime.datetime.now()
+
+    targetCameraPosObs = toVec(symbols('cam_pos_x_obs cam_pos_y_obs'))
 
     scaleFactorX, scaleFactorX_R, scaleFactorY, scaleFactorY_R, alignX, alignY, alignZ, alignX_R, alignY_R, alignZ_R, timeDelay, timeDelay_R, gx, gy, gz = symbols('scale_x scale_x_R scale_y scale_y_R align_x align_y align_z align_x_R align_y_R align_z_R time_delay time_delay_R gx gy gz')
 
     gyro = toVec(gx, gy, gz)
 
-    unitVecToTargetBody = toVec(targetCameraPos[0]*scaleFactorX, targetCameraPos[1]*scaleFactorY, 1.)
+    unitVecToTargetBody = toVec(targetCameraPosObs[0]*scaleFactorX, targetCameraPosObs[1]*scaleFactorY, 1.)
     unitVecToTargetBody /= vec_norm(unitVecToTargetBody)
     unitVecToTargetBody = quat_to_matrix(rot_vec_to_quat_approx(gyro*timeDelay)) * quat_to_matrix(rot_vec_to_quat_approx(toVec(alignX, alignY, alignZ))) * unitVecToTargetBody
 
@@ -235,18 +269,18 @@ def deriveCameraRObs(jsonfile):
         scaleFactorY_R:0.02**2,
         alignX_R:math.radians(2.)**2,
         alignY_R:math.radians(2.)**2,
-        alignZ_R:math.radians(5.)**2,
+        alignZ_R:math.radians(2.)**2,
         timeDelay_R: 0.02**2
         }
 
-    assert simplify(corrected_meas.xreplace(subs)-targetCameraPos) == zeros(2,1)
+    assert simplify(corrected_meas.xreplace(subs)-targetCameraPosObs) == zeros(2,1)
 
     cov = upperTriangularToVec(cov)
     cov = simplify(cov.xreplace(subs))
     cov,subx = extractSubexpressions([cov],'subx',threshold=1)
 
     # Output generation
-    funcParams = {'z':targetCameraPos,'gyro':gyro}
+    funcParams = {'z':targetCameraPosObs,'gyro':gyro}
 
     funcs = {}
 
@@ -274,15 +308,15 @@ def deriveCameraFusion(jsonfile):
     targetPosBody = Tbn.T*targetPosNED - cameraOffset
     measPred = targetPosBody[0:2,0]/targetPosBody[2]
 
-    deriveFusionSimultaneous('camera', jsonfile, measPred, additionalinputs={'Tbn':Tbn, 'ofs':cameraOffset}, R_type='matrix')
+    deriveFusionSimultaneous('camera', jsonfile, measPred, additionalinputs={'Tbn':Tbn, 'cam_ofs':cameraOffset}, R_type='matrix')
 
 def deriveVelNEFusion(jsonfile):
-    measPred = -targetVelNED[0:2,0]
+    measPred = vehicleVelNED[0:2,0]
 
     deriveFusionSimultaneous('velNE',jsonfile,measPred,subx_threshold=1)
 
 def deriveVelDFusion(jsonfile):
-    measPred = -targetVelNED[2:3,0]
+    measPred = vehicleVelNED[2:3,0]
 
     deriveFusionSimultaneous('velD',jsonfile,measPred,subx_threshold=1)
 

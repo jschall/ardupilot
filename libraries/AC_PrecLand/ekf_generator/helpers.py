@@ -111,29 +111,19 @@ def Ry(theta):
 def Rz(theta):
     return Matrix([[cos(theta), -sin(theta), 0],[sin(theta),cos(theta),0],[0,0,1]])
 
-def polarInvToNED(posPolarInv):
-    posPolarInvSym = toVec(symbols('_pos_polar_inv[0:3]'))
-    return simplify(toVec(Rz(posPolarInvSym[0])*Ry(posPolarInvSym[1])*toVec(1.,0.,0.)/posPolarInvSym[2])).xreplace(dict(list(zip(posPolarInvSym, posPolarInv))))
+def homogeneousNEDtoNED(homogeneousNED):
+    return toVec(homogeneousNED[0:2,0],1)/homogeneousNED[2]
 
-def NEDToPolarInv(posNED):
-    posNEDSym = toVec(symbols('_pos_ned[0:3]'))
+def NEDtoHomogeneousNED(NED):
+    return toVec(NED[0:2,0],1)/NED[2]
 
-    return simplify(toVec(atan2(posNEDSym[1], posNEDSym[0]), atan2(-posNEDSym[2], vec_norm((posNEDSym[0],posNEDSym[1]))), 1/vec_norm(posNEDSym))).xreplace(dict(list(zip(posNEDSym, posNED))))
-
-def polarInvDerivToVelNED(velPolarInv, posPolarInv):
-    t = Symbol('_t')
-    velPolarInvSym = toVec(symbols('_vel_polar_inv[0:3]'))
-    posPolarInvSym = toVec(symbols('_pos_polar_inv[0:3]'))
-
-    return simplify(polarInvToNED(posPolarInvSym+velPolarInvSym*t).diff(t).subs(t,0)).xreplace(dict(list(zip(toVec(velPolarInvSym, posPolarInvSym), toVec(velPolarInv, posPolarInv)))))
-
-def velNEDToPolarInvDeriv(velNED, posPolarInv):
+def velNEDtoHomogeneousNEDDeriv(velNED, homogeneousNED):
     t = Symbol('_t')
 
     velNEDSym = toVec(symbols('_vel_ned[0:3]'))
-    posPolarInvSym = toVec(symbols('_pos_polar_inv[0:3]'))
+    homogeneousNEDSym = toVec(symbols('_pos_hom_ned[0:3]'))
 
-    return simplify(NEDToPolarInv(polarInvToNED(posPolarInvSym)+velNEDSym*t).diff(t).subs(t,0)).xreplace(dict(list(zip(toVec(velNEDSym, posPolarInvSym), toVec(velNED, posPolarInv)))))
+    return simplify(NEDtoHomogeneousNED(homogeneousNEDtoNED(homogeneousNEDSym)+velNEDSym*t).diff(t).subs(t,0)).xreplace(dict(list(zip(toVec(velNEDSym, homogeneousNEDSym), toVec(velNED, homogeneousNED)))))
 
 
 def quickinv_sym(M):

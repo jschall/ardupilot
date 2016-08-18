@@ -36,6 +36,7 @@ cameraRjson = os.path.join(outdir, 'cameraR.json')
 velNEjson = os.path.join(outdir, 'velNEFusion.json')
 velDjson = os.path.join(outdir, 'velDFusion.json')
 heightjson = os.path.join(outdir, 'heightFusion.json')
+targetPosCovjson = os.path.join(outdir, 'targetPosCov.json')
 
 c_header = os.path.join(outdir, 'ekf_defines.h')
 pythonfile = os.path.join(outdir, 'ekf.py')
@@ -48,6 +49,7 @@ derivations = {
     'velD': (deriveVelDFusion, velDjson),
     'height': (deriveHeightFusion, heightjson),
     'cameraR': (deriveCameraRObs, cameraRjson),
+    'targetPosCov': (deriveTargetPosCov, targetPosCovjson),
     }
 
 assert set(args.derive).issubset(set(list(derivations.keys())+['all']))
