@@ -39,7 +39,7 @@ public:
     float get_completion_percent() const;
     completion_mask_t& get_completion_mask();
     enum compass_cal_status_t get_status() const { return _status; }
-    float get_fitness() const { return sqrtf(_fitness); }
+    float get_fitness() const { return sqrtf(_filtered_fitness); }
     bool get_autosave() const { return _autosave; }
     uint8_t get_attempt() const { return _attempt; }
 
@@ -92,6 +92,7 @@ private:
     uint16_t _fit_step;
     CompassSample *_sample_buffer;
     float _fitness; // mean squared residuals
+    float _filtered_fitness;
     float _initial_fitness;
     float _sphere_lambda;
     float _ellipsoid_lambda;
@@ -117,7 +118,7 @@ private:
 
     float calc_residual(const Vector3f& sample, const param_t& params) const;
     float calc_mean_squared_residuals(const param_t& params) const;
-    float calc_mean_squared_residuals() const;
+    float calc_filtered_fitness() const;
 
     void calc_sphere_jacob(const Vector3f& sample, const param_t& params, float* ret) const;
     void run_sphere_fit();

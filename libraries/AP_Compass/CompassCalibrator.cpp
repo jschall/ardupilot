@@ -109,9 +109,9 @@ float CompassCalibrator::get_completion_percent() const {
         case COMPASS_CAL_WAITING_TO_START:
             return 0.0f;
         case COMPASS_CAL_RUNNING_STEP_ONE:
-            return 33.3f * _samples_collected/COMPASS_CAL_NUM_SAMPLES;
+            return 33.3f * (float)_samples_collected/COMPASS_CAL_NUM_SAMPLES;
         case COMPASS_CAL_RUNNING_STEP_TWO:
-            return 33.3f + 65.7f*((float)(_samples_collected-_samples_thinned)/(COMPASS_CAL_NUM_SAMPLES-_samples_thinned));
+            return 33.3f + 65.7f*((float)_samples_collected/COMPASS_CAL_NUM_SAMPLES);
         case COMPASS_CAL_SUCCESS:
             return 100.0f;
         case COMPASS_CAL_FAILED:
@@ -192,6 +192,7 @@ void CompassCalibrator::update(bool &failure) {
         }
     } else if(_status == COMPASS_CAL_RUNNING_STEP_TWO) {
         if (_fit_step >= 35) {
+            _filtered_fitness = calc_filtered_fitness();
             if(fit_acceptable()) {
                 set_status(COMPASS_CAL_SUCCESS);
             } else {
@@ -336,21 +337,18 @@ bool CompassCalibrator::set_status(compass_cal_status_t status) {
 }
 
 bool CompassCalibrator::fit_acceptable() {
-    if( !isnan(_fitness) &&
-        _params.radius > 150 && _params.radius < 950 && //Earth's magnetic field strength range: 250-850mG
-        fabsf(_params.offset.x) < 1000 &&
-        fabsf(_params.offset.y) < 1000 &&
-        fabsf(_params.offset.z) < 1000 &&
-        _params.diag.x > 0.2f && _params.diag.x < 5.0f &&
-        _params.diag.y > 0.2f && _params.diag.y < 5.0f &&
-        _params.diag.z > 0.2f && _params.diag.z < 5.0f &&
-        fabsf(_params.offdiag.x) <  1.0f &&      //absolute of sine/cosine output cannot be greater than 1
-        fabsf(_params.offdiag.y) <  1.0f &&
-        fabsf(_params.offdiag.z) <  1.0f ){
-
-            return _fitness <= sq(_tolerance);
-        }
-    return false;
+    return  !isnan(_filtered_fitness) &&
+            _params.radius > 150 && _params.radius < 950 && //Earth's magnetic field strength range: 250-850mG
+            fabsf(_params.offset.x) < 1000 &&
+            fabsf(_params.offset.y) < 1000 &&
+            fabsf(_params.offset.z) < 1000 &&
+            _params.diag.x > 0.2f && _params.diag.x < 5.0f &&
+            _params.diag.y > 0.2f && _params.diag.y < 5.0f &&
+            _params.diag.z > 0.2f && _params.diag.z < 5.0f &&
+            fabsf(_params.offdiag.x) <  1.0f &&      //absolute of sine/cosine output cannot be greater than 1
+            fabsf(_params.offdiag.y) <  1.0f &&
+            fabsf(_params.offdiag.z) <  1.0f &&
+            _filtered_fitness <= sq(_tolerance);
 }
 
 void CompassCalibrator::thin_samples() {
@@ -358,23 +356,8 @@ void CompassCalibrator::thin_samples() {
         return;
     }
 
-    _samples_thinned = 0;
-    // shuffle the samples http://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle
-    // this is so that adjacent samples don't get sequentially eliminated
-    for(uint16_t i=_samples_collected-1; i>=1; i--) {
-        uint16_t j = get_random() % (i+1);
-        CompassSample temp = _sample_buffer[i];
-        _sample_buffer[i] = _sample_buffer[j];
-        _sample_buffer[j] = temp;
-    }
-
-    for(uint16_t i=0; i < _samples_collected; i++) {
-        if(!accept_sample(_sample_buffer[i])) {
-            _sample_buffer[i] = _sample_buffer[_samples_collected-1];
-            _samples_collected --;
-            _samples_thinned ++;
-        }
-    }
+    // delete the entire sample buffer
+    _samples_collected = 0;
 
     update_completion_mask();
 }
@@ -429,9 +412,20 @@ float CompassCalibrator::calc_residual(const Vector3f& sample, const param_t& pa
     return params.radius - (softiron*(sample+params.offset)).length();
 }
 
-float CompassCalibrator::calc_mean_squared_residuals() const
+float CompassCalibrator::calc_filtered_fitness() const
 {
-    return calc_mean_squared_residuals(_params);
+    if(_sample_buffer == NULL || _samples_collected == 0) {
+        return 1.0e30f;
+    }
+    float sum = 0.0f;
+    float filtered_resid = 0.0f;
+    for(uint16_t i=0; i < _samples_collected; i++){
+        Vector3f sample = _sample_buffer[i].get();
+        filtered_resid += (calc_residual(sample, _params) - filtered_resid) * 0.1f;
+        sum += sq(filtered_resid);
+    }
+    sum /= _samples_collected;
+    return sum;
 }
 
 float CompassCalibrator::calc_mean_squared_residuals(const param_t& params) const
