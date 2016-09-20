@@ -4,6 +4,8 @@
 
 #include "AP_Compass.h"
 #include "AP_Compass_Backend.h"
+#include <DataFlash/DataFlash.h>
+
 
 extern const AP_HAL::HAL& hal;
 
@@ -35,6 +37,18 @@ void AP_Compass_Backend::publish_raw_field(const Vector3f &mag, uint32_t time_us
     state.last_update_ms = AP_HAL::millis();
 
     _compass._calibrator[instance].new_sample(mag);
+
+    switch(instance) {
+        case 0:
+            DataFlash_Class::instance()->Log_Write("RAG", "TimeUS,RagX,RagY,RagZ", "Qfff", AP_HAL::micros64(), mag.x, mag.y, mag.z);
+            break;
+        case 1:
+            DataFlash_Class::instance()->Log_Write("RAG2", "TimeUS,RagX,RagY,RagZ", "Qfff", AP_HAL::micros64(), mag.x, mag.y, mag.z);
+            break;
+        case 2:
+            DataFlash_Class::instance()->Log_Write("RAG3", "TimeUS,RagX,RagY,RagZ", "Qfff", AP_HAL::micros64(), mag.x, mag.y, mag.z);
+            break;
+    }
 }
 
 void AP_Compass_Backend::correct_field(Vector3f &mag, uint8_t i)
