@@ -98,6 +98,7 @@ private:
     AP_Float                    _yaw_align;         // Yaw angle from body x-axis to sensor x-axis.
     AP_Float                    _land_ofs_cm_x;     // Desired landing position of the camera forward of the target in vehicle body frame
     AP_Float                    _land_ofs_cm_y;     // Desired landing position of the camera right of the target in vehicle body frame
+    AP_Float                    _ekf_acc_noise;
 
     uint32_t                    _last_update_ms;      // epoch time in millisecond when update is called
     uint32_t                    _last_backend_los_meas_ms;

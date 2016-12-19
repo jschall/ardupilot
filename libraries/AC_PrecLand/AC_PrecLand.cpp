@@ -50,6 +50,15 @@ const AP_Param::GroupInfo AC_PrecLand::var_info[] = {
     // @Units: Centimeters
     AP_GROUPINFO("LAND_OFS_Y",    4, AC_PrecLand, _land_ofs_cm_y, 0),
 
+    // @Param: ACC_NSE
+    // @DisplayName: EKF accelerometer noise
+    // @Description: EKF accelerometer noise
+    // @Range: 0.25 2
+    // @Increment: .25
+    // @User: Advanced
+    // @Units: m/s/s
+    AP_GROUPINFO("ACC_NSE",       6, AC_PrecLand, _ekf_acc_noise, 0.5f),
+
     AP_GROUPEND
 };
 
@@ -136,8 +145,8 @@ void AC_PrecLand::update(float rangefinder_alt_cm, bool rangefinder_alt_valid)
             _ahrs.getCorrectedDeltaVelocityNED(targetDelVel, dt);
             targetDelVel = -targetDelVel;
 
-            _ekf_x.predict(dt, targetDelVel.x, 0.5f*dt);
-            _ekf_y.predict(dt, targetDelVel.y, 0.5f*dt);
+            _ekf_x.predict(dt, targetDelVel.x, _ekf_acc_noise*dt);
+            _ekf_y.predict(dt, targetDelVel.y, _ekf_acc_noise*dt);
         }
 
         if (_backend->have_los_meas() && _backend->los_meas_time_ms() != _last_backend_los_meas_ms) {
