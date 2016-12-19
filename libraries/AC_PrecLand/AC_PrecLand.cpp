@@ -167,15 +167,17 @@ void AC_PrecLand::update(float rangefinder_alt_cm, bool rangefinder_alt_valid)
 
                 float xy_pos_var = sq(_targetPosRelMeasNED.z*(0.01f + 0.01f*_ahrs.get_gyro().length()) + 0.02f);
                 if (!target_acquired()) {
-                    // reset filter state
-                    if (_inav.get_filter_status().flags.horiz_pos_rel) {
-                        _ekf_x.init(_targetPosRelMeasNED.x, xy_pos_var, -vehicleVelocityNED.x, sq(2.0f));
-                        _ekf_y.init(_targetPosRelMeasNED.y, xy_pos_var, -vehicleVelocityNED.y, sq(2.0f));
-                    } else {
-                        _ekf_x.init(_targetPosRelMeasNED.x, xy_pos_var, 0.0f, sq(10.0f));
-                        _ekf_y.init(_targetPosRelMeasNED.y, xy_pos_var, 0.0f, sq(10.0f));
+                    if (alt >= 0.5f) {
+                        // reset filter state
+                        if (_inav.get_filter_status().flags.horiz_pos_rel) {
+                            _ekf_x.init(_targetPosRelMeasNED.x, xy_pos_var, -vehicleVelocityNED.x, sq(2.0f));
+                            _ekf_y.init(_targetPosRelMeasNED.y, xy_pos_var, -vehicleVelocityNED.y, sq(2.0f));
+                        } else {
+                            _ekf_x.init(_targetPosRelMeasNED.x, xy_pos_var, 0.0f, sq(10.0f));
+                            _ekf_y.init(_targetPosRelMeasNED.y, xy_pos_var, 0.0f, sq(10.0f));
+                        }
+                        _last_update_ms = AP_HAL::millis();
                     }
-                    _last_update_ms = AP_HAL::millis();
                 } else {
                     float NIS_x = _ekf_x.getPosNIS(_targetPosRelMeasNED.x, xy_pos_var);
                     float NIS_y = _ekf_y.getPosNIS(_targetPosRelMeasNED.y, xy_pos_var);
