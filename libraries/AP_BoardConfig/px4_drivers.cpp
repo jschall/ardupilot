@@ -361,7 +361,9 @@ void AP_BoardConfig::px4_setup_px4io(void)
         if (px4_start_driver(px4io_main, "px4io", "start norc")) {
             printf("px4io started OK\n");
         } else {
-            px4_sensor_error("px4io start failed");
+            printf("px4io failed to start, proceeding without px4io\n");
+            return;
+//             px4_sensor_error("px4io start failed");
         }
     }
 
