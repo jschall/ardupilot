@@ -6,6 +6,7 @@
 #include <GCS_MAVLink/GCS_MAVLink.h>
 #include <stdint.h>
 #include "PosVelEKF.h"
+#include "KF_3D.h"
 #include <AP_Buffer/AP_Buffer.h>
 
 // declare backend classes
