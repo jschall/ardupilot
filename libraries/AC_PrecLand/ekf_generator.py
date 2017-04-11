@@ -26,6 +26,94 @@ vel = x[3:6,0]
 # Covariance matrix
 P = compressedSymmetricMatrix('cov', nStates)
 
+def deriveSyntheticPos(jsonfile):
+    print('Beginning synthetic position derivation')
+    t1 = datetime.datetime.now()
+
+    align = toVec(symbols('align_x align_y align_z'))
+    align_R = toVec(symbols('align_x_R align_y_R align_z_R'))
+
+    los_unit_ned = toVec(symbols('los_n los_e los_d'))
+    height = Symbol('height')
+    height_R = Symbol('height_R')
+
+    synthetic_pos = los_unit_ned*height/los_unit_ned[2]
+
+    corrected_meas = quat_to_matrix(rot_vec_to_quat_approx(align)) * synthetic_pos
+    corrections = toVec(align, height)
+    corrections_R = diag(*toVec(align_R, height_R))
+
+    H = corrected_meas.jacobian(corrections)
+    synthetic_pos_R = H*corrections_R*H.T
+
+    subs = {
+        align[0]:0,
+        align[1]:0,
+        align[2]:0
+        }
+
+    synthetic_pos_R = simplify(upperTriangularToVec(synthetic_pos_R).xreplace(subs))
+
+    # Output generation
+    funcParams = {'align_R':align_R,'los_unit_ned':los_unit_ned,'height':height,'height_R':height_R}
+
+    funcs = {}
+
+    #funcs['subx'] = {}
+    #funcs['subx']['params'] = funcParams
+    #funcs['subx']['ret'] = toVec([x[1] for x in subx])
+    #funcs['subx']['retsymbols'] = toVec([x[0] for x in subx])
+
+    #funcParams = funcParams.copy()
+    #funcParams['subx'] = toVec([x[0] for x in subx])
+
+    funcs['z'] = {}
+    funcs['z']['params'] = funcParams
+    funcs['z']['ret'] = synthetic_pos
+
+    funcs['R'] = {}
+    funcs['R']['params'] = funcParams
+    funcs['R']['ret'] = synthetic_pos_R
+
+    check_funcs(funcs)
+
+    saveExprsToJSON(jsonfile, {'funcs':serialize_exprs_in_structure(funcs.copy())})
+
+    op_count, subx_count = getOpStats(funcs)
+    t2 = datetime.datetime.now()
+    print('%s synthetic position: derivation saved to %s. %u ops, %u subexpressions.' % (t2-t1,jsonfile,op_count,subx_count))
+
+def printInitialization():
+    vel = Matrix(symbols('vel[0:3]'))
+    vel_var = Matrix(symbols('vel_xy_var vel_xy_var vel_z_var'))
+    align = Matrix(symbols('align[0:3]'))
+    align_var = Matrix(symbols('align_xy_var align_xy_var align_z_var'))
+
+    los_unit_ned = Matrix(symbols('los_unit_ned[0:3]'))
+    dist = Symbol('dist')
+    dist_var = Symbol('dist_var')
+
+    x_n = zeros(6,1)
+    x_n[0:3,0] = quat_to_matrix(rot_vec_to_quat_approx(align)) * los_unit_ned*dist
+    x_n[3:6,0] = vel
+
+    params = toVec(align, dist, vel)
+    params_R = diag(*toVec(align_var, dist_var, vel_var))
+
+    H = x_n.jacobian(params)
+    P_n = H*params_R*H.T
+
+    x_n = x_n.xreplace(dict(zip(align, zeros(3,1))))
+    P_n = P_n.xreplace(dict(zip(align, zeros(3,1))))
+
+    output_stream.write('// INITIALIZATION\n')
+
+    for i in range(len(x_n)):
+        output_stream.write('state_n[%u] = %s;\n' % (i, CCodePrinter_float().doprint(x_n[i])))
+
+    for i in range(len(P_n)):
+        output_stream.write('cov_n[%u] = %s;\n' % (i, CCodePrinter_float().doprint(P_n[i])))
+    output_stream.write('\n\n')
 
 def printPrediction():
     # f: state-transtition model
@@ -76,12 +164,17 @@ def printPrediction():
     output_stream.write('\n\n')
 
 
-def printFusion(name, h):
+def printFusion(name, h, R_type='matrix'):
     # z: observation
     z = Matrix(symbols('z[0:%u]' % (len(h),)))
 
     # R: observation covariance
-    R = compressedSymmetricMatrix('R', len(h))
+    if R_type == 'matrix':
+        R = compressedSymmetricMatrix('R', len(h))
+    elif R_type == 'vector':
+        R = diag(*symbols('R[0:3]'))
+    elif R_type == 'scalar':
+        R = diag(*[Symbol('R') for _ in z])
 
     # y: innovation vector
     y = z-h
@@ -122,184 +215,9 @@ def printFusion(name, h):
     output_stream.write('\nfloat NIS = %s;\n' % (CCodePrinter_float().doprint(NIS[0]),))
     output_stream.write('\n\n')
 
-#def deriveSyntheticPos(jsonfile):
-    #print('Beginning synthetic position derivation')
-    #t1 = datetime.datetime.now()
 
-    #align = toVec(symbols('align_x align_y align_z'))
-    #align_R = toVec(symbols('align_x_R align_y_R align_z_R'))
-
-    #los_unit_ned = toVec(symbols('los_n los_e los_d'))
-    #height = Symbol('height')
-    #height_R = Symbol('height_R')
-
-    #synthetic_pos = los_unit_ned*height/los_unit_ned[2]
-
-    #corrected_meas = quat_to_matrix(rot_vec_to_quat_approx(align)) * synthetic_pos
-    #corrections = toVec(align, height)
-    #corrections_R = diag(*toVec(align_R, height_R))
-
-    #H = corrected_meas.jacobian(corrections)
-    #synthetic_pos_R = H*corrections_R*H.T
-
-    #subs = {
-        #align[0]:0,
-        #align[1]:0,
-        #align[2]:0
-        #}
-
-    #synthetic_pos_R = simplify(upperTriangularToVec(synthetic_pos_R).xreplace(subs))
-
-    ## Output generation
-    #funcParams = {'align_R':align_R,'los_unit_ned':los_unit_ned,'height':height,'height_R':height_R}
-
-    #funcs = {}
-
-    ##funcs['subx'] = {}
-    ##funcs['subx']['params'] = funcParams
-    ##funcs['subx']['ret'] = toVec([x[1] for x in subx])
-    ##funcs['subx']['retsymbols'] = toVec([x[0] for x in subx])
-
-    ##funcParams = funcParams.copy()
-    ##funcParams['subx'] = toVec([x[0] for x in subx])
-
-    #funcs['z'] = {}
-    #funcs['z']['params'] = funcParams
-    #funcs['z']['ret'] = synthetic_pos
-
-    #funcs['R'] = {}
-    #funcs['R']['params'] = funcParams
-    #funcs['R']['ret'] = synthetic_pos_R
-
-    #check_funcs(funcs)
-
-    #saveExprsToJSON(jsonfile, {'funcs':serialize_exprs_in_structure(funcs.copy())})
-
-    #op_count, subx_count = getOpStats(funcs)
-    #t2 = datetime.datetime.now()
-    #print('%s synthetic position: derivation saved to %s. %u ops, %u subexpressions.' % (t2-t1,jsonfile,op_count,subx_count))
-
-def printSynthPos():
-    los_m = Matrix(symbols('los_m[0:3]'))
-    dist_m = Symbol('dist_m')
-
-    los_R = Symbol('los_')
-
-    synthetic_pos_m = los_m*dist_m
-
-
-
+printInitialization()
 printPrediction()
-printFusion('pos', pos)
-printFusion('vertical velocity', vel[2:3,0])
+printFusion('los', pos/vec_norm(pos), 'scalar')
+printFusion('velocity', vel, 'vector')
 sys.exit()
-
-
-output_stream.write(
-'// PREDICTION'
-)
-
-
-
-output_stream.write(
-'#pragma once\n'
-'\n'
-)
-output_stream.write(
-'struct ekf_state_s {\n'
-'    float x[%u];\n'
-'    float P[%u];\n'
-'    float innov[%u];\n'
-'    float NIS;\n'
-'};\n' % (nStates, len(P_p), len(y))
-)
-output_stream.write(
-'\n'
-'static struct ekf_state_s ekf_state[2];\n'
-'static uint8_t ekf_idx = 0;\n'
-'\n'
-'static void ekf_init(const Vector3f& init_pos, const Matrix3f& init_pos_R, const Vector3f& init_vel, const Matrix3f& init_vel_R) {\n'
-'    float* state = ekf_state[ekf_idx].x;\n'
-'    float* cov = ekf_state[ekf_idx].P;\n'
-'\n'
-)
-
-for i in range(len(init_x)):
-    output_stream.write('    state[%u] = %s;\n' % (i, CCodePrinter_float().doprint(init_x[i])))
-
-for i in range(len(init_P)):
-    output_stream.write('    cov[%u] = %s;\n' % (i, CCodePrinter_float().doprint(init_P[i])))
-
-output_stream.write(
-'    memset(&ekf_state[ekf_idx], 0, sizeof(ekf_state[ekf_idx]));\n'
-'    state[1] = init_theta;\n'
-'}\n'
-'\n'
-)
-
-output_stream.write('static float subx[%u];\n' % (max(len(pred_subx),len(fuse_subx)),))
-output_stream.write(
-'static void ekf_predict(float dt, Vector3f ) {\n'
-'    uint8_t next_ekf_idx = (ekf_idx+1)%2;\n'
-'    float* state = ekf_state[ekf_idx].x;\n'
-'    float* cov = ekf_state[ekf_idx].P;\n'
-'    float* state_n = ekf_state[next_ekf_idx].x;\n'
-'    float* cov_n = ekf_state[next_ekf_idx].P;\n'
-)
-
-output_stream.write('    // %u operations\n' % (count_ops(x_p)+count_ops(P_p)+count_ops(pred_subx),))
-
-for i in range(len(pred_subx)):
-    output_stream.write('    %s = %s;\n' % (pred_subx[i][0], CCodePrinter_float().doprint(pred_subx[i][1])))
-
-for i in range(len(x_p)):
-    output_stream.write('    state_n[%u] = %s;\n' % (i, CCodePrinter_float().doprint(x_p[i])))
-
-for i in range(len(P_p)):
-    output_stream.write('    cov_n[%u] = %s;\n' % (i, CCodePrinter_float().doprint(P_p[i])))
-
-output_stream.write(
-'\n'
-'    ekf_idx = next_ekf_idx;\n'
-'}\n'
-)
-
-output_stream.write(
-'\n'
-'static void ekf_update(float i_alpha_m, float i_beta_m) {\n'
-'    uint8_t next_ekf_idx = (ekf_idx+1)%2;\n'
-'    float* state = x_at_curr_meas;\n'
-'    float* cov = ekf_state[ekf_idx].P;\n'
-'    float* state_n = ekf_state[next_ekf_idx].x;\n'
-'    float* cov_n = ekf_state[next_ekf_idx].P;\n'
-'    float* innov = ekf_state[next_ekf_idx].innov;\n'
-'    float* NIS = &ekf_state[next_ekf_idx].NIS;\n'
-'\n'
-)
-
-output_stream.write('    // pos fusion\n' % (count_ops(x_n)+count_ops(P_n)+count_ops(fuse_subx),))
-output_stream.write('    // %u operations\n' % (count_ops(x_n)+count_ops(P_n)+count_ops(fuse_subx),))
-for i in range(len(fuse_subx)):
-    output_stream.write('    %s = %s;\n' % (fuse_subx[i][0], CCodePrinter_float().doprint(fuse_subx[i][1])))
-
-for i in range(len(x_n)):
-    output_stream.write('    state_n[%u] = %s;\n' % (i, CCodePrinter_float().doprint(x_n[i])))
-
-for i in range(len(P_n)):
-    output_stream.write('    cov_n[%u] = %s;\n' % (i, CCodePrinter_float().doprint(P_n[i])))
-
-for i in range(len(y)):
-    output_stream.write('    innov[%u] = %s;\n' % (i, CCodePrinter_float().doprint(y[i])))
-
-output_stream.write('    *NIS = %s;\n' % (CCodePrinter_float().doprint(NIS[0]),))
-
-output_stream.write(
-'\n'
-'    ekf_idx = next_ekf_idx;\n'
-'}\n'
-)
-
-
-
-
-
