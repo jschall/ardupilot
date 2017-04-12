@@ -7,7 +7,7 @@ from helpers import *
 import sys
 
 output_stream = sys.stdout
-
+subx_threshold = 5
 
 # Parameters
 dt = Symbol('dt')  # Time step
@@ -17,71 +17,21 @@ del_vel_noise = Symbol('del_vel_noise')
 del_vel = Matrix(symbols('del_vel[0:3]'))
 
 # States
-x = Matrix(symbols('state[0:6]'))
+x = Matrix(symbols('state[0:10]'))
 nStates = len(x)
 
-pos = x[0:3,0]
-vel = x[3:6,0]
+# position of the vehicle relative to the location the initial frame was taken, NED
+vehicle_pos = x[0:3,0]
+# velocity of the vehicle
+vehicle_vel = x[3:6,0]
+# position of the target relative to the location the initial frame was taken, inverse-scaled NED
+target_pos_nedw = x[6:10,0]
+
+target_pos_ned_rel_init = target_pos_nedw[0:3,0]*1/target_pos_nedw[3]
+target_pos_ned_rel_vehicle = target_pos_ned_rel_init-vehicle_pos
 
 # Covariance matrix
 P = compressedSymmetricMatrix('cov', nStates)
-
-def deriveSyntheticPos(jsonfile):
-    print('Beginning synthetic position derivation')
-    t1 = datetime.datetime.now()
-
-    align = toVec(symbols('align_x align_y align_z'))
-    align_R = toVec(symbols('align_x_R align_y_R align_z_R'))
-
-    los_unit_ned = toVec(symbols('los_n los_e los_d'))
-    height = Symbol('height')
-    height_R = Symbol('height_R')
-
-    synthetic_pos = los_unit_ned*height/los_unit_ned[2]
-
-    corrected_meas = quat_to_matrix(rot_vec_to_quat_approx(align)) * synthetic_pos
-    corrections = toVec(align, height)
-    corrections_R = diag(*toVec(align_R, height_R))
-
-    H = corrected_meas.jacobian(corrections)
-    synthetic_pos_R = H*corrections_R*H.T
-
-    subs = {
-        align[0]:0,
-        align[1]:0,
-        align[2]:0
-        }
-
-    synthetic_pos_R = simplify(upperTriangularToVec(synthetic_pos_R).xreplace(subs))
-
-    # Output generation
-    funcParams = {'align_R':align_R,'los_unit_ned':los_unit_ned,'height':height,'height_R':height_R}
-
-    funcs = {}
-
-    #funcs['subx'] = {}
-    #funcs['subx']['params'] = funcParams
-    #funcs['subx']['ret'] = toVec([x[1] for x in subx])
-    #funcs['subx']['retsymbols'] = toVec([x[0] for x in subx])
-
-    #funcParams = funcParams.copy()
-    #funcParams['subx'] = toVec([x[0] for x in subx])
-
-    funcs['z'] = {}
-    funcs['z']['params'] = funcParams
-    funcs['z']['ret'] = synthetic_pos
-
-    funcs['R'] = {}
-    funcs['R']['params'] = funcParams
-    funcs['R']['ret'] = synthetic_pos_R
-
-    check_funcs(funcs)
-
-    saveExprsToJSON(jsonfile, {'funcs':serialize_exprs_in_structure(funcs.copy())})
-
-    op_count, subx_count = getOpStats(funcs)
-    t2 = datetime.datetime.now()
-    print('%s synthetic position: derivation saved to %s. %u ops, %u subexpressions.' % (t2-t1,jsonfile,op_count,subx_count))
 
 def printInitialization():
     vel = Matrix(symbols('vel[0:3]'))
@@ -117,9 +67,10 @@ def printInitialization():
 
 def printPrediction():
     # f: state-transtition model
-    f = zeros(6,1)
-    f[0:3,0] = pos+vel*dt
-    f[3:6,0] = vel+del_vel
+    f = zeros(10,1)
+    f[0:3,0] = vehicle_pos+vehicle_vel*dt
+    f[3:6,0] = vehicle_vel+del_vel
+    f[6:10,0] = x[6:10,0]
 
     assert f.shape == x.shape
 
@@ -148,7 +99,7 @@ def printPrediction():
     P_n = F*P*F.T + Q
     P_n = upperTriangularToVec(P_n)
 
-    x_n,P_n,subx = extractSubexpressions([x_n,P_n],'subx',threshold=1)
+    x_n,P_n,subx = extractSubexpressions([x_n,P_n],'subx',threshold=subx_threshold)
 
     output_stream.write('// PREDICTION\n')
     output_stream.write('// %u operations\n' % (count_ops(x_n)+count_ops(P_n)+count_ops(subx),))
@@ -199,7 +150,7 @@ def printFusion(name, h, R_type='matrix'):
     P_n = (I-K*H)*P
     P_n = upperTriangularToVec(P_n)
 
-    x_n,P_n,NIS,subx = extractSubexpressions([x_n,P_n,NIS],'subx',threshold=1)
+    x_n,P_n,NIS,subx = extractSubexpressions([x_n,P_n,NIS],'subx',threshold=subx_threshold)
 
     output_stream.write('// %s FUSION\n' % (name.upper(),))
     output_stream.write('// %u operations\n' % (count_ops(x_n)+count_ops(P_n)+count_ops(subx),))
@@ -218,6 +169,6 @@ def printFusion(name, h, R_type='matrix'):
 
 printInitialization()
 printPrediction()
-printFusion('los', pos/vec_norm(pos), 'scalar')
-printFusion('velocity', vel, 'vector')
+printFusion('los', target_pos_ned_rel_vehicle/vec_norm(target_pos_ned_rel_vehicle), 'scalar')
+printFusion('velocity', vehicle_vel, 'vector')
 sys.exit()
