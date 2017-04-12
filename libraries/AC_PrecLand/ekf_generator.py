@@ -11,7 +11,7 @@ subx_threshold = 5
 
 # Parameters
 dt = Symbol('dt')  # Time step
-del_vel_noise = Symbol('del_vel_noise')
+del_vel_sigma = Symbol('del_vel_sigma')
 
 # Inputs
 del_vel = Matrix(symbols('del_vel[0:3]'))
@@ -22,39 +22,59 @@ nStates = len(x)
 
 # position of the vehicle relative to the location the initial frame was taken, NED
 vehicle_pos = x[0:3,0]
-# velocity of the vehicle
+# velocity of the vehicle, NED
 vehicle_vel = x[3:6,0]
-# position of the target relative to the location the initial frame was taken, inverse-scaled NED
-target_pos_nedw = x[6:10,0]
+# normalized position of the target relative to the location the initial frame was taken, NED
+target_pos_ned_unit = x[6:9,0]
+# inverse of target distance from the location the initial frame was taken
+rho = x[9]
 
-target_pos_ned_rel_init = target_pos_nedw[0:3,0]*1/target_pos_nedw[3]
-target_pos_ned_rel_vehicle = target_pos_ned_rel_init-vehicle_pos
+target_pos_ned_rel_init = target_pos_ned_unit*1/rho
+target_pos_ned_rel_vehicle = target_pos_ned_unit*1/rho - vehicle_pos
 
 # Covariance matrix
 P = compressedSymmetricMatrix('cov', nStates)
 
+def printPos():
+    output_stream.write('// TARGET POS RELATIVE TO VEHICLE\n')
+    for i in range(len(target_pos_ned_rel_vehicle)):
+        output_stream.write('ret[%u] = %s;\n' % (i, CCodePrinter_float().doprint(target_pos_ned_rel_vehicle[i])))
+    output_stream.write('\n\n')
+
+def printVel():
+    output_stream.write('// TARGET VEL RELATIVE TO VEHICLE\n')
+    for i in range(len(vehicle_vel)):
+        output_stream.write('ret[%u] = %s;\n' % (i, CCodePrinter_float().doprint(-vehicle_vel[i])))
+    output_stream.write('\n\n')
+
 def printInitialization():
+    min_d = 2
     vel = Matrix(symbols('vel[0:3]'))
-    vel_var = Matrix(symbols('vel_xy_var vel_xy_var vel_z_var'))
-    align = Matrix(symbols('align[0:3]'))
-    align_var = Matrix(symbols('align_xy_var align_xy_var align_z_var'))
+    vel_sigma = Matrix(symbols('vel_xy_sigma vel_xy_sigma vel_z_sigma'))
+    vel_var = vel_sigma.multiply_elementwise(vel_sigma)
 
     los_unit_ned = Matrix(symbols('los_unit_ned[0:3]'))
-    dist = Symbol('dist')
-    dist_var = Symbol('dist_var')
+    align = Matrix(symbols('align[0:3]'))
+    align_sigma = Matrix(symbols('align_xy_sigma align_xy_sigma align_z_sigma'))
+    align_var = align_sigma.multiply_elementwise(align_sigma)
 
-    x_n = zeros(6,1)
-    x_n[0:3,0] = quat_to_matrix(rot_vec_to_quat_approx(align)) * los_unit_ned*dist
+    inv_scale = Symbol('inv_scale')
+    inv_scale_var = Symbol('inv_scale_var')
+
+    x_n = zeros(10,1)
     x_n[3:6,0] = vel
+    x_n[6:9,0] = quat_to_matrix(rot_vec_to_quat_approx(align)) * los_unit_ned
+    x_n[9] = inv_scale
 
-    params = toVec(align, dist, vel)
-    params_R = diag(*toVec(align_var, dist_var, vel_var))
+    params = toVec(align, inv_scale, vel)
+    params_R = diag(*toVec(align_var, inv_scale_var, vel_var))
 
     H = x_n.jacobian(params)
     P_n = H*params_R*H.T
 
-    x_n = x_n.xreplace(dict(zip(align, zeros(3,1))))
-    P_n = P_n.xreplace(dict(zip(align, zeros(3,1))))
+    x_n = x_n.xreplace(dict(zip(align, zeros(3,1)))).xreplace({inv_scale: 1./(2*min_d), inv_scale_var: (1./(4*min_d))**2})
+    P_n = P_n.xreplace(dict(zip(align, zeros(3,1)))).xreplace({inv_scale: 1./(2*min_d), inv_scale_var: (1./(4*min_d))**2})
+    P_n = upperTriangularToVec(P_n)
 
     output_stream.write('// INITIALIZATION\n')
 
@@ -84,7 +104,7 @@ def printPrediction():
     G = f.jacobian(u)
 
     # w_u_sigma: additive noise on u
-    w_u_sigma = Matrix([del_vel_noise, del_vel_noise, del_vel_noise])
+    w_u_sigma = Matrix([del_vel_sigma, del_vel_sigma, del_vel_sigma])
 
     # Q_u: covariance of additive noise on u
     Q_u = diag(*w_u_sigma.multiply_elementwise(w_u_sigma))
@@ -114,19 +134,52 @@ def printPrediction():
         output_stream.write('cov_n[%u] = %s;\n' % (i, CCodePrinter_float().doprint(P_n[i])))
     output_stream.write('\n\n')
 
+def printLOSFusion():
+    los_unit_ned = Matrix(symbols('los_unit_ned[0:3]'))
+    align = Matrix(symbols('align[0:3]'))
+    align_sigma = Matrix(symbols('align_xy_sigma align_xy_sigma align_z_sigma'))
+    align_var = align_sigma.multiply_elementwise(align_sigma)
 
-def printFusion(name, h, R_type='matrix'):
-    # z: observation
-    z = Matrix(symbols('z[0:%u]' % (len(h),)))
+    params = toVec(align)
+    params_R = diag(*toVec(align_var))
 
-    # R: observation covariance
-    if R_type == 'matrix':
-        R = compressedSymmetricMatrix('R', len(h))
-    elif R_type == 'vector':
-        R = diag(*symbols('R[0:3]'))
-    elif R_type == 'scalar':
-        R = diag(*[Symbol('R') for _ in z])
+    z = quat_to_matrix(rot_vec_to_quat_approx(align)) * los_unit_ned
+    H = z.jacobian(params)
 
+    R = H*params_R*H.T
+
+    z = z.xreplace(dict(zip(align, zeros(3,1))))
+    R = R.xreplace(dict(zip(align, zeros(3,1))))
+
+    h = -vehicle_pos*rho + target_pos_ned_unit
+
+    z *= vec_norm(-vehicle_pos*rho + target_pos_ned_unit)
+
+    printFusion("los", h, z, R)
+
+def printVelFusion():
+    vel = Matrix(symbols('vel[0:3]'))
+    vel_sigma = Matrix(symbols('vel_xy_sigma vel_xy_sigma vel_z_sigma'))
+    vel_var = vel_sigma.multiply_elementwise(vel_sigma)
+
+    h = vehicle_vel
+    z = vel
+    R = diag(*vel_var)
+
+    printFusion("vel", h, z, R)
+
+def printVelZFusion():
+    vel_z = Matrix([Symbol('vel_z')])
+    vel_z_sigma = Matrix([Symbol('vel_z_sigma')])
+    vel_z_var = vel_z_sigma.multiply_elementwise(vel_z_sigma)
+
+    h = vehicle_vel[2:3,0]
+    z = vel_z
+    R = diag(*vel_z_var)
+
+    printFusion("vel_z", h,z,R)
+
+def printFusion(name, h, z, R):
     # y: innovation vector
     y = z-h
 
@@ -154,6 +207,7 @@ def printFusion(name, h, R_type='matrix'):
 
     output_stream.write('// %s FUSION\n' % (name.upper(),))
     output_stream.write('// %u operations\n' % (count_ops(x_n)+count_ops(P_n)+count_ops(subx),))
+
     for i in range(len(subx)):
         output_stream.write('float %s = %s;\n' % (subx[i][0], CCodePrinter_float().doprint(subx[i][1])))
 
@@ -166,9 +220,10 @@ def printFusion(name, h, R_type='matrix'):
     output_stream.write('\nfloat NIS = %s;\n' % (CCodePrinter_float().doprint(NIS[0]),))
     output_stream.write('\n\n')
 
-
 printInitialization()
 printPrediction()
-printFusion('los', target_pos_ned_rel_vehicle/vec_norm(target_pos_ned_rel_vehicle), 'scalar')
-printFusion('velocity', vehicle_vel, 'vector')
-sys.exit()
+printVelFusion()
+printLOSFusion()
+printPos()
+printVel()
+printVelZFusion()

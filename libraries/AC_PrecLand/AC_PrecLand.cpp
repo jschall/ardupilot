@@ -5,6 +5,7 @@
 #include "AC_PrecLand_IRLock.h"
 #include "AC_PrecLand_SITL_Gazebo.h"
 #include "AC_PrecLand_SITL.h"
+#include <DataFlash/DataFlash.h>
 
 extern const AP_HAL::HAL& hal;
 
@@ -155,6 +156,7 @@ void AC_PrecLand::update(float rangefinder_alt_cm, bool rangefinder_alt_valid)
     _ahrs.getCorrectedDeltaVelocityNED(inertial_data_newest.correctedVehicleDeltaVelocityNED, inertial_data_newest.dt);
     inertial_data_newest.Tbn = _ahrs.get_rotation_body_to_ned();
     inertial_data_newest.inertialNavVelocity = _inav.get_velocity()*0.01f;
+    inertial_data_newest.inertialNavVelocity.z = -inertial_data_newest.inertialNavVelocity.z;
     inertial_data_newest.inertialNavVelocityValid = _inav.get_filter_status().flags.horiz_vel;
     _inertial_history.push_back(inertial_data_newest);
 
@@ -297,6 +299,77 @@ void AC_PrecLand::run_estimator(float rangefinder_alt_m, bool rangefinder_alt_va
                 _target_pos_rel_est_NE.y = _ekf_y.getPos();
                 _target_vel_rel_est_NE.x = _ekf_x.getVel();
                 _target_vel_rel_est_NE.y = _ekf_y.getVel();
+
+                run_output_prediction();
+            }
+            break;
+        }
+        case ESTIMATOR_TYPE_3D_KALMAN_FILTER: {
+            // Predict
+            if (target_acquired()) {
+                const float& dt = inertial_data_delayed.dt;
+                const Vector3f& vehicleDelVel = inertial_data_delayed.correctedVehicleDeltaVelocityNED;
+
+                _ekf_3d.predict(dt, vehicleDelVel, _accel_noise*dt);
+            }
+
+            // Update if a new LOS measurement is available
+            bool fused_los = false;
+            Vector3f target_vec_unit_body;
+            if (retrieve_los_meas(target_vec_unit_body)) {
+                Vector3f target_vec_unit_ned = inertial_data_delayed.Tbn * target_vec_unit_body;
+
+                float cam_align_xy_sigma = 0.01f + 0.01f*_ahrs.get_gyro().length();
+                float cam_align_z_sigma = cam_align_xy_sigma + 0.02f;
+
+                if (!target_acquired()) {
+                    // reset filter state
+                    if (inertial_data_delayed.inertialNavVelocityValid) {
+                        _ekf_3d.init(target_vec_unit_ned, cam_align_xy_sigma, cam_align_z_sigma, inertial_data_delayed.inertialNavVelocity, 1.0f, 0.25f);
+                    } else {
+                        _ekf_3d.init(target_vec_unit_ned, cam_align_xy_sigma, cam_align_z_sigma, Vector3f(0,0,0), 10.0f, 0.25f);
+                    }
+                    _ekf_3d.fuse_los_ned(target_vec_unit_ned, cam_align_xy_sigma, cam_align_z_sigma, 0);
+                    _last_update_ms = AP_HAL::millis();
+                    _last_vel_fuse_ms = AP_HAL::millis();
+                    _target_acquired = true;
+                } else {
+                    if (_ekf_3d.fuse_los_ned(target_vec_unit_ned, cam_align_xy_sigma, cam_align_z_sigma, 0)) {
+                        _last_update_ms = AP_HAL::millis();
+                        _target_acquired = true;
+                    } else {
+                        // TODO deal with rejected measurements
+                    }
+                    fused_los = true;
+                }
+            }
+
+            if (target_acquired() && AP_HAL::millis() - _last_vel_fuse_ms > 50 && !fused_los) {
+                if (inertial_data_delayed.inertialNavVelocityValid) {
+                    _ekf_3d.fuse_vel(inertial_data_delayed.inertialNavVelocity, 1.0f, 0.25f, 0);
+                } else {
+                    _ekf_3d.fuse_vel_z(inertial_data_delayed.inertialNavVelocity.z, 0.25f, 0);
+                }
+
+                _last_vel_fuse_ms = AP_HAL::millis();
+            }
+
+            // Output prediction
+            if (target_acquired()) {
+                float state[10];
+                _ekf_3d.getState(state);
+                DataFlash_Class::instance()->Log_Write("PLS", "TimeUS,S0,S1,S2,S3,S4,S5,S6,S7,S8,S9", "Qffffffffff", AP_HAL::micros64(), state[0],state[1],state[2],state[3],state[4],state[5],state[6],state[7],state[8],state[9]);
+
+                float pos[3];
+                float vel[3];
+
+                _ekf_3d.getPos(pos);
+                _ekf_3d.getVel(vel);
+
+                _target_pos_rel_est_NE.x = pos[0];
+                _target_pos_rel_est_NE.y = pos[1];
+                _target_vel_rel_est_NE.x = vel[0];
+                _target_vel_rel_est_NE.y = vel[1];
 
                 run_output_prediction();
             }

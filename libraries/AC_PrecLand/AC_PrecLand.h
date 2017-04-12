@@ -82,7 +82,8 @@ public:
 private:
     enum estimator_type_t {
         ESTIMATOR_TYPE_RAW_SENSOR = 0,
-        ESTIMATOR_TYPE_KALMAN_FILTER = 1
+        ESTIMATOR_TYPE_KALMAN_FILTER = 1,
+        ESTIMATOR_TYPE_3D_KALMAN_FILTER = 2
     };
 
     // returns enabled parameter as an behaviour
@@ -129,6 +130,9 @@ private:
 
     Vector2f                    _target_pos_rel_out_NE; // target's position relative to the camera, fed into position controller
     Vector2f                    _target_vel_rel_out_NE; // target's velocity relative to the CG, fed into position controller
+
+    KF_3D _ekf_3d;
+    uint32_t _last_vel_fuse_ms;
 
     // structure and buffer to hold a short history of vehicle velocity
     struct inertial_data_frame_s {

@@ -32,7 +32,7 @@ void AC_PrecLand_SITL::update()
         _state.healthy = false;
         return;
     }
-    if (home.length() > 10.0f) { // we can see the target out to 10 metres
+    if (home.length() > 20.0f) { // we can see the target out to 10 metres
         return;
     }
     _state.healthy = true;
