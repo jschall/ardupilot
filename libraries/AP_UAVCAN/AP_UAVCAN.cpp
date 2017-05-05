@@ -394,7 +394,7 @@ void AP_UAVCAN::do_cyclic(void)
 
     if (_initialized) {
         auto *node = get_node();
-        const int error = node->spin(uavcan::MonotonicDuration::fromMSec(1));
+        const int error = node->spin(uavcan::MonotonicDuration::fromUSec(200));
         if (error < 0) {
             hal.scheduler->delay_microseconds(1000);
         } else {
