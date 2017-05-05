@@ -322,6 +322,9 @@ bool AC_PosControl::is_active_z() const
 /// update_z_controller - fly to altitude in cm above home
 void AC_PosControl::update_z_controller()
 {
+    // check for ekf altitude reset
+    check_for_ekf_z_reset();
+
     // check time since last cast
     uint32_t now = AP_HAL::millis();
     if (now - _last_update_z_ms > POSCONTROL_ACTIVE_TIMEOUT_MS) {
@@ -330,8 +333,6 @@ void AC_PosControl::update_z_controller()
     }
     _last_update_z_ms = now;
 
-    // check for ekf altitude reset
-    check_for_ekf_z_reset();
 
     // check if leash lengths need to be recalculated
     calc_leash_length_z();
@@ -1075,7 +1076,9 @@ void AC_PosControl::check_for_ekf_z_reset()
     float alt_shift;
     uint32_t reset_ms = _ahrs.getLastPosDownReset(alt_shift);
     if (reset_ms != _ekf_z_reset_ms) {
-        shift_alt_target(-alt_shift * 100.0f);
+        if (is_active_z()) {
+            shift_alt_target(-alt_shift * 100.0f);
+        }
         _ekf_z_reset_ms = reset_ms;
     }
 }
