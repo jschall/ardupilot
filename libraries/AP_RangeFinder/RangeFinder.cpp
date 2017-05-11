@@ -17,6 +17,7 @@
 #include "AP_RangeFinder_analog.h"
 #include "AP_RangeFinder_PulsedLightLRF.h"
 #include "AP_RangeFinder_MaxsonarI2CXL.h"
+#include "AP_RangeFinder_DevantechI2C.h"
 #include "AP_RangeFinder_MaxsonarSerialLV.h"
 #include "AP_RangeFinder_PX4_PWM.h"
 #include "AP_RangeFinder_BBB_PRU.h"
@@ -643,6 +644,11 @@ void RangeFinder::detect_instance(uint8_t instance)
     case RangeFinder_TYPE_MBI2C:
         if (_i2c_address[instance]) {
             _add_backend(AP_RangeFinder_MaxsonarI2CXL::detect(*this, instance, state[instance], hal.i2c_mgr->get_device(_i2c_bus[instance], _i2c_address[instance])));
+        }
+        break;
+    case RangeFinder_TYPE_DEVANTECHI2C:
+        if (_i2c_address[instance]) {
+            _add_backend(AP_RangeFinder_DevantechI2C::detect(*this, instance, state[instance], hal.i2c_mgr->get_device(_i2c_bus[instance], _i2c_address[instance])));
         }
         break;
     case RangeFinder_TYPE_LWI2C:
