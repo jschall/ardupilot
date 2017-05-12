@@ -554,6 +554,10 @@ struct PACKED log_RFND {
     uint8_t orient1;
     uint16_t dist2;
     uint8_t orient2;
+    uint16_t dist3;
+    uint8_t orient3;
+    uint16_t dist4;
+    uint8_t orient4;
 };
 
 /*
@@ -927,7 +931,7 @@ Format characters in the format string for binary log messages
     { LOG_MODE_MSG, sizeof(log_Mode), \
       "MODE", "QMBB",         "TimeUS,Mode,ModeNum,Rsn" }, \
     { LOG_RFND_MSG, sizeof(log_RFND), \
-      "RFND", "QCBCB", "TimeUS,Dist1,Orient1,Dist2,Orient2" }, \
+      "RFND", "QCBCBCBCB", "TimeUS,Dist1,Orient1,Dist2,Orient2,Dist3,Orient3,Dist4,Orient4" }, \
     { LOG_DF_MAV_STATS, sizeof(log_DF_MAV_Stats), \
       "DMS", "IIIIIBBBBBBBBBB",         "TimeMS,N,Dp,RT,RS,Er,Fa,Fmn,Fmx,Pa,Pmn,Pmx,Sa,Smn,Smx" }, \
     { LOG_BEACON_MSG, sizeof(log_Beacon), \
