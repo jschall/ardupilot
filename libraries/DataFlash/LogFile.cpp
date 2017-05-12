@@ -700,7 +700,11 @@ void DataFlash_Class::Log_Write_RFND(const RangeFinder &rangefinder)
         dist1         : rangefinder.distance_cm(0),
         orient1       : rangefinder.get_orientation(0),
         dist2         : rangefinder.distance_cm(1),
-        orient2       : rangefinder.get_orientation(1)
+        orient2       : rangefinder.get_orientation(1),
+        dist3         : rangefinder.distance_cm(2),
+        orient3       : rangefinder.get_orientation(2),
+        dist4         : rangefinder.distance_cm(3),
+        orient4       : rangefinder.get_orientation(3)
     };
     WriteBlock(&pkt, sizeof(pkt));
 }
