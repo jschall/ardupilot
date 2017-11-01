@@ -161,6 +161,21 @@ private:
         } flags;
     }; // 12 bytes
 
+    struct PACKED sbp_baseline_ned_t {
+        uint32_t tow;
+        int32_t n;
+        int32_t e;
+        int32_t d;
+        uint16_t h_accuracy;
+        uint16_t v_accuracy;
+        uint8_t n_sats;
+        struct PACKED flags {
+            uint8_t fix_mode:3;
+            uint8_t res:4;
+            uint8_t raim_repair:1;
+        };
+    };
+
     void _sbp_process();
     void _sbp_process_message();
     bool _attempt_state_update();
@@ -177,6 +192,7 @@ private:
     struct sbp_pos_llh_t   last_pos_llh;
     struct sbp_vel_ned_t   last_vel_ned;
     struct sbp_ext_event_t last_event;
+    struct sbp_baseline_ned_t last_baseline_ned;
 
     uint32_t               last_full_update_tow;
     uint16_t               last_full_update_wn;

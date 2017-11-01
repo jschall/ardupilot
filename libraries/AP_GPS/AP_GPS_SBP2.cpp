@@ -203,6 +203,10 @@ AP_GPS_SBP2::_sbp_process_message() {
             logging_ext_event();
             break;
 
+        case SBP_BASELINE_NED_MSGTYPE:
+            memcpy(&last_baseline_ned, parser_state.msg_buff, sizeof(struct sbp_baseline_ned_t));
+            break;
+
         default:
             break;
     }
@@ -340,6 +344,16 @@ AP_GPS_SBP2::_attempt_state_update()
             default:
                 state.status = AP_GPS::NO_FIX;
                 break;
+        }
+
+        if (state.status == AP_GPS::GPS_OK_FIX_3D_RTK_FLOAT || state.status == AP_GPS::GPS_OK_FIX_3D_RTK_FIXED) {
+            state.rtk_time_week_ms = last_baseline_ned.tow;
+            state.rtk_num_sats = last_baseline_ned.n_sats;
+            state.rtk_baseline_coords_type = 1;
+            state.rtk_baseline_x_mm = last_baseline_ned.n;
+            state.rtk_baseline_y_mm = last_baseline_ned.e;
+            state.rtk_baseline_z_mm = last_baseline_ned.d;
+            state.rtk_accuracy = last_baseline_ned.h_accuracy;
         }
 
         //
