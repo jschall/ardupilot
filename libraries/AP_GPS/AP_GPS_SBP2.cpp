@@ -354,6 +354,7 @@ AP_GPS_SBP2::_attempt_state_update()
             state.rtk_baseline_y_mm = last_baseline_ned.e;
             state.rtk_baseline_z_mm = last_baseline_ned.d;
             state.rtk_accuracy = last_baseline_ned.h_accuracy;
+            DataFlash_Class::instance()->Log_Write("RTK", "TimeUS,N,E,D,Sats,HAcc,VAcc", "QfffBff", AP_HAL::micros64(), last_baseline_ned.n*1e-3, last_baseline_ned.e*1e-3, last_baseline_ned.d*1e-3, last_baseline_ned.n_sats, last_baseline_ned.h_accuracy*1e-3, last_baseline_ned.v_accuracy*1e-3);
         }
 
         //
