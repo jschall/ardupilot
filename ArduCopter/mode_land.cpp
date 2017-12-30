@@ -136,8 +136,16 @@ void Copter::ModeLand::nogps_run()
     // set motors to full range
     motors->set_desired_spool_state(AP_Motors::DESIRED_THROTTLE_UNLIMITED);
 
-    // call attitude controller
-    attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(target_roll, target_pitch, target_yaw_rate, get_smoothing_gain());
+#if PRECISION_LANDING == ENABLED
+    bool doing_precision_landing = !_copter.ap.land_repo_active && _copter.precland.target_acquired();
+#endif
+
+    if (doing_precision_landing) {
+        _copter.land_run_horizontal_control();
+    } else {
+        // call attitude controller
+        attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(target_roll, target_pitch, target_yaw_rate, get_smoothing_gain());
+    }
 
     // pause before beginning land descent
     if(land_pause && millis()-land_start_time >= LAND_WITH_DELAY_MS) {
