@@ -141,6 +141,18 @@ void free(void *ptr)
     }
 }
 
+void* ff_memalloc(size_t size)
+{
+    void* ret = malloc(size);
+//     printf("ff_memalloc %u %u\n", size, (uint32_t)(ret != NULL));
+    return ret;
+}
+
+void ff_memfree(void* p) {
+//     printf("ff_memfree\n");
+    return free(p);
+}
+
 /*
   return total available memory in bytes
  */

@@ -156,7 +156,8 @@ caddr_t _sbrk(struct _reent *r, int incr)
   void *p;
 
   chDbgCheck(incr >= 0);
-  p = chHeapAlloc(NULL, (size_t)incr);
+//   p = chHeapAlloc(NULL, (size_t)incr);
+  p = malloc((size_t)incr);
   if (p == NULL) {
     __errno_r(r) = ENOMEM;
     return (caddr_t)-1;
