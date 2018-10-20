@@ -138,6 +138,8 @@ void OpticalFlow::update(void)
 
     if (backend != nullptr) {
         backend->update();
+    } else if (backend == nullptr) {
+        init();
     }
 
     // only healthy if the data is less than 0.5s old
