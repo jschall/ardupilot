@@ -17,7 +17,7 @@ extern const AP_HAL::HAL& hal;
 UC_REGISTRY_BINDER(MeasurementCb, uavcan::equipment::range_sensor::Measurement);
 
 AP_RangeFinder_UAVCAN::DetectedModules AP_RangeFinder_UAVCAN::_detected_modules[] = {0};
-AP_HAL::Semaphore* AP_RangeFinder_UAVCAN::_sem_registry = nullptr;
+HAL_Semaphore AP_RangeFinder_UAVCAN::_sem_registry;
 
 /*
   constructor - registers instance at top RangeFinder driver
@@ -46,15 +46,12 @@ void AP_RangeFinder_UAVCAN::subscribe_msgs(AP_UAVCAN* ap_uavcan)
 
 bool AP_RangeFinder_UAVCAN::take_registry()
 {
-    if (_sem_registry == nullptr) {
-        _sem_registry = hal.util->new_semaphore();
-    }
-    return _sem_registry->take(HAL_SEMAPHORE_BLOCK_FOREVER);
+    return _sem_registry.take(HAL_SEMAPHORE_BLOCK_FOREVER);
 }
 
 void AP_RangeFinder_UAVCAN::give_registry()
 {
-    _sem_registry->give();
+    _sem_registry.give();
 }
 
 AP_RangeFinder_Backend* AP_RangeFinder_UAVCAN::detect(RangeFinder::RangeFinder_State &state, AP_RangeFinder_Params &params)

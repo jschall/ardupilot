@@ -41,5 +41,5 @@ private:
         AP_RangeFinder_UAVCAN* driver;
     } _detected_modules[RANGEFINDER_MAX_INSTANCES];
 
-    static AP_HAL::Semaphore *_sem_registry;
+    static HAL_Semaphore _sem_registry;
 };
