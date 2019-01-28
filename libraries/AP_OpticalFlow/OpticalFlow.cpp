@@ -131,6 +131,12 @@ void OpticalFlow::init(uint32_t log_bit)
 
 void OpticalFlow::update(void)
 {
+    if (backend == nullptr) {
+        backend = AP_OpticalFlow_UAVCAN::detect(*this);
+        if (backend != nullptr) {
+            backend->init();
+        }
+    }
     // exit immediately if not enabled
     if (!enabled()) {
         return;
@@ -138,8 +144,6 @@ void OpticalFlow::update(void)
 
     if (backend != nullptr) {
         backend->update();
-    } else if (backend == nullptr) {
-        init();
     }
 
     // only healthy if the data is less than 0.5s old

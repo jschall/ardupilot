@@ -75,8 +75,8 @@ void AP_OpticalFlow_UAVCAN::handle_measurement(AP_UAVCAN* ap_uavcan, uint8_t nod
         _node_id = node_id;
         return;
     }
-    _driver->flowRate = Vector2f(cb.msg->flow_integral[0], -cb.msg->flow_integral[1]);
-    _driver->bodyRate = Vector2f(cb.msg->rate_gyro_integral[0], -cb.msg->rate_gyro_integral[1]);
+    _driver->flowRate = Vector2f(cb.msg->flow_integral[0], cb.msg->flow_integral[1]);
+    _driver->bodyRate = Vector2f(cb.msg->rate_gyro_integral[0], cb.msg->rate_gyro_integral[1]);
     _driver->integral_time = cb.msg->integration_interval;
     _driver->surface_quality = cb.msg->quality;
     _driver->_push_state();
