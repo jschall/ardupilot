@@ -2110,9 +2110,7 @@ void GCS_MAVLINK::send_opticalflow()
     const AP_AHRS &ahrs = AP::ahrs();
     float hagl = 0;
     if (ahrs.have_inertial_nav()) {
-        if (!ahrs.get_hagl(hagl)) {
-            return;
-        }
+        ahrs.get_hagl(hagl);
     }
 
     // populate and send message

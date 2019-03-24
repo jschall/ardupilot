@@ -20,6 +20,7 @@ extern const AP_HAL::HAL& hal;
 // Apply a median filter
 void NavEKF2_core::readRangeFinder(void)
 {
+    return;
     uint8_t midIndex;
     uint8_t maxIndex;
     uint8_t minIndex;
