@@ -3,6 +3,7 @@
 
 bool ModeFBWB::_enter()
 {
+    plane.fbwb_airspeed_desired_mps = plane.aparm.airspeed_cruise_cm*0.01;
     plane.throttle_allows_nudging = false;
     plane.auto_throttle_mode = true;
     plane.auto_navigation_mode = false;

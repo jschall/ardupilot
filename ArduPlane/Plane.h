@@ -368,6 +368,9 @@ private:
     // throttle stick in the top half of the range.  Centimeters per second.
     int16_t airspeed_nudge_cm;
 
+    // The current desired airspeed in FBWB and CRUISE modes. Used when FLIGHT_OPTIONS bit for CRUISE_THROTTLE_ACCEL is set.
+    float fbwb_airspeed_desired_mps;
+
     // Similar to airspeed_nudge, but used when no airspeed sensor.
     // 0-(throttle_max - throttle_cruise) : throttle nudge in Auto mode using top 1/2 of throttle stick travel
     int16_t throttle_nudge;

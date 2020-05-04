@@ -132,6 +132,36 @@ void Plane::calc_airspeed_errors()
                                                         control_in,
                                                         control_mid, control_max);
             }
+        } else if (g2.flight_options & FlightOptions::CRUISE_THROTTLE_ACCEL) {
+            float control_min = 0.0f;
+            float control_mid = 0.0f;
+            const float control_max = channel_throttle->get_range();
+            const float control_in = get_throttle_input();
+            switch (channel_throttle->get_type()) {
+                case RC_Channel::RC_CHANNEL_TYPE_ANGLE:
+                    control_min = -control_max;
+                    break;
+                case RC_Channel::RC_CHANNEL_TYPE_RANGE:
+                    control_mid = channel_throttle->get_control_mid();
+                    break;
+            }
+
+            const float accel_max = 5; // m/s/s
+            float accel_target = 0;
+            if (control_in <= control_mid) {
+                accel_target = linear_interpolate(-accel_max, 0,
+                                                        control_in,
+                                                        control_min, control_mid);
+            } else {
+                accel_target = linear_interpolate(0, accel_max,
+                                                        control_in,
+                                                        control_mid, control_max);
+            }
+
+            fbwb_airspeed_desired_mps += accel_target*0.1f;
+
+            target_airspeed_cm = fbwb_airspeed_desired_mps*100;
+            target_airspeed_cm = constrain_float(target_airspeed_cm, aparm.airspeed_min * 100, aparm.airspeed_max * 100);
         } else {
             target_airspeed_cm = ((int32_t)(aparm.airspeed_max - aparm.airspeed_min) *
                                   get_throttle_input()) + ((int32_t)aparm.airspeed_min * 100);
