@@ -120,11 +120,14 @@ void AP_KDECAN::init(uint8_t driver_index, bool enable_filters)
                       .priority = 0,
                       .unused = 0 } };
 
-    AP_HAL::CANFrame frame { (id.value | AP_HAL::CANFrame::FlagEFF), nullptr, 0 };
+    AP_HAL::CANFrame frame((id.value | AP_HAL::CANFrame::FlagEFF), nullptr, 0);
 
-    if(!_can_iface->send(frame, AP_HAL::micros() + 1000000, 0)) {
-        debug_can(AP_CANManager::LOG_DEBUG, "couldn't send discovery message");
-        return;
+    {
+        int16_t res = _can_iface->send(frame, AP_HAL::micros() + 1000000, 0);
+        if(res != 1) {
+            debug_can(AP_CANManager::LOG_DEBUG, "couldn't send discovery message %d %u %u", res, (unsigned)frame.id, (unsigned)frame.dlc);
+            return;
+        }
     }
 
     debug_can(AP_CANManager::LOG_DEBUG, "discovery message sent");
