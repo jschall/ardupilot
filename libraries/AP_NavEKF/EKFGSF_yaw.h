@@ -142,4 +142,33 @@ private:
     // number of models whose weights underflowed due to excessive
     // innovation variances:
     uint8_t n_clips;
+    
+    class Mixand {
+    public:
+        static const int N_STATES = 10;
+        static const int PACKED_COVARIANCE_SIZE = 55;
+        static const int STATE_IDX_ROT_ERR0 = 0;
+        static const int STATE_IDX_ROT_ERR1 = 1;
+        static const int STATE_IDX_ROT_ERR2 = 2;
+        static const int STATE_IDX_GBIAS0 = 3;
+        static const int STATE_IDX_GBIAS1 = 4;
+        static const int STATE_IDX_GBIAS2 = 5;
+        static const int STATE_IDX_ABIAS_Z0 = 6;
+        static const int STATE_IDX_VEL0 = 7;
+        static const int STATE_IDX_VEL1 = 8;
+        static const int STATE_IDX_VEL2 = 9;
+        
+        void initialize(Vector3F& vel, Vector3F& vel_sigma, Vector3F& accel_body, float accel_sigma, float yaw_angle, float yaw_sigma);
+        void predict(float dt, Vector3F& del_ang, Vector3F& del_vel);
+        float getVelNIS(Vector3F& vel, Vector3F& vel_sigma);
+        void fuseVel(Vector3F& vel, Vector3F& vel_sigma);
+        
+    private:
+        ftype weight;
+        ftype quat[4];
+        ftype x[N_STATES];
+        ftype P[PACKED_COVARIANCE_SIZE];
+    };
+    
+    Mixand _mixands[N_MODELS_EKFGSF];
 };
