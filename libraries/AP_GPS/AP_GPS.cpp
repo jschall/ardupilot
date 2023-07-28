@@ -2316,6 +2316,10 @@ bool AP_GPS::gps_yaw_deg(uint8_t instance, float &yaw_deg, float &accuracy_deg, 
 
 void AP_GPS::rtcm_data_for_mavlink_send(uint8_t flags,uint32_t len, const uint8_t* data)
 {
+    if (_rtcm_mav_chan == -1) {
+        return;
+    }
+    
     uint8_t buffer_size = 20;
     if (_rtcmdatabuffer == nullptr) {
         _rtcmdatabuffer = new ObjectBuffer<RTCMPacketData>(buffer_size);
@@ -2333,10 +2337,18 @@ void AP_GPS::rtcm_data_for_mavlink_send(uint8_t flags,uint32_t len, const uint8_
 
 void AP_GPS::try_send_mavlink_rtcm_data()
 {
+    if (_rtcm_mav_chan == -1) {
+        return;
+    }
+    
     mavlink_channel_t chan = (mavlink_channel_t)(MAVLINK_COMM_0+_rtcm_mav_chan);
     RTCMPacketData packet;
-    while (_rtcmdatabuffer->pop(packet)) {
+    while (_rtcmdatabuffer->available()) {
         WITH_SEMAPHORE(comm_chan_lock(chan));
+        if (!HAVE_PAYLOAD_SPACE(chan, GPS_RTCM_DATA)) {
+            break;
+        }
+        _rtcmdatabuffer->pop(packet);
         mavlink_msg_gps_rtcm_data_send(chan,packet.flags,packet.frag_len,packet.data);
     }
 
