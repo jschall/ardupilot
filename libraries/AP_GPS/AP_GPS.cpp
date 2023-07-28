@@ -2322,6 +2322,7 @@ void AP_GPS::rtcm_data_for_mavlink_send(uint8_t flags,uint32_t len, const uint8_
     
     uint8_t buffer_size = 20;
     if (_rtcmdatabuffer == nullptr) {
+        hal.console->printf("initializing _rtcmdatabuffer");
         _rtcmdatabuffer = new ObjectBuffer<RTCMPacketData>(buffer_size);
     }
 
@@ -2348,6 +2349,7 @@ void AP_GPS::try_send_mavlink_rtcm_data()
         if (!HAVE_PAYLOAD_SPACE(chan, GPS_RTCM_DATA)) {
             break;
         }
+        hal.console->printf("sending RTCM packet!");
         _rtcmdatabuffer->pop(packet);
         mavlink_msg_gps_rtcm_data_send(chan,packet.flags,packet.frag_len,packet.data);
     }
