@@ -536,6 +536,7 @@ void AP_GPS_DroneCAN::handle_status_msg(const ardupilot_gnss_Status& msg)
   */
 void AP_GPS_DroneCAN::handle_moving_baseline_msg(const ardupilot_gnss_MovingBaselineData& msg, uint8_t node_id)
 {
+    static u_int8_t seq_id = 0;
     WITH_SEMAPHORE(sem);
     if (role != AP_GPS::GPS_ROLE_MB_BASE) {
         GCS_SEND_TEXT(MAV_SEVERITY_ERROR, "Incorrect Role set for DroneCAN GPS, %d should be Base", node_id);
@@ -545,8 +546,46 @@ void AP_GPS_DroneCAN::handle_moving_baseline_msg(const ardupilot_gnss_MovingBase
     if (rtcm3_parser == nullptr) {
         return;
     }
+
+    //for (int i=0; i < msg.data.len; i++) {
+    //rtcm3_parser->read(msg.data.data[i]);
+    //}
+
     for (int i=0; i < msg.data.len; i++) {
-        rtcm3_parser->read(msg.data.data[i]);
+        if (rtcm3_parser->read(msg.data.data[i])) {
+            seq_id++;
+
+            const uint8_t* bytes;
+            auto len = rtcm3_parser->get_len(bytes);
+
+            for (uint32_t ofs=0; ofs<len; ofs+=180) {
+                uint8_t frag_id = ofs/180;
+                uint8_t flags = 0;
+                if (len > 180) {
+                    flags |= 1;
+                }
+                flags |= (frag_id & 0b11) << 1;
+                flags |= (seq_id & 0x1f) << 3;
+                uint32_t frag_len = len-ofs;
+                if (frag_len > 180) {
+                    frag_len = 180;
+                }
+
+                gps.rtcm_data_for_mavlink_send(flags,frag_len,&bytes[ofs]);
+
+                // send mavlink msg on all channels
+                //for(uint8_t j=0;j<num_gcs;j++){
+                //mavlink_channel_t chan = (mavlink_channel_t)(MAVLINK_COMM_0+j);
+                //WITH_SEMAPHORE(gcs().comm_chan_lock(chan));
+                //if (!HAVE_PAYLOAD_SPACE(chan, GPS_RTCM_DATA)) {
+                //hal.console->printf("not enough space in buffer for channel %u\n", j);
+                //}
+                //mavlink_msg_gps_rtcm_data_send(chan,flags,frag_len, &bytes[ofs]);
+                //}
+
+
+            }
+        }
     }
 }
 

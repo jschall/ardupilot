@@ -580,6 +580,13 @@ public:
     void clear_RTCMV3();
 #endif // GPS_MOVING_BASELINE
 
+    // split rtcm data into mavlink packets and load it into _rtcmdatabuffer
+    // calls try_send_mavlink_rtcm_data after completion
+    void rtcm_data_for_mavlink_send(uint8_t flags, uint32_t len, const uint8_t* data);
+
+    // pops as many objects as possible from _rtcmdatabuffer and sends them over mavlink
+    // called from AP_GPS::update
+    void try_send_mavlink_rtcm_data();
 protected:
 
     // configuration parameters
@@ -604,6 +611,7 @@ protected:
     AP_Float _blend_tc;
     AP_Int16 _driver_options;
     AP_Int8 _primary;
+    AP_Int8 _rtcm_mav_chan;
 #if HAL_ENABLE_DRONECAN_DRIVERS
     AP_Int32 _node_id[GPS_MAX_RECEIVERS];
     AP_Int32 _override_node_id[GPS_MAX_RECEIVERS];
@@ -779,6 +787,14 @@ private:
 
     // logging support
     void Write_GPS(uint8_t instance);
+
+    typedef struct {
+        uint8_t flags;
+        uint16_t frag_len;
+        uint8_t data[180];
+    } RTCMPacketData;
+
+    ObjectBuffer<RTCMPacketData> *_rtcmdatabuffer;
 
 };
 

@@ -414,6 +414,12 @@ const AP_Param::GroupInfo AP_GPS::var_info[] = {
     AP_GROUPINFO("2_CAN_OVRIDE", 31, AP_GPS, _override_node_id[1], 0),
 #endif // GPS_MAX_RECEIVERS > 1
 #endif // HAL_ENABLE_DRONECAN_DRIVERS
+    // @Param: RTCM_MAV_CH
+    // @DisplayName: RTCM channel data over MAVLink
+    // @Description: Channel to send RTCM data over MAVLink. Disabled if 0.
+    // @Values: 0:Disabled, 1:CH1, 2:CH2, 3:CH3, 4:CH4
+    // @User: Advanced
+    AP_GROUPINFO("_RTCM_MAV_CH", 32, AP_GPS, _rtcm_mav_chan, 0),
 
     AP_GROUPEND
 };
@@ -1137,6 +1143,8 @@ void AP_GPS::update(void)
     AP_Notify::flags.gps_status = state[primary_instance].status;
     AP_Notify::flags.gps_num_sats = state[primary_instance].num_sats;
 #endif
+    hal.console->printf("calling try_send_mavlink_rtcm_data\n");
+    try_send_mavlink_rtcm_data();
 }
 
 /*
@@ -1372,6 +1380,7 @@ void AP_GPS::lock_port(uint8_t instance, bool lock)
 // Inject a packet of raw binary to a GPS
 void AP_GPS::inject_data(const uint8_t *data, uint16_t len)
 {
+    hal.console->printf("2\n");
     //Support broadcasting to all GPSes.
     if (_inject_to == GPS_RTK_INJECT_TO_ALL) {
         for (uint8_t i=0; i<GPS_MAX_RECEIVERS; i++) {
@@ -1634,7 +1643,7 @@ void AP_GPS::handle_gps_rtcm_data(const mavlink_message_t &msg)
 {
     mavlink_gps_rtcm_data_t packet;
     mavlink_msg_gps_rtcm_data_decode(&msg, &packet);
-
+    hal.console->printf("1\n");
     if (packet.len > sizeof(packet.data)) {
         // invalid packet
         return;
@@ -2305,8 +2314,36 @@ bool AP_GPS::gps_yaw_deg(uint8_t instance, float &yaw_deg, float &accuracy_deg, 
     return true;
 }
 
-namespace AP {
+void AP_GPS::rtcm_data_for_mavlink_send(uint8_t flags,uint32_t len, const uint8_t* data)
+{
+    uint8_t buffer_size = 20;
+    if (_rtcmdatabuffer == nullptr) {
+        _rtcmdatabuffer = new ObjectBuffer<RTCMPacketData>(buffer_size);
+    }
 
+    RTCMPacketData packet;
+    packet.flags = flags;
+    packet.frag_len = len;
+    memcpy(packet.data,&data,len);
+    _rtcmdatabuffer->push(packet);
+    //try and send packet as many packets as possible
+    try_send_mavlink_rtcm_data();
+}
+
+
+void AP_GPS::try_send_mavlink_rtcm_data()
+{
+    mavlink_channel_t chan = (mavlink_channel_t)(MAVLINK_COMM_0+_rtcm_mav_chan);
+    RTCMPacketData packet;
+    while (_rtcmdatabuffer->pop(packet)) {
+        WITH_SEMAPHORE(comm_chan_lock(chan));
+        mavlink_msg_gps_rtcm_data_send(chan,packet.flags,packet.frag_len,packet.data);
+    }
+
+}
+
+namespace AP
+{
 AP_GPS &gps()
 {
     return *AP_GPS::get_singleton();
