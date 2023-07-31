@@ -1143,8 +1143,10 @@ void AP_GPS::update(void)
     AP_Notify::flags.gps_status = state[primary_instance].status;
     AP_Notify::flags.gps_num_sats = state[primary_instance].num_sats;
 #endif
-    hal.console->printf("calling try_send_mavlink_rtcm_data\n");
-    try_send_mavlink_rtcm_data();
+        // mavlink_channel_t chan = (mavlink_channel_t)(MAVLINK_COMM_0+_rtcm_mav_chan);
+        // hal.console->printf("txspace: %u\n",comm_get_txspace(chan));
+        // hal.console->printf("_rtcmdatabuffer: %u\n",(unsigned)_rtcmdatabuffer->available());
+        try_send_mavlink_rtcm_data();
 }
 
 /*
@@ -1380,7 +1382,6 @@ void AP_GPS::lock_port(uint8_t instance, bool lock)
 // Inject a packet of raw binary to a GPS
 void AP_GPS::inject_data(const uint8_t *data, uint16_t len)
 {
-    hal.console->printf("2\n");
     //Support broadcasting to all GPSes.
     if (_inject_to == GPS_RTK_INJECT_TO_ALL) {
         for (uint8_t i=0; i<GPS_MAX_RECEIVERS; i++) {
@@ -1643,13 +1644,13 @@ void AP_GPS::handle_gps_rtcm_data(const mavlink_message_t &msg)
 {
     mavlink_gps_rtcm_data_t packet;
     mavlink_msg_gps_rtcm_data_decode(&msg, &packet);
-    hal.console->printf("1\n");
     if (packet.len > sizeof(packet.data)) {
         // invalid packet
         return;
     }
 
     handle_gps_rtcm_fragment(packet.flags, packet.data, packet.len);
+    hal.console->printf("time: %u\n",(unsigned)AP_HAL::millis());
 }
 
 void AP_GPS::Write_AP_Logger_Log_Startup_messages()
@@ -2322,14 +2323,13 @@ void AP_GPS::rtcm_data_for_mavlink_send(uint8_t flags,uint32_t len, const uint8_
     
     uint8_t buffer_size = 20;
     if (_rtcmdatabuffer == nullptr) {
-        hal.console->printf("initializing _rtcmdatabuffer");
         _rtcmdatabuffer = new ObjectBuffer<RTCMPacketData>(buffer_size);
     }
 
     RTCMPacketData packet;
     packet.flags = flags;
     packet.frag_len = len;
-    memcpy(packet.data,&data,len);
+    memcpy(packet.data,data,len);
     _rtcmdatabuffer->push(packet);
     //try and send packet as many packets as possible
     try_send_mavlink_rtcm_data();
@@ -2349,8 +2349,11 @@ void AP_GPS::try_send_mavlink_rtcm_data()
         if (!HAVE_PAYLOAD_SPACE(chan, GPS_RTCM_DATA)) {
             break;
         }
-        hal.console->printf("sending RTCM packet!");
-        _rtcmdatabuffer->pop(packet);
+        if (!_rtcmdatabuffer->pop(packet)){
+            break;
+        }
+        // hal.console->printf("sending RTCM packet!\n");
+        // hal.console->printf("packet.data: [%u,%u,%u,%u,..]\n",packet.data[0],packet.data[1],packet.data[2],packet.data[3]);
         mavlink_msg_gps_rtcm_data_send(chan,packet.flags,packet.frag_len,packet.data);
     }
 

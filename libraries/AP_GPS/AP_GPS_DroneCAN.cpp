@@ -536,6 +536,7 @@ void AP_GPS_DroneCAN::handle_status_msg(const ardupilot_gnss_Status& msg)
   */
 void AP_GPS_DroneCAN::handle_moving_baseline_msg(const ardupilot_gnss_MovingBaselineData& msg, uint8_t node_id)
 {
+    // hal.console->printf("in handle_moving_baseline_msg\n");
     static u_int8_t seq_id = 0;
     WITH_SEMAPHORE(sem);
     if (role != AP_GPS::GPS_ROLE_MB_BASE) {
@@ -570,19 +571,9 @@ void AP_GPS_DroneCAN::handle_moving_baseline_msg(const ardupilot_gnss_MovingBase
                 if (frag_len > 180) {
                     frag_len = 180;
                 }
-
+                // hal.console->printf("calling rtcm_data_for_mavlink_send\n");
                 gps.rtcm_data_for_mavlink_send(flags,frag_len,&bytes[ofs]);
-
-                // send mavlink msg on all channels
-                //for(uint8_t j=0;j<num_gcs;j++){
-                //mavlink_channel_t chan = (mavlink_channel_t)(MAVLINK_COMM_0+j);
-                //WITH_SEMAPHORE(gcs().comm_chan_lock(chan));
-                //if (!HAVE_PAYLOAD_SPACE(chan, GPS_RTCM_DATA)) {
-                //hal.console->printf("not enough space in buffer for channel %u\n", j);
-                //}
                 //mavlink_msg_gps_rtcm_data_send(chan,flags,frag_len, &bytes[ofs]);
-                //}
-
 
             }
         }
