@@ -68,7 +68,7 @@ public:
 #endif
 
 private:
-
+    bool send_rtcm_packet = false;
     bool param_configured = true;
     enum config_step {
         STEP_SET_TYPE = 0,

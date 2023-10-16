@@ -558,7 +558,28 @@ void AP_GPS_DroneCAN::handle_moving_baseline_msg(const ardupilot_gnss_MovingBase
 
             const uint8_t* bytes;
             auto len = rtcm3_parser->get_len(bytes);
+            //print 1st byte and high 4 bits 
+            if ((unsigned)rtcm3_parser->get_id() == 1077){
+                hal.console->printf("%u %u\n",(unsigned)AP_HAL::millis(),(unsigned)rtcm3_parser->get_id());
+                hal.console->printf("%x %x %x %x %x %x %x %x %x %x %x\n",bytes[0],bytes[1],bytes[2],bytes[3],bytes[4],bytes[5],bytes[6],bytes[7],bytes[8],bytes[9],bytes[10]);
+                uint32_t gps_epoch = bytes[6];
+                for(uint8_t j = 6; j < 9;j++){
+                   gps_epoch = (gps_epoch << 8 | bytes[j+1]);
+                }
+                gps_epoch = gps_epoch >> 2;
+                hal.console->printf("%lu\n",gps_epoch);
+                hal.console->printf("%lx\n",gps_epoch);
 
+                if(gps_epoch % 1000 < 100 ){
+                   send_rtcm_packet = true;    
+                }
+                else{
+                    send_rtcm_packet = false;
+                }
+            }
+            if (send_rtcm_packet){
+                hal.console->printf("%u sending\n",rtcm3_parser->get_id());
+            }
             for (uint32_t ofs=0; ofs<len; ofs+=180) {
                 uint8_t frag_id = ofs/180;
                 uint8_t flags = 0;
@@ -572,8 +593,11 @@ void AP_GPS_DroneCAN::handle_moving_baseline_msg(const ardupilot_gnss_MovingBase
                     frag_len = 180;
                 }
                 // hal.console->printf("calling rtcm_data_for_mavlink_send\n");
-                gps.rtcm_data_for_mavlink_send(flags,frag_len,&bytes[ofs]);
+                if (send_rtcm_packet){
+                    gps.rtcm_data_for_mavlink_send(flags,frag_len,&bytes[ofs]);
+                }
                 //mavlink_msg_gps_rtcm_data_send(chan,flags,frag_len, &bytes[ofs]);
+            
 
             }
         }

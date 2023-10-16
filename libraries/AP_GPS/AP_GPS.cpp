@@ -1650,7 +1650,6 @@ void AP_GPS::handle_gps_rtcm_data(const mavlink_message_t &msg)
     }
 
     handle_gps_rtcm_fragment(packet.flags, packet.data, packet.len);
-    hal.console->printf("time: %u\n",(unsigned)AP_HAL::millis());
 }
 
 void AP_GPS::Write_AP_Logger_Log_Startup_messages()
@@ -2329,6 +2328,7 @@ void AP_GPS::rtcm_data_for_mavlink_send(uint8_t flags,uint32_t len, const uint8_
     RTCMPacketData packet;
     packet.flags = flags;
     packet.frag_len = len;
+    //hal.console->printf("%d",packet.data);
     memcpy(packet.data,data,len);
     _rtcmdatabuffer->push(packet);
     //try and send packet as many packets as possible
