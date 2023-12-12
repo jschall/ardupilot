@@ -3069,9 +3069,16 @@ void QuadPlane::assign_tilt_to_fwd_thr(void) {
 
     float fwd_thr_scaler;
     if (!in_vtol_land_approach()) {
-        // To prevent forward motor prop strike, reduce throttle to zero when close to ground.
-        float alt_cutoff = MAX(0,vel_forward_alt_cutoff);
+        Vector3f vel_ned;
+        float descent_rate = 0;
+        if (plane.ahrs.get_velocity_NED(vel_ned)) {
+            descent_rate = vel_ned.z;
+        }
         float height_above_ground = plane.relative_ground_altitude(plane.g.rangefinder_landing);
+        float motor_off_time = 3;
+        float alt_cutoff = vel_forward_alt_cutoff+MAX(0,descent_rate*motor_off_time);
+            
+        // To prevent forward motor prop strike, reduce throttle to zero when close to ground.
         fwd_thr_scaler = linear_interpolate(0.0f, 1.0f, height_above_ground, alt_cutoff, alt_cutoff+2);
     } else {
         // When we are doing horizontal positioning in a VTOL land we always allow the fwd motor
@@ -3845,13 +3852,15 @@ float QuadPlane::forward_throttle_pct()
         vel_forward.last_pct = 0;
         vel_forward.integrator = 0;
     } else {
-        // If we are below alt_cutoff then scale down the effect until
-        // it turns off at alt_cutoff and decay the integrator
-        float alt_cutoff = MAX(0,vel_forward_alt_cutoff);
         float height_above_ground = plane.relative_ground_altitude(plane.g.rangefinder_landing);
-
-        vel_forward.last_pct = linear_interpolate(0, vel_forward.integrator,
-                                                  height_above_ground, alt_cutoff, alt_cutoff+2);
+        float descent_rate = vel_ned.z;
+        float motor_off_time = 3;
+        float alt_cutoff = vel_forward_alt_cutoff+MAX(0,descent_rate*motor_off_time);
+        
+        if (height_above_ground < alt_cutoff) {
+            vel_forward.integrator = 0;
+            vel_forward.last_pct = 0;
+        }
     }
     if (is_zero(vel_forward.last_pct)) {
         // if the percent is 0 then decay the integrator
