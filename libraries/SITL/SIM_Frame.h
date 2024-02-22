@@ -73,6 +73,13 @@ public:
     void set_mass(float new_mass) {
         mass = new_mass;
     }
+
+    // set inertia to kg.m
+    void set_inertia(float new_ixx, float new_iyy, float new_izz) {
+        model.moment_of_inertia.x = new_ixx;
+        model.moment_of_inertia.y = new_iyy;
+        model.moment_of_inertia.z = new_izz;
+    }
     
 private:
     /*
