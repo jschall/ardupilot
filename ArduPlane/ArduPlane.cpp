@@ -632,9 +632,7 @@ void Plane::update_flight_stage(void)
                 if (landing.is_commanded_go_around() || flight_stage == AP_FixedWing::FlightStage::ABORT_LANDING) {
                     // abort mode is sticky, it must complete while executing NAV_LAND
                     set_flight_stage(AP_FixedWing::FlightStage::ABORT_LANDING);
-                } else if (landing.get_abort_throttle_enable() && get_throttle_input() >= 90 &&
-                           landing.request_go_around()) {
-                    gcs().send_text(MAV_SEVERITY_INFO,"Landing aborted via throttle");
+                } else if (landing.get_abort_throttle_enable() && get_throttle_input() >= 90 && landing.request_go_around(AP_Landing::AbortMethod::THROTTLE)) {
                     set_flight_stage(AP_FixedWing::FlightStage::ABORT_LANDING);
                 } else {
                     set_flight_stage(AP_FixedWing::FlightStage::LAND);
@@ -731,7 +729,7 @@ bool Plane::trigger_land_abort(const float climb_to_alt_m)
             if (!is_zero(climb_to_alt_m)) {
                 plane.auto_state.takeoff_altitude_rel_cm = climb_to_alt_m * 100;
             }
-            if (plane.landing.request_go_around()) {
+            if (plane.landing.request_go_around(AP_Landing::AbortMethod::GCS)) {
                 plane.auto_state.next_wp_crosstrack = false;
                 return true;
             }

@@ -1623,6 +1623,19 @@ function frsky_sport:sport_telemetry_push(sensor, frame, appid, data) end
 
 
 -- desc
+---@class landing
+landing = {}
+
+-- desc
+---@return boolean
+function landing:request_go_around_via_scripting() end
+
+-- True while in a flared landing stage
+---@return boolean
+function landing:is_flaring() end
+
+
+-- desc
 ---@class MotorsMatrix
 MotorsMatrix = {}
 

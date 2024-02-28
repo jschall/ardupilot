@@ -22,6 +22,10 @@
 #include <AP_AHRS/AP_AHRS.h>
 #include <AC_Fence/AC_Fence.h>
 
+#ifndef AP_LANDING_REPEATED_ABORT_VIA_SAME_METHOD_MAX
+#define AP_LANDING_REPEATED_ABORT_VIA_SAME_METHOD_MAX 10
+#endif
+
 // table of user settable parameters
 const AP_Param::GroupInfo AP_Landing::var_info[] = {
 
@@ -204,6 +208,13 @@ AP_Landing::AP_Landing(AP_Mission &_mission, AP_AHRS &_ahrs, AP_TECS *_tecs_Cont
     ,deepstall(*this)
 #endif
 {
+    #if CONFIG_HAL_BOARD == HAL_BOARD_SITL
+        if (_singleton != nullptr) {
+            AP_HAL::panic("AP_Landing must be singleton");
+        }
+    #endif
+    _singleton = this;
+
     AP_Param::setup_object_defaults(this, var_info);
 }
 
@@ -577,13 +588,28 @@ int32_t AP_Landing::get_target_airspeed_cm(void)
  * request a landing abort given the landing type
  * return true on success
  */
-bool AP_Landing::request_go_around(void)
+bool AP_Landing::request_go_around(const AbortMethod method)
 {
     bool success = false;
 
+    Log();
+
+    if (_abort_method_last != method) {
+        // if we're attempting to abort using a different method, reset the count
+        _abort_method_same_method_count = 0;
+    }
+#if AP_LANDING_REPEATED_ABORT_VIA_SAME_METHOD_MAX > 0        
+    else if (_abort_method_same_method_count >= AP_LANDING_REPEATED_ABORT_VIA_SAME_METHOD_MAX) {
+        // if we've aborted using the same method too many times
+        // then we're probably stuck in a loop. Don't allow it.
+        gcs().send_text(MAV_SEVERITY_CRITICAL, "Landing go-around rejected, too many attempts");
+        return false;
+    }
+#endif
+
     switch (type) {
     case TYPE_STANDARD_GLIDE_SLOPE:
-        success = type_slope_request_go_around();
+        success = true;
         break;
 #if HAL_LANDING_DEEPSTALL_ENABLED
     case TYPE_DEEPSTALL:
@@ -594,8 +620,28 @@ bool AP_Landing::request_go_around(void)
         break;
     }
 
+    if (success) {
+        flags.commanded_go_around = true;
+        _abort_method_last = method;
+        _abort_method_same_method_count++;
+        gcs().send_text(MAV_SEVERITY_INFO,"Landing aborted via %s", abort_method_str(method));
+    }
+
     Log();
     return success;
+}
+
+const char* AP_Landing::abort_method_str(const AbortMethod method) const
+{
+    switch (method) {
+    case AbortMethod::GCS: return "GCS";
+    case AbortMethod::THROTTLE: return "Throttle";
+    case AbortMethod::SLOPE_TOO_STEEP: return "Slope Too Steep";
+    case AbortMethod::LANDING_GEAR_NOT_DEPLOYED: return "Landing Gear Not Deployed";
+    case AbortMethod::DEEPSTALL_NO_ELEV_CHANNEL: return "Deepstall: Unable to find the elevator channels";
+    case AbortMethod::SCRIPTING: return "Script";
+    };
+    return "Unknown";
 }
 
 void AP_Landing::handle_flight_stage_change(const bool _in_landing_stage)
@@ -717,4 +763,13 @@ void AP_Landing::convert_parameters(void)
 {
     // added January 2024
     pitch_deg.convert_centi_parameter(AP_PARAM_INT16);
+}
+
+// singleton instance
+AP_Landing *AP_Landing::_singleton;
+namespace AP
+{
+AP_Landing *landing() {
+    return AP_Landing::get_singleton();
+}
 }

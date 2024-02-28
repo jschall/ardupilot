@@ -44,6 +44,9 @@ public:
                disarm_if_autoland_complete_fn_t _disarm_if_autoland_complete_fn,
                update_flight_stage_fn_t _update_flight_stage_fn);
 
+    // get singleton instance
+    static AP_Landing *get_singleton() { return _singleton; }
+
     /* Do not allow copies */
     CLASS_NO_COPY(AP_Landing);
 
@@ -65,6 +68,15 @@ public:
         LAND_POINT_IS_FLARE_POINT                      = (1<<2),   // Treat NAV_LAND waypoint as flare target instead of land target
     };
 
+    enum AbortMethod {
+        GCS = 0,
+        THROTTLE = 1,
+        SLOPE_TOO_STEEP = 2,
+        LANDING_GEAR_NOT_DEPLOYED = 3,
+        DEEPSTALL_NO_ELEV_CHANNEL = 4,
+        SCRIPTING = 5,
+    };
+
     void convert_parameters(void);
 
     void do_land(const AP_Mission::Mission_Command& cmd, const float relative_altitude);
@@ -76,7 +88,11 @@ public:
     void setup_landing_glide_slope(const Location &prev_WP_loc, const Location &next_WP_loc, const Location &current_loc, int32_t &target_altitude_offset_cm);
     bool override_servos(void);
     void check_if_need_to_abort(const AP_FixedWing::Rangefinder_State &rangefinder_state);
-    bool request_go_around(void);
+    const char* abort_method_str(const AbortMethod method) const;
+    bool request_go_around(const AbortMethod method);
+#if AP_SCRIPTING_ENABLED
+    bool request_go_around_via_scripting() { return request_go_around(AbortMethod::SCRIPTING); }
+#endif
     bool is_flaring(void) const;
     bool is_on_approach(void) const;
     bool is_ground_steering_allowed(void) const;
@@ -117,6 +133,8 @@ public:
     float alt_offset;
 
 private:
+    static AP_Landing *_singleton;
+
     struct {
         // denotes if a go-around has been commanded for landing
         bool commanded_go_around:1;
@@ -134,6 +152,9 @@ private:
     float slope;
 
     float height_flare_log;
+
+    AbortMethod _abort_method_last;
+    uint8_t _abort_method_same_method_count;
 
     AP_Mission &mission;
     AP_AHRS &ahrs;
@@ -198,11 +219,15 @@ private:
     int32_t type_slope_get_target_airspeed_cm(void);
     void type_slope_check_if_need_to_abort(const AP_FixedWing::Rangefinder_State &rangefinder_state);
     int32_t type_slope_constrain_roll(const int32_t desired_roll_cd, const int32_t level_roll_limit_cd);
-    bool type_slope_request_go_around(void);
     void type_slope_log(void) const;
     bool type_slope_is_complete(void) const;
     bool type_slope_is_flaring(void) const;
     bool type_slope_is_on_approach(void) const;
     bool type_slope_is_expecting_impact(void) const;
     bool type_slope_is_throttle_suppressed(void) const;
+};
+
+namespace AP
+{
+AP_Landing *landing();
 };

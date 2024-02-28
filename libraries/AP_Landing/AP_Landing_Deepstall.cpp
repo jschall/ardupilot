@@ -345,8 +345,7 @@ bool AP_Landing_Deepstall::override_servos(void)
 
     if (elevator == nullptr) {
         // deepstalls are impossible without these channels, abort the process
-        GCS_SEND_TEXT(MAV_SEVERITY_CRITICAL, "Deepstall: Unable to find the elevator channels");
-        request_go_around();
+        IGNORE_RETURN(landing.request_go_around(AP_Landing::AbortMethod::DEEPSTALL_NO_ELEV_CHANNEL));
         return false;
     }
 
@@ -394,12 +393,7 @@ bool AP_Landing_Deepstall::request_go_around(void)
     float current_altitude_d;
     landing.ahrs.get_relative_position_D_home(current_altitude_d);
 
-    if (is_zero(min_abort_alt) || -current_altitude_d > min_abort_alt) {
-        landing.flags.commanded_go_around = true;
-        return true;
-    } else {
-        return false;
-    }
+    return (is_zero(min_abort_alt) || -current_altitude_d > min_abort_alt);
 }
 
 bool AP_Landing_Deepstall::is_throttle_suppressed(void) const

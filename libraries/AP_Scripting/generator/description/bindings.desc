@@ -547,6 +547,12 @@ singleton AP_MotorsMatrix method set_throttle_factor boolean int8_t 0 (AP_MOTORS
 singleton AP_MotorsMatrix method get_lost_motor uint8_t
 singleton AP_MotorsMatrix method get_thrust_boost boolean
 
+include AP_Landing/AP_Landing.h depends APM_BUILD_TYPE(APM_BUILD_ArduPlane)
+singleton AP_Landing depends APM_BUILD_TYPE(APM_BUILD_ArduPlane)
+singleton AP_Landing rename landing
+singleton AP_Landing method request_go_around_via_scripting boolean
+singleton AP_Landing method is_flaring boolean
+
 include AP_Frsky_Telem/AP_Frsky_SPort.h
 singleton AP_Frsky_SPort rename frsky_sport
 singleton AP_Frsky_SPort depends AP_FRSKY_SPORT_TELEM_ENABLED

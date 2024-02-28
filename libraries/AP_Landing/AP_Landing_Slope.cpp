@@ -121,8 +121,7 @@ bool AP_Landing::type_slope_verify_land(const Location &prev_WP_loc, Location &n
             // If not - go around
             AP_LandingGear *LG_inst = AP_LandingGear::get_singleton();
             if (LG_inst != nullptr && !LG_inst->check_before_land()) {
-                type_slope_request_go_around();
-                GCS_SEND_TEXT(MAV_SEVERITY_CRITICAL, "Landing gear was not deployed");
+                IGNORE_RETURN(request_go_around(AP_Landing::AbortMethod::LANDING_GEAR_NOT_DEPLOYED));
             }
 #endif
         }
@@ -229,17 +228,10 @@ void AP_Landing::type_slope_adjust_landing_slope_for_rangefinder_bump(AP_FixedWi
             GCS_SEND_TEXT(MAV_SEVERITY_INFO, "Landing slope too steep, aborting (%.0fm %.1fdeg)",
                                              (double)rangefinder_state.correction, (double)(new_slope_deg - initial_slope_deg));
             alt_offset = rangefinder_state.correction;
-            flags.commanded_go_around = true;
             type_slope_flags.has_aborted_due_to_slope_recalc = true; // only allow this once.
-            Log();
+            IGNORE_RETURN(request_go_around(AP_Landing::AbortMethod::SLOPE_TOO_STEEP));
         }
     }
-}
-
-bool AP_Landing::type_slope_request_go_around(void)
-{
-    flags.commanded_go_around = true;
-    return true;
 }
 
 /*
@@ -425,7 +417,10 @@ void AP_Landing::type_slope_log(void) const
 // @Field: slopeInit: Initial slope to landing point
 // @Field: altO: Rangefinder correction
 // @Field: fh: Height for flare timing.
-    AP::logger().WriteStreaming("LAND", "TimeUS,stage,f1,f2,slope,slopeInit,altO,fh", "QBBBffff",
+// @Field: Am: Abort method
+// @Field: Acnt: Abort count of same method
+// @Field: tToFlare: Estimated seconds until flare.
+    AP::logger().WriteStreaming("LAND", "TimeUS,stage,f1,f2,slope,slopeInit,altO,fh,Am,Acnt,tToFlare", "QBBBffffBB",
                                             AP_HAL::micros64(),
                                             type_slope_stage,
                                             flags,
@@ -433,7 +428,9 @@ void AP_Landing::type_slope_log(void) const
                                             (double)slope,
                                             (double)initial_slope,
                                             (double)alt_offset,
-                                            (double)height_flare_log);
+                                            (double)height_flare_log,
+                                            (uint8_t)_abort_method_last,
+                                            (uint8_t)_abort_method_same_method_count);
 }
 #endif
 
