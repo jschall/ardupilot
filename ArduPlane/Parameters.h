@@ -591,6 +591,9 @@ public:
 
     // just to make compilation easier when all things are compiled out...
     uint8_t unused_integer;
+
+    AP_Float        aircraft_tow_kg;    // aircraft takeoff weight (mass). Used by LUA to tweak other parameters to better characterize the aircraft
+    AP_Float        aircraft_span_m;    // aircraft wingspan. Used by LUA to tweak other parameters to better characterize the aircraft    
 };
 
 extern const AP_Param::Info var_info[];
