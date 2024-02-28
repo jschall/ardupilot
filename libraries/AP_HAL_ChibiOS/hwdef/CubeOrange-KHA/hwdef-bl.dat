@@ -1,0 +1,5 @@
+include ../CubeOrange/hwdef-bl.dat
+
+# use a small bootloader timeout
+define HAL_BOOTLOADER_TIMEOUT 1000
+

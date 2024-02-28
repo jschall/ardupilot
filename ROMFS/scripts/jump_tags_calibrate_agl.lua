@@ -1,0 +1,193 @@
+--[[
+Usage for SITL PLANE testing:
+
+- default params already enable rangefinder
+- set param RTL_AUTOLAND 2
+- set param SCR_ENABLE 1
+- set param RNGFND1_TYPE 100
+- restart, if needed
+- upload mission (jump_tags_calibrate_agl.waypoints)
+- launch plane (switch to AUTO and arm)
+- Mission will go to a loiter_unlim at wp 2.
+- set param SIM_BARO_DRIFT to your taste to simulate a long mission.
+- switch mode to RTL, which jumps you back to AUTO at the DO_LAND_START which begins with a loiter_to_alt.
+
+- once the loiter_to_alt is done, it will do an approach pattern and fly over the runway and sample the altitude
+    using the rangefinder. The start and end sample points are defined tag 400 and 401 where at 401 it uses the
+    average AGL and adjusts BARO_ALT_GND to compensate for any baro drift.
+- It then does the rest of the pattern and lands without the lidar needing to do much because the offset
+     has already been corrected for
+
+
+
+QGC WPL 110
+0	1	0	16	0	0	0	0	-35.3629591	149.1647941	584.016148	1
+1	0	3	22	0.00000000	0.00000000	0.00000000	0.00000000	0.00000000	0.00000000	10.000000	1
+2	0	3	17	0.00000000	0.00000000	0.00000000	0.00000000	-35.36299850	149.15860890	200.000000	1
+3	0	3	189	0.00000000	0.00000000	0.00000000	0.00000000	0.00000000	0.00000000	0.000000	1
+4	0	3	31	0.00000000	0.00000000	0.00000000	0.00000000	-35.36416220	149.16121600	40.000000	1
+5	0	3	16	0.00000000	0.00000000	0.00000000	0.00000000	-35.36648940	149.16154860	30.000000	1
+6	0	3	16	0.00000000	0.00000000	0.00000000	0.00000000	-35.36614380	149.16553970	30.000000	1
+7	0	3	16	0.00000000	0.00000000	0.00000000	0.00000000	-35.36330910	149.16519370	30.000000	1
+8	0	0	600	400.00000000	0.00000000	0.00000000	0.00000000	0.00000000	0.00000000	0.000000	1
+9	0	3	16	0.00000000	0.00000000	0.00000000	0.00000000	-35.36233350	149.16505430	100.000000	1
+10	0	0	600	401.00000000	0.00000000	0.00000000	0.00000000	0.00000000	0.00000000	0.000000	1
+11	0	3	16	0.00000000	0.00000000	0.00000000	0.00000000	-35.36058800	149.16486380	40.000000	1
+12	0	3	16	0.00000000	0.00000000	0.00000000	0.00000000	-35.36079800	149.16206900	100.000000	1
+13	0	3	16	0.00000000	0.00000000	0.00000000	0.00000000	-35.36720250	149.16250880	40.000000	1
+14	0	3	16	0.00000000	0.00000000	0.00000000	0.00000000	-35.36693130	149.16574360	30.000000	1
+15	0	3	16	0.00000000	0.00000000	0.00000000	0.00000000	-35.36566700	149.16559340	30.000000	1
+16	0	3	21	0.00000000	0.00000000	0.00000000	1.00000000	-35.36276450	149.16517900	0.000000	1
+--]]
+
+
+if FWVersion:type() ~= 3 then -- plane
+    -- This script is only for plane
+    return
+end
+
+local MAV_SEVERITY = {EMERGENCY=0, ALERT=1, CRITICAL=2, ERROR=3, WARNING=4, NOTICE=5, INFO=6, DEBUG=7}
+
+local ROTATION_PITCH_270 = 25
+
+local MISSION_TAG_MEASURE_AGL_START         = 400
+local MISSION_TAG_CALIBRATE_BARO            = 401
+
+local agl_samples_count = 0
+local agl_samples_sum = 0
+local calibration_alt_m = 0
+
+local is_armed_last = false
+local param_to_trigger_announce_STR_NAME = "SCR_USER1"
+local param_to_trigger_announce_prev = 0
+local THIS_SCRIPT_NAME = "Check AGL to calibrate Baro"
+
+
+function init_measurements()
+    if (not rangefinder:has_data_orient(ROTATION_PITCH_270)) then
+        gcs:send_text(MAV_SEVERITY.ERROR, string.format("K1000: AGL Rangefinder not ready"))
+        agl_samples_count = -1
+        return
+    end
+
+    local p2 = mission:get_last_jump_tag_args()
+    if (not p2 or p2 <= 0) then
+        gcs:send_text(MAV_SEVERITY.CRITICAL, string.format("K1000: Jump Tag (%d) requires p2 > 0", MISSION_TAG_MEASURE_AGL_START))
+        agl_samples_count = -1
+        return
+    end
+
+    calibration_alt_m = p2
+    agl_samples_count = 0
+    agl_samples_sum = 0
+    gcs:send_text(MAV_SEVERITY.INFO, string.format("K1000: AGL measurements started"))
+    gcs:send_text(MAV_SEVERITY.DEBUG, string.format("K1000: expecting %.2fm", calibration_alt_m))
+end
+
+function sample_rangefinder_to_get_AGL()
+    
+    -- we're actively sampling rangefinder distance to ground
+    local distance_raw_m = rangefinder:distance_cm_orient(ROTATION_PITCH_270) * 0.01
+
+    -- correct the range for attitude (multiply by DCM.c.z, which is cos(roll)*cos(pitch))
+    local ahrs_get_rotation_body_to_ned_c_z = math.cos(ahrs:get_roll())*math.cos(ahrs:get_pitch())
+    local agl_corrected_for_attitude_m = distance_raw_m * ahrs_get_rotation_body_to_ned_c_z
+
+    -- correct for nav errors where the vehicle is blown up/down by wind as it's measuring
+    agl_corrected_for_attitude_m = agl_corrected_for_attitude_m - vehicle:get_nav_altitude_error_m()
+
+    agl_samples_sum = agl_samples_sum + agl_corrected_for_attitude_m
+    agl_samples_count = agl_samples_count + 1
+
+    local agl_average = agl_samples_sum / agl_samples_count
+    gcs:send_text(MAV_SEVERITY.DEBUG, string.format("K1000: AGL measurement %u: %.2fm, avg: %.2f", agl_samples_count, agl_corrected_for_attitude_m, agl_average))
+end
+
+function update_baro(new_agl_m)
+    local alt_error_m = new_agl_m - calibration_alt_m
+    gcs:send_text(MAV_SEVERITY.INFO, string.format("K1000: AGL alt_error is: %.2f - %.2f = %.2f", new_agl_m, calibration_alt_m, alt_error_m))
+
+    local baro_alt_offset = param:get('BARO_ALT_OFFSET')
+    local baro_alt_offset_new_value = baro_alt_offset + alt_error_m
+    gcs:send_text(MAV_SEVERITY.INFO, string.format("K1000: BARO_ALT_OFFSET changed from %.2f to %.2f", baro_alt_offset, baro_alt_offset_new_value))
+    param:set('BARO_ALT_OFFSET', baro_alt_offset_new_value)
+end
+
+function update()
+    local just_armed = did_we_just_arm()
+    local param_to_trigger_announce_value = param:get(param_to_trigger_announce_STR_NAME)
+    if (just_armed) or (param_to_trigger_announce_prev ~= param_to_trigger_announce_value) then
+        param_to_trigger_announce_prev = param_to_trigger_announce_value
+        announce()
+    end
+
+    if (mission:state() ~= mission.MISSION_RUNNING) or (not arming:is_armed()) or (not vehicle:get_likely_flying()) then
+        -- only run landing mission checks if in auto with a valid mission and armed and flying.
+        return update, 1000
+    end
+
+    local tag, age = mission:get_last_jump_tag()
+
+    if (tag == nil) then
+        return update, 1000
+    end
+
+    if ((tag == MISSION_TAG_MEASURE_AGL_START) and (age <= 5)) then
+        -- we're at or currently on waypoints after the tag so lets start gathering samples
+        if (agl_samples_count == 0) then
+            init_measurements()
+            -- an init failure will set agl_samples_count to -1
+        end
+
+        if (agl_samples_count >= 0) then
+            sample_rangefinder_to_get_AGL()
+        end
+
+        -- lets sample at 2 Hz
+        return update, 500
+
+    elseif ((tag == MISSION_TAG_CALIBRATE_BARO) and (age <= 3) and (agl_samples_count > 0)) then
+        -- finished sampling, use the result to offset baro
+        local agl_average_final_m = agl_samples_sum / agl_samples_count
+        gcs:send_text(MAV_SEVERITY.INFO, string.format("K1000: AGL measurements stopped: samples = %d, avg = %.2fm", agl_samples_count, agl_average_final_m))
+
+        if (calibration_alt_m <= 0) then
+            gcs:send_text(MAV_SEVERITY.CRITICAL, "K1000: AGL calibration failed, aborting")
+        else    
+            update_baro(agl_average_final_m)
+        end
+
+        agl_samples_count = 0
+    else
+        agl_samples_count = 0
+    end
+
+    return update, 1000
+end
+
+function did_we_just_arm()
+    local is_armed = arming:is_armed()
+    if (is_armed ~= is_armed_last) then
+        is_armed_last = is_armed
+        if (is_armed) then
+            return true
+        end
+    end
+    return false
+  end
+
+function announce()
+    -- CMD will be checking for "K1000: (.*) Script Running"
+    gcs:send_text(MAV_SEVERITY.INFO, "K1000: " .. THIS_SCRIPT_NAME .. " Script Running")
+end
+
+
+function init()
+    param_to_trigger_announce_prev = param:get(param_to_trigger_announce_STR_NAME)
+    announce()
+    return update, 1000
+end
+
+return init, (2000 + math.random(1,1000)) -- randomize init so we don't clog the GCS send
+
+

@@ -1473,6 +1473,10 @@ You could also try changing directory to e.g. the ArduCopter subdirectory
 if cmd_opts.frame is None:
     cmd_opts.frame = vinfo.options[cmd_opts.vehicle]["default_frame"]
 
+if cmd_opts.frame == "plane-soaring-k1000":
+    print("--KHA -- plane-soaring-k1000 aliased to K1000")
+    cmd_opts.frame = "K1000"
+
 frame_infos = vinfo.options_for_frame(cmd_opts.frame,
                                       cmd_opts.vehicle,
                                       cmd_opts)

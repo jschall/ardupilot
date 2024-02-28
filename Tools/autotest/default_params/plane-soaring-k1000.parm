@@ -1,0 +1,129 @@
+ADSB_TYPE               1       #ADSB-out is not supported in SITL, revert back to -in only
+
+AHRS_ORIENTATION        0
+
+BATT_CAPACITY           53600
+BATT_MONITOR            4
+BATT_OPTIONS            0
+BATT_SERIAL_NUM         45      # Main Battery
+
+BATT2_CAPACITY          0
+BATT2_CURR_PIN          40
+BATT2_MONITOR           4
+BATT2_OPTIONS           29      # 29 = OFF at boot, ON at arm, OFF at disarm
+BATT2_SERIAL_NUM        15      # MPPT 1 - Solar Power generation
+BATT2_VOLT_PIN          20
+
+BATT3_CAPACITY          0
+BATT3_CURR_PIN          41
+BATT3_MONITOR           4
+BATT3_OPTIONS           29      # 29 = OFF at boot, ON at arm, OFF at disarm
+BATT3_SERIAL_NUM        16      # MPPT 2 - Solar Power generation
+BATT3_VOLT_PIN          21
+
+BATT4_CAPACITY          0
+BATT4_CURR_PIN          42
+BATT4_MONITOR           4
+BATT4_OPTIONS           29      # 29 = OFF at boot, ON at arm, OFF at disarm
+BATT4_SERIAL_NUM        17      # MPPT 3 - Solar Power generation
+BATT4_VOLT_PIN          22
+
+BATT5_CAPACITY          0
+BATT5_CURR_PIN          43
+BATT5_MONITOR           4
+BATT5_OPTIONS           29      # 29 = OFF at boot, ON at arm, OFF at disarm
+BATT5_SERIAL_NUM        18      # MPPT 4 - Solar Power generation
+BATT5_VOLT_PIN          23
+
+BATT6_CAPACITY          53600
+BATT6_CURR_PIN          44
+BATT6_MONITOR           4
+BATT6_OPTIONS           0
+BATT6_SERIAL_NUM        70      # MAIM System (controller + all payloads)
+BATT6_VOLT_PIN          24
+
+BATT7_CAPACITY          0
+BATT7_CURR_PIN          45
+BATT7_MONITOR           4
+BATT7_OPTIONS           16      # 16 == Power OFF at bootup
+BATT7_SERIAL_NUM        71      # MAIM Payload 1
+BATT7_VOLT_PIN          25
+
+BATT8_CAPACITY          0
+BATT8_CURR_PIN          46
+BATT8_MONITOR           4
+BATT8_OPTIONS           16      # 16 == Power OFF at bootup
+BATT8_SERIAL_NUM        72      # MAIM Payload 2
+BATT8_VOLT_PIN          26
+
+SIM_BATT_VOLTAGE        25.2
+SIM_BATT_CAP_AH         53.6
+
+# Compass settings
+COMPASS_ORIENT   0
+COMPASS_ORIENT2  0
+COMPASS_ORIENT3  0
+COMPASS_PRIO1_ID 97539
+COMPASS_PRIO2_ID 131874
+COMPASS_PRIO3_ID 263178
+COMPASS_USE      1
+COMPASS_USE2     1
+COMPASS_USE3     1
+
+# Rangefinder settings
+RNGFND1_GNDCLEAR        20
+RNGFND1_MAX_CM          9500
+RNGFND1_MIN_CM          0
+RNGFND1_TYPE            100 # SITL 
+RNGFND_LANDING          1
+
+# INS settings
+INS_ACC2OFFS_X   0.001000
+INS_ACC2OFFS_Y   0.001000
+INS_ACC2OFFS_Z   0.001000
+INS_ACC2SCAL_X   1.001000
+INS_ACC2SCAL_Y   1.001000
+INS_ACC2SCAL_Z   1.001000
+INS_ACCOFFS_X    0.001000
+INS_ACCOFFS_Y    0.001000
+INS_ACCOFFS_Z    0.001000
+INS_ACCSCAL_X    1.001000
+INS_ACCSCAL_Y    1.001000
+INS_ACCSCAL_Z    1.001000
+
+# ARSP params
+ARSPD_OFFSET     2013.639038
+ARSPD_OPTIONS    3
+ARSPD_TYPE       2
+
+# GPS settings
+GPS_TYPE         1
+
+# Servos
+SERVO1_MIN       1000
+SERVO1_MAX       2000
+SERVO1_TRIM      1500
+
+# Serial 3 for GPS
+SERIAL3_BAUD     38
+SERIAL3_OPTIONS  0
+SERIAL3_PROTOCOL 5
+
+# Relays
+RELAY_PIN        -1
+RELAY_PIN2       -1
+RELAY_PIN3       -1
+
+# Required to skip RC neutral arming check
+RC_OPTIONS       64
+
+# Required to correct the pitch axis when using gamepad
+RC3_REVERSED = 1
+
+SIM_INS_THR_MIN 0.1
+SIM_VIB_FREQ_X 200
+SIM_VIB_FREQ_Y 200
+SIM_VIB_FREQ_Z 200
+SIM_ACC1_RND 1.25
+SIM_ACC2_RND 1.25
+SIM_ACC3_RND 1.25

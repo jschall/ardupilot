@@ -314,6 +314,15 @@ class VehicleInfo(object):
                 "waf_target": "bin/arduplane",
                 "default_params_filename": ["models/plane.parm", "default_params/plane-soaring.parm"]
             },
+            "K1000": {
+                "waf_target": "bin/arduplane",
+                "default_params_filename": ["../../kha-defaults.parm","default_params/plane-soaring-k1000.parm"]
+            },
+            "quadplane-k1000": {
+                "waf_target": "bin/arduplane",
+                "default_params_filename": ["../../kha-defaults.parm","../../kha/VTOL8S.parm", "default_params/plane-soaring-k1000.parm", "default_params/quadplane-k1000.parm"],
+                "model":"quadplane"
+            },
             "gazebo-zephyr": {
                 "waf_target": "bin/arduplane",
                 "default_params_filename": "default_params/gazebo-zephyr.parm",
