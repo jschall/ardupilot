@@ -425,6 +425,7 @@ private:
         uint32_t accel_event_ms;
         uint32_t start_time_ms;
         bool waiting_for_rudder_neutral;
+        Location loc;
     } takeoff_state;
 
     // ground steering controller state
