@@ -458,7 +458,7 @@ bool AP_Arming_Plane::mission_checks(bool report)
                 const float min_dist = 0.75 * plane.quadplane.stopping_distance(sq(landing_speed));
                 if (dist < min_dist) {
                     ret = false;
-                    check_failed(ARMING_CHECK_MISSION, report, "VTOL land too short, min %.0fm", min_dist);
+                    check_failed(ARMING_CHECK_MISSION, report, "VTOL land wp %u to %u too short, min %.0fm", (unsigned)(i-1), (unsigned)(i), min_dist);
                 }
             }
             prev_cmd = cmd;

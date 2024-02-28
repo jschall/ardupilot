@@ -1291,7 +1291,7 @@ private:
     uint32_t _sysid_mygcs_last_seen_time_ms;
 
     void service_statustext(void);
-#if HAL_MEM_CLASS <= HAL_MEM_CLASS_192 || CONFIG_HAL_BOARD == HAL_BOARD_SITL
+#if HAL_MEM_CLASS <= HAL_MEM_CLASS_192
     static const uint8_t _status_capacity = 7;
 #else
     static const uint8_t _status_capacity = 30;
