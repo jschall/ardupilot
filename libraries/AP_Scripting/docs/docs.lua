@@ -1830,6 +1830,9 @@ function mission:jump_to_landing_sequence() end
 -- @return boolean
 function mission:jump_to_abort_landing_sequence() end
 
+---@return integer
+function mission:last_change_time_ms() end
+
 -- desc
 ---@class param
 param = {}

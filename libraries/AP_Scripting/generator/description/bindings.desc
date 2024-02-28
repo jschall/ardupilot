@@ -490,6 +490,7 @@ singleton AP_Mission method get_last_jump_tag boolean uint16_t'Null uint16_t'Nul
 singleton AP_Mission method get_last_jump_tag_args boolean float'Null float'Null float'Null
 singleton AP_Mission method jump_to_landing_sequence boolean
 singleton AP_Mission method jump_to_abort_landing_sequence boolean
+singleton AP_Mission method last_change_time_ms uint32_t
 
 
 userdata mavlink_mission_item_int_t depends AP_MISSION_ENABLED
