@@ -196,6 +196,7 @@ private:
     AP_Int32 _options;
     AP_Float _flare_holdoff_hgt;
     AP_Float _hgt_dem_tconst;
+    AP_Float _timeConst_STE;
 
     enum {
         OPTION_GLIDER_ONLY=(1<<0),
