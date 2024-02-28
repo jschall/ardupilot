@@ -153,6 +153,8 @@ public:
         return AP_HAL::millis() - _last_flying_ms;
     }
 
+    virtual float get_nav_altitude_error_m() const { return 0; }
+
     // returns true if the vehicle has crashed
     virtual bool is_crashed() const;
 

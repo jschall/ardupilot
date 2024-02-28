@@ -1255,6 +1255,7 @@ private:
 
 public:
     void failsafe_check(void);
+    float get_nav_altitude_error_m() const override { return 0.01*(tecs_target_alt_cm - (current_loc.alt - home.alt)); }
     bool is_landing() const override;
     bool is_taking_off() const override;
 #if AP_SCRIPTING_ENABLED || AP_EXTERNAL_CONTROL_ENABLED

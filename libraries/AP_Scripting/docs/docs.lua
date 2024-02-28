@@ -2153,6 +2153,10 @@ function vehicle:set_rudder_offset(rudder_pct, run_yaw_rate_control) end
 function vehicle:has_ekf_failsafed() end
 
 -- desc
+---@return number
+function vehicle:get_nav_altitude_error_m() end
+
+-- desc
 ---@return number|nil
 ---@return number|nil
 function vehicle:get_pan_tilt_norm() end
