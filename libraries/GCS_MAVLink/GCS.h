@@ -908,6 +908,8 @@ private:
 
     struct pending_param_request {
         mavlink_channel_t chan;
+        uint8_t sysid;
+        uint8_t compid;
         int16_t param_index;
         char param_name[AP_MAX_NAME_SIZE+1];
     };
