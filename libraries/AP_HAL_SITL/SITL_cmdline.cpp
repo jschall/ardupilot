@@ -37,6 +37,7 @@
 #include <SITL/SIM_Webots_Python.h>
 #include <SITL/SIM_JSON.h>
 #include <SITL/SIM_Blimp.h>
+#include <SITL/SIM_K1000.h>
 #include <AP_Filesystem/AP_Filesystem.h>
 
 #include <AP_Vehicle/AP_Vehicle_Type.h>
@@ -181,6 +182,7 @@ static const struct {
     { "webots",             Webots::create },
     { "JSON",               JSON::create },
     { "blimp",              Blimp::create },
+    { "K1000",              K1000::create },
 };
 
 void SITL_State::_set_signal_handlers(void) const

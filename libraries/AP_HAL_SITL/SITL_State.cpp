@@ -24,6 +24,8 @@
 #include <AP_Param/AP_Param.h>
 #include <SITL/SIM_JSBSim.h>
 #include <AP_HAL/utility/Socket_native.h>
+#include <AP_HAL/utility/Socket.h>
+#include <GCS_MAVLink/GCS.h>
 
 extern const AP_HAL::HAL& hal;
 
@@ -380,6 +382,10 @@ void SITL_State::_fdm_input_local(void)
     if (_use_fg_view) {
         _output_to_flightgear();
     }
+
+#if HAL_GCS_ENABLED
+    GCS::get_singleton()->send_message(MSG_SIM_STATE);
+#endif
 
     // update simulation time
     hal.scheduler->stop_clock(_sitl->state.timestamp_us);

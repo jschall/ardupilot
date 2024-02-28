@@ -3958,6 +3958,7 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
             "plane-ice" : "needs ICE control channel for ignition",
             "quadplane-ice" : "needs ICE control channel for ignition",
             "quadplane-can" : "needs CAN periph",
+            "K1000": "correctly fails due to no landing WP",
         }
         for frame in sorted(vinfo_options["frames"].keys()):
             self.start_subtest("Testing frame (%s)" % str(frame))
@@ -5318,6 +5319,137 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         home = self.home_position_as_mav_location()
         self.assert_distance(home, adsb_vehicle_loc, 0, 10000)
 
+    def K1000Test(self):
+        '''Tests the flight of the KHA K1000'''
+
+        self.start_subtest('K1000 Test')
+
+        model = "K1000"
+
+        self.customise_SITL_commandline(
+            ['--home', '39.16124,-122.13187,23.0,0.0'],
+            model=model,
+            defaults_filepath=self.model_defaults_filepath(model),
+            wipe=True)
+
+        self.load_mission('williams-circuit.wp', strict=False)
+
+        self.set_parameters({
+            "SIM_TERRAIN": 0,
+        })
+
+        self.set_current_waypoint(1)
+        self.change_mode('AUTO')
+        self.wait_ready_to_arm()
+        self.arm_vehicle()
+
+        self.wait_altitude(8, 12, timeout=30, relative=True)
+
+        # Now wait for auto disarm after landing
+
+        self.wait_disarmed(timeout=1200)
+
+        self.progress("K1000 test done")
+        self.reset_SITL_commandline()
+
+    def K1000BaroDrift(self):
+        '''Tests the flight of the KHA K1000 with barometer drift'''
+
+        self.start_subtest('K1000 Test')
+
+        model = "K1000"
+
+        self.customise_SITL_commandline(
+            ['--home', '39.16124,-122.13187,23.0,0.0'],
+            model=model,
+            defaults_filepath=self.model_defaults_filepath(model),
+            wipe=True)
+
+        self.load_mission('williams-circuit-drift.wp', strict=False)
+
+        self.set_parameters({
+            "SIM_BARO_DRIFT": -0.02,
+            "SIM_TERRAIN": 0,
+        })
+
+        self.set_current_waypoint(1)
+        self.change_mode('AUTO')
+        self.wait_ready_to_arm()
+        self.arm_vehicle()
+
+        self.wait_altitude(8, 12, timeout=30, relative=True)
+
+        # Wait for landing waypoint
+        self.wait_current_waypoint(7, timeout=1200)
+
+        # The script should automatically wave-off.
+        self.wait_statustext("K1000: Abort: Baro/rangefinder mismatch!", check_context=False, timeout=60)
+
+        self.set_parameter("SIM_BARO_DRIFT", 0.0)
+
+        # Now set the BARO_ALT_OFFSET to take out the error.
+        self.delay_sim_time(3)
+        rangefinder_reading = self.get_rangefinder_distance()
+        barometer_reading = self.get_altitude(relative=True)
+
+        self.set_parameter("BARO_ALT_OFFSET",  rangefinder_reading - barometer_reading)
+        self.progress("Setting BARO_ALT_OFFSET to {0} for go-around".format(rangefinder_reading - barometer_reading))
+
+        # Wait for landing restart
+        self.wait_current_waypoint(5, timeout=60)
+
+        # Wait for landing waypoint (second attempt)
+        self.wait_current_waypoint(7, timeout=120)
+
+        # Should land successfully.
+        self.wait_disarmed(timeout=60)
+
+    def K1000HighApproach(self):
+        '''Tests the flight of the KHA K1000 with a high planned approach'''
+
+        self.start_subtest('K1000 High Approach')
+
+        model = "K1000"
+
+        self.customise_SITL_commandline(
+            ['--home', '39.16124,-122.13187,23.0,0.0'],
+            model=model,
+            defaults_filepath=self.model_defaults_filepath(model),
+            wipe=True)
+
+        self.load_mission('williams-circuit-high.wp', strict=False)
+
+        self.set_parameters({
+            "SIM_TERRAIN": 0,
+        })
+
+        self.set_current_waypoint(1)
+        self.change_mode('AUTO')
+        self.wait_ready_to_arm()
+        self.arm_vehicle()
+
+        self.wait_altitude(8, 12, timeout=30, relative=True)
+
+        # Wait for landing waypoint
+        self.wait_current_waypoint(7, timeout=1200)
+
+        # The script should automatically wave-off.
+        self.wait_statustext("K1000: Abort: Descent tracking error!", check_context=False, timeout=60)
+
+        # Wait for landing restart
+        self.wait_current_waypoint(5, timeout=60)
+
+        # Now load the correct mission and let it try again.
+        self.load_mission('williams-circuit-drift.wp', strict=False)
+        # Reset to the new DO_LAND_START.
+        self.set_current_waypoint(4, check_afterwards=False)
+
+        # Wait for landing waypoint (second attempt)
+        self.wait_current_waypoint(7, timeout=1200)
+
+        # Should land successfully.
+        self.wait_disarmed(timeout=600)
+
     def tests(self):
         '''return list of all tests'''
         ret = super(AutoTestPlane, self).tests()
@@ -5425,6 +5557,9 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
             self.TerrainRally,
             self.MAV_CMD_NAV_LOITER_UNLIM,
             self.MAV_CMD_NAV_RETURN_TO_LAUNCH,
+            self.K1000Test,
+            self.K1000BaroDrift,
+            self.K1000HighApproach,
         ])
         return ret
 
