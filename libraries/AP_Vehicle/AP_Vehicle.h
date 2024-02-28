@@ -35,6 +35,7 @@
 #include <AP_Compass/AP_Compass.h>
 #include <AP_EFI/AP_EFI.h>
 #include <AP_ExternalControl/AP_ExternalControl_config.h>
+#include <AP_KHA/AP_KHA.h>
 #include <AP_GPS/AP_GPS.h>
 #include <AP_Generator/AP_Generator.h>
 #include <AP_Notify/AP_Notify.h>                    // Notify library
@@ -371,6 +372,10 @@ protected:
 
 #if AP_SMARTAUDIO_ENABLED
     AP_SmartAudio smartaudio;
+#endif
+
+#if AP_KHA_ENABLED
+    AP_KHA kha;
 #endif
 
 #if AP_TRAMP_ENABLED

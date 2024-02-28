@@ -251,6 +251,13 @@ const AP_Param::GroupInfo AP_Vehicle::var_info[] = {
     // @Path: ../Filter/AP_Filter.cpp
     AP_SUBGROUPINFO(filters, "FILT", 26, AP_Vehicle, AP_Filters),
 #endif
+
+#if AP_KHA_ENABLED
+    // @Group: KHA_
+    // @Path: ../AP_KHA/AP_KHA.cpp
+    AP_SUBGROUPINFO(kha, "KHA_", 60, AP_Vehicle, AP_KHA),
+#endif
+
     AP_GROUPEND
 };
 
@@ -423,6 +430,10 @@ void AP_Vehicle::setup()
     nmea.init();
 #endif
 
+#if AP_KHA_ENABLED
+    kha.init();
+#endif
+
 #if AP_FENCE_ENABLED
     fence.init();
 #endif
@@ -532,6 +543,9 @@ const AP_Scheduler::Task AP_Vehicle::scheduler_tasks[] = {
     SCHED_TASK(update_dynamic_notch_at_specified_rate,      LOOP_RATE,                    200, 215),
 #if AP_VIDEOTX_ENABLED
     SCHED_TASK_CLASS(AP_VideoTX,   &vehicle.vtx,            update,                    2, 100, 220),
+#endif
+#if AP_KHA_ENABLED
+    SCHED_TASK_CLASS(AP_KHA,       &vehicle.kha,            update,                   10,  50, 223),
 #endif
 #if AP_TRAMP_ENABLED
     SCHED_TASK_CLASS(AP_Tramp,     &vehicle.tramp,          update,                   50,  50, 225),

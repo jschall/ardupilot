@@ -50,6 +50,7 @@
 #include <AP_VisualOdom/AP_VisualOdom.h>
 #include <AP_Baro/AP_Baro.h>
 #include <AP_EFI/AP_EFI.h>
+#include <AP_KHA/AP_KHA.h>
 #include <AP_Proximity/AP_Proximity.h>
 #include <AP_Scripting/AP_Scripting.h>
 #include <SRV_Channel/SRV_Channel.h>
@@ -4066,6 +4067,12 @@ void GCS_MAVLINK::handle_message(const mavlink_message_t &msg)
         break;
 #endif
 
+#if AP_KHA_ENABLED
+    case 131300 ... 131399:
+        AP::kha().handle_msg(*this, msg);
+        break;
+#endif
+
     case MAVLINK_MSG_ID_PARAM_VALUE:
         handle_param_value(msg);
         break;
@@ -5114,6 +5121,11 @@ MAV_RESULT GCS_MAVLINK::handle_command_int_packet(const mavlink_command_int_t &p
 #if AP_LANDINGGEAR_ENABLED
     case MAV_CMD_AIRFRAME_CONFIGURATION:
         return handle_command_airframe_configuration(packet);
+#endif
+
+#if AP_KHA_ENABLED
+    case 13130 ... 13139:
+        return AP::kha().handle_command_int_packet(packet, msg);
 #endif
 
 #if AP_BATTERY_ENABLED
