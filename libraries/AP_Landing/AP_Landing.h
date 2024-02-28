@@ -117,6 +117,7 @@ public:
     
     int16_t get_pitch_cd(void) const { return pitch_deg*100; }
     float get_flare_sec(void) const { return flare_sec; }
+    float get_flare_alt(void) const { return flare_alt; }
     int8_t get_disarm_delay(void) const { return disarm_delay; }
     int8_t get_then_servos_neutral(void) const { return then_servos_neutral; }
     int8_t get_abort_throttle_enable(void) const { return abort_throttle_enable; }
@@ -191,6 +192,7 @@ private:
     AP_Int8 type;
     AP_Int8 flare_effectivness_pct;
     AP_Float wind_comp;
+    AP_Float throttle_cut_sec;
 
     // Land Type STANDARD GLIDE SLOPE
 
@@ -225,6 +227,8 @@ private:
     bool type_slope_is_on_approach(void) const;
     bool type_slope_is_expecting_impact(void) const;
     bool type_slope_is_throttle_suppressed(void) const;
+
+    float _estimated_sec_to_flare;
 };
 
 namespace AP

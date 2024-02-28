@@ -167,6 +167,15 @@ const AP_Param::GroupInfo AP_Landing::var_info[] = {
     // @User: Advanced
     AP_GROUPINFO("WIND_COMP", 18, AP_Landing, wind_comp, 50),
 
+    // @Param: THR_CUT_S
+    // @DisplayName: Seconds before flare to zero throttle
+    // @Description: This param controls how the throttle should be cut in advance of the flare. This is useful to protect the propeller and allow a lower flare especially with a folding propeller.
+    // @Range: 0 10
+    // @Units: s
+    // @Increment: 0.1
+    // @User: Advanced
+    AP_GROUPINFO("THR_CUT_S", 19, AP_Landing, throttle_cut_sec, 0.0),
+
     // @Param: TYPE
     // @DisplayName: Auto-landing type
     // @Description: Specifies the auto-landing type to use

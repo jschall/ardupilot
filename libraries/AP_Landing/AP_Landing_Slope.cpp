@@ -94,6 +94,10 @@ bool AP_Landing::type_slope_verify_land(const Location &prev_WP_loc, Location &n
     const bool below_flare_sec = (flare_sec > 0 && height <= sink_rate * flare_sec);
     const bool probably_crashed = (aparm.crash_detection_enable && fabsf(sink_rate) < 0.2f && !is_flying);
 
+    const float inv_sink_rate = is_zero(sink_rate) ? 0 : constrain_float(1/sink_rate,-100.0,100.0);
+    const float temp_estimated_sec_to_flare = (height - flare_alt) * inv_sink_rate;
+    _estimated_sec_to_flare = (flare_sec > 0) ? MIN(temp_estimated_sec_to_flare, flare_sec) : temp_estimated_sec_to_flare;
+
     height_flare_log = height;
 
     const AP_GPS &gps = AP::gps();
@@ -420,7 +424,7 @@ void AP_Landing::type_slope_log(void) const
 // @Field: Am: Abort method
 // @Field: Acnt: Abort count of same method
 // @Field: tToFlare: Estimated seconds until flare.
-    AP::logger().WriteStreaming("LAND", "TimeUS,stage,f1,f2,slope,slopeInit,altO,fh,Am,Acnt,tToFlare", "QBBBffffBB",
+    AP::logger().WriteStreaming("LAND", "TimeUS,stage,f1,f2,slope,slopeInit,altO,fh,Am,Acnt,tToFlare", "QBBBffffBBf",
                                             AP_HAL::micros64(),
                                             type_slope_stage,
                                             flags,
@@ -430,11 +434,24 @@ void AP_Landing::type_slope_log(void) const
                                             (double)alt_offset,
                                             (double)height_flare_log,
                                             (uint8_t)_abort_method_last,
-                                            (uint8_t)_abort_method_same_method_count);
+                                            (uint8_t)_abort_method_same_method_count,
+                                            (double)_estimated_sec_to_flare);
 }
 #endif
 
 bool AP_Landing::type_slope_is_throttle_suppressed(void) const
 {
-    return type_slope_stage == SlopeStage::FINAL;
+    switch(type_slope_stage) {
+        case SlopeStage::NORMAL:
+            return false;
+
+        case SlopeStage::APPROACH:
+        case SlopeStage::PREFLARE:
+            return (throttle_cut_sec > 0) && (_estimated_sec_to_flare < throttle_cut_sec);
+        
+        case SlopeStage::FINAL:
+            return true;
+    }
+
+    return true; // should never get here
 }
