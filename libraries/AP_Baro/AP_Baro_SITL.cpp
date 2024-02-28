@@ -57,6 +57,11 @@ void AP_Baro_SITL::_timer()
     if ((now - _last_sample_time) < 10) {
         return;
     }
+
+    if (_last_sample_time > 0) {
+        _total_accumulated_drift += (now - _last_sample_time) * 0.001f * _sitl->baro[_instance].drift;
+    }
+
     _last_sample_time = now;
 
     float sim_alt = _sitl->state.altitude;
@@ -66,7 +71,8 @@ void AP_Baro_SITL::_timer()
         return;
     }
 
-    sim_alt += _sitl->baro[_instance].drift * now * 0.001f;
+    
+    sim_alt += _total_accumulated_drift;
     sim_alt += _sitl->baro[_instance].noise * rand_float();
 
     // add baro glitch

@@ -28,6 +28,8 @@ private:
     uint8_t _instance;
     SITL::SIM *_sitl;
 
+    float _total_accumulated_drift = 0.0;
+
     // barometer delay buffer variables
     struct readings_baro {
         uint32_t time;
