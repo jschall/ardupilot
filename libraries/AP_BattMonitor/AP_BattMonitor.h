@@ -153,6 +153,7 @@ public:
         bool        is_powering_off;           // true when power button commands power off
         bool        powerOffNotified;          // only send powering off notification once
         uint32_t    time_remaining;            // remaining battery time
+        uint32_t    time_remaining_external;   // remaining battery time in seconds, set externally such as scripting. Zero means not available
         bool        has_time_remaining;        // time_remaining is only valid if this is true
         uint8_t     state_of_health_pct;       // state of health (SOH) in percent
         bool        has_state_of_health_pct;   // state_of_health_pct is only valid if this is true
@@ -205,6 +206,9 @@ public:
 
     /// time_remaining - returns remaining battery time
     bool time_remaining(uint32_t &seconds, const uint8_t instance = AP_BATT_PRIMARY_INSTANCE) const WARN_IF_UNUSED;
+
+    /// time_remaining set by an external algorithm or library such as scripting. This overrides the internal time_remaining value
+    void set_time_remaining_external(const uint32_t seconds, const uint8_t instance = AP_BATT_PRIMARY_INSTANCE);
 
     /// pack_capacity_mah - returns the capacity of the battery pack in mAh when the pack is full
     int32_t pack_capacity_mah(uint8_t instance) const;

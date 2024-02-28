@@ -2938,6 +2938,12 @@ function battery:handle_scripting(idx, state) end
 ---@return boolean
 function battery:reset_remaining(instance, percentage) end
 
+-- time_remaining set by an external algorithm or library such as scripting. This overrides the internal time_remaining value
+---@param seconds integer
+---@param instance integer
+---@return void
+function battery:set_time_remaining_external(instance, percentage) end
+
 -- desc
 ---@param instance integer
 ---@return integer|nil
