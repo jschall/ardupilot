@@ -1407,6 +1407,32 @@ void AP_DroneCAN::handle_actuator_status_Volz(const CanardRxTransfer& transfer, 
 }
 #endif
 
+#if AP_DRONECAN_VESC_FEEDBACK_ENABLED
+void AP_DroneCAN::handle_vesc_rtdata(const CanardRxTransfer& transfer, const vesc_RTData& msg)
+{
+#if HAL_LOGGING_ENABLED
+    AP::logger().WriteStreaming(
+        "VESC",
+        "TimeUS,Id,Flt,TF1,TF2,TF3,TM,VI,Duty,CM,CI,Pos",
+        "s#-OOOOv-AAd",
+        "F--000000000",
+        "QHBfffffffff",
+        AP_HAL::micros64(),
+        1000*_driver_index + transfer.source_node_id,
+        msg.fault_code,
+        msg.temp_mos_1,
+        msg.temp_mos_2,
+        msg.temp_mos_3,
+        msg.temp_motor_1,
+        msg.volt_in,
+        msg.duty,
+        msg.curr_motor,
+        msg.curr_in,
+        msg.encoder_pos);
+#endif
+}
+#endif
+
 /*
   handle ESC status message
  */

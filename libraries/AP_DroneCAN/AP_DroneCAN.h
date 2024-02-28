@@ -64,6 +64,10 @@
 #define AP_DRONECAN_VOLZ_FEEDBACK_ENABLED 0
 #endif
 
+#ifndef AP_DRONECAN_VESC_FEEDBACK_ENABLED
+#define AP_DRONECAN_VESC_FEEDBACK_ENABLED 0
+#endif
+
 #ifndef AP_DRONECAN_SERIAL_ENABLED
 #define AP_DRONECAN_SERIAL_ENABLED AP_SERIALMANAGER_REGISTER_ENABLED && (BOARD_FLASH_SIZE>1024)
 #endif
@@ -332,6 +336,11 @@ private:
     Canard::Subscriber<com_volz_servo_ActuatorStatus> actuator_status_Volz_listener{actuator_status_Volz_cb, _driver_index};
 #endif
 
+#if AP_DRONECAN_VESC_FEEDBACK_ENABLED
+    Canard::ObjCallback<AP_DroneCAN, vesc_RTData> vesc_RTData_cb{this, &AP_DroneCAN::handle_vesc_rtdata};
+    Canard::Subscriber<vesc_RTData> vesc_RTData_listener{vesc_RTData_cb, _driver_index};
+#endif
+
     Canard::ObjCallback<AP_DroneCAN, uavcan_equipment_esc_Status> esc_status_cb{this, &AP_DroneCAN::handle_ESC_status};
     Canard::Subscriber<uavcan_equipment_esc_Status> esc_status_listener{esc_status_cb, _driver_index};
 
@@ -397,6 +406,10 @@ private:
 
 #if AP_DRONECAN_VOLZ_FEEDBACK_ENABLED
     void handle_actuator_status_Volz(const CanardRxTransfer& transfer, const com_volz_servo_ActuatorStatus& msg);
+#endif
+
+#if AP_DRONECAN_VESC_FEEDBACK_ENABLED
+    void handle_vesc_rtdata(const CanardRxTransfer& transfer, const vesc_RTData& msg);
 #endif
 
     void handle_ESC_status(const CanardRxTransfer& transfer, const uavcan_equipment_esc_Status& msg);
