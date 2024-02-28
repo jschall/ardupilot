@@ -1799,6 +1799,11 @@ void SLT_Transition::VTOL_update()
  */
 void QuadPlane::update(void)
 {
+    if (motor_test.running) {
+        motor_test_output();
+        return;
+    }
+    
     if (!setup()) {
         return;
     }
@@ -1819,11 +1824,6 @@ void QuadPlane::update(void)
     }
 #endif
     
-    if (motor_test.running) {
-        motor_test_output();
-        return;
-    }
-
     if (SRV_Channels::get_emergency_stop()) {
         attitude_control->reset_rate_controller_I_terms();
     }

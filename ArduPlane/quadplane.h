@@ -744,8 +744,13 @@ public:
     MAV_RESULT mavlink_motor_test_start(mavlink_channel_t chan, uint8_t motor_seq, uint8_t throttle_type,
                                         uint16_t throttle_value, float timeout_sec,
                                         uint8_t motor_count);
+
+    bool motor_test_running_fwd_throttle() const {
+        return motor_test.running && motor_test.seq == 0;
+    }
+
 private:
-    void motor_test_stop();
+    void motor_test_stop(const char* reason);
 
     static QuadPlane *_singleton;
 };

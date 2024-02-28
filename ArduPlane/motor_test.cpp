@@ -22,22 +22,33 @@ void QuadPlane::motor_test_output()
     uint32_t now = AP_HAL::millis();
     if ((now - motor_test.start_ms) >= motor_test.timeout_ms) {
         if (motor_test.motor_count > 1) {
-            if (now - motor_test.start_ms < motor_test.timeout_ms*1.5) {
                 // output zero for 0.5s
-                motors->output_min();
-            } else {
+            if (now - motor_test.start_ms >= motor_test.timeout_ms*1.5) {
                 // move onto next motor
                 motor_test.seq++;
                 motor_test.motor_count--;
                 motor_test.start_ms = now;
+
+                gcs().send_text(MAV_SEVERITY_WARNING, "Motor Test: Starting motor %u, t=%.1fs",
+                            (unsigned)motor_test.seq,
+                            (double)(motor_test.timeout_ms*0.001f));
+
+            } else if (motors != nullptr) {
+                set_armed(true);
+                motors->output_min();
             }
             return;
         }
         // stop motor test
-        motor_test_stop();
+        motor_test_stop("Complete");
         return;
     }
             
+    if (motor_test_running_fwd_throttle()) {
+        // output handled at end of set_servos()
+        return;
+    }
+
     int16_t pwm = 0;   // pwm that will be output to the motors
 
     // calculate pwm based on throttle type
@@ -61,16 +72,17 @@ void QuadPlane::motor_test_output()
         break;
 
     default:
-        motor_test_stop();
+        motor_test_stop("Aborted, unknown throttle type");
         return;
     }
 
     // sanity check throttle values
-    if (pwm >= RC_Channel::RC_MIN_LIMIT_PWM && pwm <= RC_Channel::RC_MAX_LIMIT_PWM) {
-        // turn on motor to specified pwm value
+    if (pwm < RC_Channel::RC_MIN_LIMIT_PWM || pwm > RC_Channel::RC_MAX_LIMIT_PWM) {
+        motor_test_stop("Aborted, invalid PWM range");
+    } else if (!motor_test_running_fwd_throttle() && motors != nullptr) {
+        // turn on motor to specified pwm vlaue
+        // fwd_throttle output handled at end of set_servos()
         motors->output_test_seq(motor_test.seq, pwm);
-    } else {
-        motor_test_stop();
     }
 }
 
@@ -79,12 +91,29 @@ void QuadPlane::motor_test_output()
 MAV_RESULT QuadPlane::mavlink_motor_test_start(mavlink_channel_t chan, uint8_t motor_seq, uint8_t throttle_type,
                                             uint16_t throttle_value, float timeout_sec, uint8_t motor_count)
 {
-    if (!available() || motors == nullptr) {
+    if (timeout_sec <= 0) {
+        motor_test_stop("Stopped");
+        return MAV_RESULT_ACCEPTED;
+    }
+
+    if (plane.arming.is_armed() || (motors != nullptr && motors->armed())) {
+        gcs().send_text(MAV_SEVERITY_INFO, "Motor Test: Must be disarmed to start");
         return MAV_RESULT_FAILED;
     }
 
-    if (motors->armed()) {
-        gcs().send_text(MAV_SEVERITY_INFO, "Must be disarmed for motor test");
+    if (motor_seq == 0) {
+        if (!SRV_Channels::function_assigned(SRV_Channel::k_throttle)) {
+            gcs().send_text(MAV_SEVERITY_WARNING, "Motor Test: Forward Throttle not assigned");
+            return MAV_RESULT_FAILED;
+        } else if (throttle_type != MOTOR_TEST_THROTTLE_PERCENT) {
+            gcs().send_text(MAV_SEVERITY_WARNING, "Motor Test: Forward Throttle requires %%");
+            return MAV_RESULT_FAILED;
+        }
+    }
+
+    if ((motor_seq > 0 || motor_count > 1) && (!available() || motors == nullptr)) {
+        // test will include quadplane motors mixer library so make sure it is available.
+        gcs().send_text(MAV_SEVERITY_WARNING, "Motor Test: VTOL not available");
         return MAV_RESULT_FAILED;
     }
 
@@ -95,17 +124,16 @@ MAV_RESULT QuadPlane::mavlink_motor_test_start(mavlink_channel_t chan, uint8_t m
         return MAV_RESULT_FAILED;
     }
 
-    // if test has not started try to start it
-    if (!motor_test.running) {
-        // start test
-        motor_test.running = true;
+    // start test
+    motor_test.running = true;
 
-        // enable and arm motors
+    // enable and arm motors
+    if (motors != nullptr && motor_seq >= 1) {
         set_armed(true);
-        
-        // turn on notify leds
-        AP_Notify::flags.esc_calibration = true;
     }
+    
+    // turn on notify leds
+    AP_Notify::flags.esc_calibration = true;
 
     // set timeout
     motor_test.start_ms = AP_HAL::millis();
@@ -117,12 +145,16 @@ MAV_RESULT QuadPlane::mavlink_motor_test_start(mavlink_channel_t chan, uint8_t m
     motor_test.throttle_value = throttle_value;
     motor_test.motor_count = MIN(motor_count, 8);
 
+    gcs().send_text(MAV_SEVERITY_WARNING, "Motor Test: Starting motor %u, t=%.1fs",
+                (unsigned)motor_test.seq,
+                (double)(motor_test.timeout_ms*0.001f));
+
     // return success
     return MAV_RESULT_ACCEPTED;
 }
 
 // motor_test_stop - stops the motor test
-void QuadPlane::motor_test_stop()
+void QuadPlane::motor_test_stop(const char* reason)
 {
     // exit immediately if the test is not running
     if (!motor_test.running) {
@@ -133,7 +165,9 @@ void QuadPlane::motor_test_stop()
     motor_test.running = false;
 
     // disarm motors
-    set_armed(false);
+    if (motors != nullptr) {
+        set_armed(false);
+    }
 
     // reset timeout
     motor_test.start_ms = 0;
@@ -141,6 +175,8 @@ void QuadPlane::motor_test_stop()
 
     // turn off notify leds
     AP_Notify::flags.esc_calibration = false;
+
+    gcs().send_text(MAV_SEVERITY_INFO, "Motor Test: %s", reason);
 }
 
 #endif  // HAL_QUADPLANE_ENABLED

@@ -942,6 +942,14 @@ void Plane::set_servos(void)
     }
 #endif  // AP_ICENGINE_ENABLED
 
+#if HAL_QUADPLANE_ENABLED
+    if (quadplane.motor_test_running_fwd_throttle()) {
+        // NOTE: THIS OVERRIDES THE ARMING STATE
+        const float motor_test_throttle_pct = MAX(min_throttle, quadplane.motor_test.throttle_value);
+        SRV_Channels::set_output_scaled(SRV_Channel::k_throttle, motor_test_throttle_pct);
+    }
+#endif
+
     // run output mixer and send values to the hal for output
     servos_output();
 }
