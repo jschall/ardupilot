@@ -291,6 +291,22 @@ const AP_Param::GroupInfo AP_TECS::var_info[] = {
     // @User: Advanced
     AP_GROUPINFO("TCONST_STE", 59, AP_TECS, _timeConst_STE, 0.0),
 
+    // @Param: CLMB_OPER
+    // @DisplayName: Operational climb rate.
+    // @Description: This parameter allows a lower climb rate than CLMB_MAX for normal operation. Set to 0 to use CLMB_MAX.
+    // @Range: 0.0 5.0
+    // @Increment: 0.1
+    // @User: Advanced
+    AP_GROUPINFO("CLMB_OPER", 60, AP_TECS, _operationalClimb, 0.0),
+
+    // @Param: SINK_OPER
+    // @DisplayName: Operational sink rate.
+    // @Description: This parameter allows a lower sink rate than SINK_MAX for normal operation. Set to 0 to use SINK_MAX.
+    // @Range: 0.0 5.0
+    // @Increment: 0.1
+    // @User: Advanced
+    AP_GROUPINFO("SINK_OPER", 61, AP_TECS, _operationalSink, 0.0),
+
     AP_GROUPEND
 };
 
@@ -527,6 +543,15 @@ void AP_TECS::_update_height_demand(void)
 {
     _climb_rate_limit = _maxClimbRate * _max_climb_scaler;
     _sink_rate_limit = _maxSinkRate * _max_sink_scaler;
+    
+    if (_operationalSink > 0.0 && _operationalSink < _maxSinkRate) {
+        _sink_rate_limit = _operationalSink * _max_sink_scaler;
+    }
+    
+    if (_operationalClimb > 0.0 && _operationalClimb < _maxClimbRate) {
+        _climb_rate_limit = _operationalClimb * _max_climb_scaler;
+    }
+
     if (_maxSinkRate_approach > 0 && _flags.is_doing_auto_land) {
         // special sink rate for approach to accommodate steep slopes and reverse thrust.
         // A special check must be done to see if we're LANDing on approach but also if

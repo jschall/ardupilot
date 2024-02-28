@@ -79,11 +79,17 @@ public:
 
     // return maximum climb rate
     float get_max_climbrate(void) const {
+        if (_operationalClimb > 0.0 && _operationalClimb < _maxClimbRate) {
+            return _operationalClimb;
+        }
         return _maxClimbRate;
     }
 
     // return maximum sink rate (+ve number down)
     float get_max_sinkrate(void) const {
+        if (_operationalSink > 0.0 && _operationalSink < _maxSinkRate) {
+            return _operationalSink;
+        }
         return _maxSinkRate;
     }
     
@@ -197,6 +203,8 @@ private:
     AP_Float _flare_holdoff_hgt;
     AP_Float _hgt_dem_tconst;
     AP_Float _timeConst_STE;
+    AP_Float _operationalClimb;
+    AP_Float _operationalSink;
 
     enum {
         OPTION_GLIDER_ONLY=(1<<0),
