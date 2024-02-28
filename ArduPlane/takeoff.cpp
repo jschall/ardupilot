@@ -180,8 +180,12 @@ void Plane::takeoff_calc_roll(void)
 void Plane::takeoff_calc_pitch(void)
 {
     if (auto_state.highest_airspeed < g.takeoff_rotate_speed) {
-        // we have not reached rotate speed, use the specified takeoff target pitch angle
+        // we have not reached rotate speed, use the specified
+        // takeoff run target pitch angle and stop the integrator from winding up
         nav_pitch_cd = int32_t(100.0f * mode_takeoff.ground_pitch);
+
+        // Set the pitch integrator to give a specified percentage trim.
+        pitchController.set_I(mode_takeoff.rotate_elev * radians(45) / 100);
         return;
     }
 

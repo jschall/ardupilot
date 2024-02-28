@@ -51,6 +51,12 @@ const AP_Param::GroupInfo ModeTakeoff::var_info[] = {
     // @User: Standard
     AP_GROUPINFO("GND_PITCH", 5, ModeTakeoff, ground_pitch, 5),
 
+    // @Param: ROTATE_ELE
+    // @DisplayName: Takeoff elevator trim before rotate
+    // @Description: Elevator to apply via integrator override until TKOFF_ROTATE_SPD is reached
+    // @User: Advanced
+    AP_GROUPINFO("ROTATE_ELE", 6, ModeTakeoff, rotate_elev, 0),
+    
     AP_GROUPEND
 };
 
