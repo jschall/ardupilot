@@ -38,14 +38,14 @@ local MAV_CMD_NAV_VTOL_TAKEOFF=84
 local MAV_CMD_NAV_VTOL_LAND=85
 
 local lpf_coef_default = 0.002
-local current_amps_very_filtered = { }
+local power_filtered_w = { }
 local time_remaining_s = { }
-local SECONDS_MAX = 2*24*3600 -- 2 day
-local SECONDS_MIN = 1
+local SECONDS_MAX = 12*3600 -- 12 hrs
+local SECONDS_MIN = 600 -- 10 mins
 
 local FAST_MODE_DURATION_MS = 2*60*1000
 local SLOW_MODE_DURATION_MS = 2*60*1000
-local INIT_DELAY_DURATION_MS = 30*1000
+local INIT_DELAY_DURATION_MS = 600*1000
 local fast_mode_ms = 0
 local slow_mode_ms = 0
 local init_delay_ms = 0
@@ -71,7 +71,7 @@ function init()
     check_announce(true)
 
     for i=0, battery:num_instances() do
-        current_amps_very_filtered[i] = 0.0
+        power_filtered_w[i] = 0.0
         time_remaining_s[i] = 0
     end
     return update, 1000 -- 1Hz
@@ -84,10 +84,12 @@ function update_battery_instance_1Hz(instance)
         return
     end
 
-    local consumed_mah = battery:consumed_mah(instance)
-    local current_amps = battery:current_amps(instance)
-    local capacity = battery:pack_capacity_mah(instance)
-    if not consumed_mah or not current_amps or capacity <= 10 then
+    local consumed_whr = battery:consumed_wh(instance) -- units W-hr
+    local power_w = battery:current_amps(instance)*battery:voltage(instance) -- units watts
+    
+    local capacity_whr = battery:pack_capacity_mah(instance)*0.0222 -- units W-hr, nominal pack voltage is 22.2
+
+    if not consumed_whr or not power_w or capacity_whr <= 10 then
         -- sanity check
         -- gcs:send_text(MAV_SEVERITY.DEBUG, string.format('K1000: sanity check'))
         return
@@ -100,7 +102,7 @@ function update_battery_instance_1Hz(instance)
         return
     elseif time_remaining_s[instance] == 0 then
         -- first time we are flying, init the LPF
-        current_amps_very_filtered[instance] = current_amps
+        power_filtered_w[instance] = power_w
         -- fast_mode_ms = millis() -- start running in fast mode siliently
     end
     
@@ -109,16 +111,16 @@ function update_battery_instance_1Hz(instance)
     -- apply simple 1st order FIR filter to current_amps
     -- This coef is expected to be very very small (like 0.001), to
     -- create a time-constant very very long (like a few minutes)
-    current_amps_very_filtered[instance] = (current_amps_very_filtered[instance] * (1.0-coef)) + (current_amps * coef)
-    if current_amps_very_filtered[instance] == nil or current_amps_very_filtered[instance] == 0.0 then
+    power_filtered_w[instance] = (power_filtered_w[instance] * (1.0-coef)) + (power_w * coef)
+    if power_filtered_w[instance] == nil or power_filtered_w[instance] == 0.0 then
         -- divide-by-zero check. Best to just not update it and keep old value
         -- gcs:send_text(MAV_SEVERITY.DEBUG, string.format('K1000: DBZ'))
         return
     end
 
-    local mAh_remaining = constrain((capacity - consumed_mah), 0, capacity)
-    local AmpSec_remaining = mAh_remaining * 3.6 -- == 3600 * 0.001 == AP_SEC_PER_HOUR * mAh_TO_Ah
-    time_remaining_s[instance] = math.floor((AmpSec_remaining / current_amps_very_filtered[instance]) + 0.5)
+    local whr_remaining = constrain((capacity_whr - consumed_whr), 0, capacity_whr)
+    local J_remaining = whr_remaining * 3600
+    time_remaining_s[instance] = math.floor((J_remaining / power_filtered_w[instance]) + 0.5)
 
     local time_remaining_s_constrained = constrain(time_remaining_s[instance], SECONDS_MIN, SECONDS_MAX)
 
@@ -180,55 +182,8 @@ end
 
 function get_coef(instance)
 
-    local now_ms = millis()
-    local use_this_coef = lpf_coef_default
-
-
-    -- if we suspect the estimate is way off so lets speed up the LPF for a bit
-    local speed_things_up = false
-    speed_things_up = speed_things_up or (time_remaining_s[instance] >= (SECONDS_MAX/4))
-    speed_things_up = speed_things_up or (time_remaining_s[instance] == 0) -- we just initialized
-    -- speed_things_up = speed_things_up or (other non-linear events)
+    return lpf_coef_default
     
-    
-    local slow_things_down = false
-    -- slow_things_down = slow_things_down or (other non-linear events)
-
-
-    if (speed_things_up or fast_mode_ms > 0) then
-        if speed_things_up then
-            if (fast_mode_ms == 0) then
-                -- starting fast mode
-                gcs:send_text(MAV_SEVERITY.DEBUG, string.format('K1000: BATT%d Estimate speeding up', instance+1))
-            end
-            fast_mode_ms = now_ms
-        end
-
-        if (now_ms - fast_mode_ms < FAST_MODE_DURATION_MS) then
-            use_this_coef = use_this_coef * 10
-        else
-            -- ending fast mode
-            fast_mode_ms = 0
-            gcs:send_text(MAV_SEVERITY.DEBUG, string.format('K1000: BATT%d Estimate resuming normal speed', instance+1))
-        end
-    elseif (slow_things_down or slow_mode_ms > 0) then
-        if slow_things_down then
-            if (slow_mode_ms == 0) then
-                -- starting slow mode
-                gcs:send_text(MAV_SEVERITY.DEBUG, string.format('K1000: BATT%d Estimate slowing down', instance+1))
-            end
-            slow_mode_ms = now_ms
-        end
-
-        if (now_ms - slow_mode_ms < SLOW_MODE_DURATION_MS) then
-            use_this_coef = use_this_coef / 10
-        else
-            -- ending slow mode
-            slow_mode_ms = 0
-            gcs:send_text(MAV_SEVERITY.DEBUG, string.format('K1000: BATT%d Estimate resuming normal speed', instance+1))
-        end
-    end
-    return constrain(use_this_coef, 0.0001, 0.1)
 end
 
 function update()
