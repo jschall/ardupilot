@@ -120,6 +120,7 @@ void AP_Mission::start()
 void AP_Mission::stop()
 {
     _flags.state = MISSION_STOPPED;
+    jump_tag_reset();
 }
 
 /// resume - continues the mission execution from where we last left off
@@ -267,6 +268,7 @@ void AP_Mission::reset()
     _prev_nav_cmd_id       = AP_MISSION_CMD_ID_NONE;
     init_jump_tracking();
     reset_wp_history();
+    jump_tag_reset();
 }
 
 /// clear - clears out mission
@@ -287,6 +289,9 @@ bool AP_Mission::clear()
     _flags.nav_cmd_loaded = false;
     _flags.do_cmd_loaded = false;
     _flags.state = MISSION_STOPPED;
+
+    jump_tag_reset();
+
     // return success
     return true;
 }
@@ -358,7 +363,6 @@ void AP_Mission::update()
 // handle events for when the mission has been updated (but maybe not changed)
 void AP_Mission::on_mission_timestamp_change()
 {
-    _jump_tag.age = 0;
 }
 
 bool AP_Mission::verify_command(const Mission_Command& cmd)
@@ -450,8 +454,7 @@ bool AP_Mission::start_command(const Mission_Command& cmd)
     case MAV_CMD_DO_GIMBAL_MANAGER_PITCHYAW:
         return start_command_do_gimbal_manager_pitchyaw(cmd);
     case MAV_CMD_JUMP_TAG:
-        _jump_tag.tag = cmd.content.jump.target;
-        _jump_tag.age = 1;
+        jump_tag_init(cmd);
         FALLTHROUGH; // fall through in case the vehicle handles tag events
     default:
         return _cmd_start_fn(cmd);
@@ -570,6 +573,13 @@ bool AP_Mission::set_current_cmd(uint16_t index)
 
     // stop current nav cmd
     _flags.nav_cmd_loaded = false;
+
+    if (_nav_cmd.index != index) {
+        // only reset the jump tag if we're setting to a different index.
+        // This allows scripts to edit the current command and refresh
+        // it without losing what tag they're on
+        jump_tag_reset();
+    }
 
     // if index is zero then the user wants to completely restart the mission
     if (index == 0 || _flags.state == MISSION_COMPLETE) {
@@ -1138,7 +1148,10 @@ MAV_MISSION_RESULT AP_Mission::mavlink_int_to_mission_cmd(const mavlink_mission_
         break;
 
     case MAV_CMD_JUMP_TAG:                              // MAV ID: 600
-        cmd.content.jump.target = packet.param1;        // jump-to tag number
+        cmd.p1 = packet.param1;                         // jump-to tag number
+        cmd.content.jump_tag.p2 = packet.param2;        // user-defined argument
+        cmd.content.jump_tag.p3 = packet.param3;        // user-defined argument
+        cmd.content.jump_tag.p4 = packet.param4;        // user-defined argument
         break;
 
     case MAV_CMD_DO_CHANGE_SPEED:                       // MAV ID: 178
@@ -1652,7 +1665,10 @@ bool AP_Mission::mission_cmd_to_mavlink_int(const AP_Mission::Mission_Command& c
         break;
 
     case MAV_CMD_JUMP_TAG:                              // MAV ID: 600
-        packet.param1 = cmd.content.jump.target;        // jump-to tag number
+        packet.param1 = cmd.p1;                         // jump-to tag number
+        packet.param2 = cmd.content.jump_tag.p2;        // user-defined argument
+        packet.param3 = cmd.content.jump_tag.p3;        // user-defined argument
+        packet.param4 = cmd.content.jump_tag.p4;        // user-defined argument
         break;
 
     case MAV_CMD_DO_CHANGE_SPEED:                       // MAV ID: 178
@@ -2223,7 +2239,7 @@ uint16_t AP_Mission::get_index_of_jump_tag(const uint16_t tag) const
         if (!read_cmd_from_storage(i, tmp)) {
             continue;
         }
-        if (tmp.id == MAV_CMD_JUMP_TAG && tmp.content.jump.target == tag) {
+        if (tmp.id == MAV_CMD_JUMP_TAG && tmp.p1 == tag) {
             return i;
         }
     }
@@ -2241,6 +2257,28 @@ bool AP_Mission::get_last_jump_tag(uint16_t &tag, uint16_t &age) const
     return true;
 }
 #endif
+
+bool AP_Mission::get_last_jump_tag_args(float &p2, float &p3, float &p4) const
+{
+    if (_jump_tag.age == 0) {
+        return false;
+    }
+    p2 = _jump_tag.args.p2;
+    p3 = _jump_tag.args.p3;
+    p4 = _jump_tag.args.p4;
+    return true;
+}
+
+void AP_Mission::jump_tag_init(const Mission_Command& cmd)
+{
+    jump_tag_reset();
+    _jump_tag.tag = cmd.p1;
+    _jump_tag.args.p2 = cmd.content.jump_tag.p2;
+    _jump_tag.args.p3 = cmd.content.jump_tag.p3;
+    _jump_tag.args.p4 = cmd.content.jump_tag.p4;
+
+    _jump_tag.age = 1;
+}
 
 // init_jump_tracking - initialise jump_tracking variables
 void AP_Mission::init_jump_tracking()

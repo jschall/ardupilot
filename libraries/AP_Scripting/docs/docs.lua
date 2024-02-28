@@ -1815,6 +1815,12 @@ function mission:get_index_of_jump_tag(tag) end
 ---@return integer|nil
 function mission:get_last_jump_tag() end
 
+-- get the arguments for the last JUMP_TAG
+---@return number|nil
+---@return number|nil
+---@return number|nil
+---@return boolean
+function mission:get_last_jump_tag_args() end
 
 -- Jump the mission to the start of the closest landing sequence. Returns true if one was found
 ---@return boolean
