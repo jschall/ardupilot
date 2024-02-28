@@ -593,7 +593,7 @@ bool AP_DroneCAN_DNA_Server::prearm_check(char* fail_msg, uint8_t fail_msg_len) 
             // ignore error
             return true;
         }
-        snprintf(fail_msg, fail_msg_len, "Duplicate Node %s../%d!", fault_node_name, fault_node_id);
+        snprintf(fail_msg, fail_msg_len, "Duplicate Node %s %d", fault_node_name, fault_node_id);
         return false;
     }
     case FAILED_TO_ADD_NODE: {
