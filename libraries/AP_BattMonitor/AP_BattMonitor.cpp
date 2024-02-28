@@ -397,6 +397,11 @@ const AP_Param::GroupInfo AP_BattMonitor::var_info[] = {
     #error "AP_BATT_MONITOR_MAX_INSTANCES too large, reset_remaining_mask() will cause an assert above 16"
 #endif
 
+    // @Param: 6_CELLS_SEL
+    // @DisplayName: BATT6_CELLS_SEL NOT IMPLEMENTED
+    // @Description: BATT6_CELLS_SEL NOT IMPLEMENTED in 4.4 yet. Whole PacketDigital/Amprius v2 smart battery needs to be implemented. See v4.1.x PR https://github.com/krausaerospace/ardupilot/pull/235. Param "BATT6_CELLS_SEL" is added here to be backwards compatible with Command App on 4.1.x
+    AP_GROUPINFO("6_CELLS_SEL", 59, AP_BattMonitor, _batt6_cells_sel_NOT_IMPLEMENTED, 0),
+
     AP_GROUPEND
 };
 

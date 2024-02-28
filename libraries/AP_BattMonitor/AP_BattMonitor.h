@@ -314,6 +314,7 @@ private:
     int8_t      _highest_failsafe_priority; // highest selected failsafe action level (used to restrict what actions we move into)
     bool        _has_triggered_failsafe;  // true after a battery failsafe has been triggered for the first time
 
+    AP_Int8    _batt6_cells_sel_NOT_IMPLEMENTED;
 };
 
 namespace AP {
