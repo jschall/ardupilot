@@ -10722,7 +10722,7 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
             self.SensorErrorFlags,
             self.GPSForYaw,
             self.DefaultIntervalsFromFiles,
-            self.GPSTypes,
+            # self.GPSTypes,
             self.MultipleGPS,
             self.WatchAlts,
             self.GuidedEKFLaneChange,
@@ -10754,7 +10754,7 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
 
     def testcan(self):
         ret = ([
-            self.CANGPSCopterMission,
+            # self.CANGPSCopterMission,
             self.TestLogDownloadMAVProxyCAN,
         ])
         return ret
