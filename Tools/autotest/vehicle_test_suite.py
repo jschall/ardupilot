@@ -4252,7 +4252,7 @@ class TestSuite(ABC):
         self.wait_heartbeat()
         mavproxy.send("set shownoise 0\n")
         mavproxy.send("log download latest %s\n" % filename)
-        mavproxy.expect("Finished downloading", timeout=120)
+        mavproxy.expect("Finished downloading", timeout=1200)
         self.mavproxy_unload_module(mavproxy, 'log')
         self.stop_mavproxy(mavproxy)
 
@@ -4317,7 +4317,7 @@ class TestSuite(ABC):
             for i in range(5):
                 self.wait_heartbeat()
             mavproxy.send("log download latest %s\n" % filename)
-            mavproxy.expect("Finished downloading", timeout=120)
+            mavproxy.expect("Finished downloading", timeout=1200)
             self.mavproxy_unload_module(mavproxy, 'log')
             self.stop_mavproxy(mavproxy)
 
@@ -4361,7 +4361,7 @@ class TestSuite(ABC):
             for i in range(5):
                 self.wait_heartbeat()
             mavproxy.send("log download latest %s\n" % filename)
-            mavproxy.expect("Finished downloading", timeout=120)
+            mavproxy.expect("Finished downloading", timeout=1200)
             self.mavproxy_unload_module(mavproxy, 'log')
             self.stop_mavproxy(mavproxy)
 
@@ -4398,7 +4398,7 @@ class TestSuite(ABC):
             self.wait_heartbeat()
         mavproxy.send("set shownoise 0\n")
         mavproxy.send("log download latest %s\n" % filename)
-        mavproxy.expect("Finished downloading", timeout=120)
+        mavproxy.expect("Finished downloading", timeout=1200)
         self.mavproxy_unload_module(mavproxy, 'log')
         self.stop_mavproxy(mavproxy)
         self.context_pop()
@@ -8075,6 +8075,7 @@ Also, ignores heartbeats not from our target system'''
         self.install_script(source, scriptname)
 
     def install_applet_script(self, scriptname, install_name=None):
+        self.set_parameter("SCR_HEAP_SIZE", self.get_parameter("SCR_HEAP_SIZE") + 2000000) # add room for K1000 scripts
         source = self.script_applet_source_path(scriptname)
         self.install_script(source, scriptname, install_name=install_name)
 
