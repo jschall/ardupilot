@@ -24,8 +24,8 @@ local param_AIRCRAFT_SPAN_max = 6.0     -- m    (unused)
 local ref_AIRCRAFT_TOW = 13.8           -- kg   - takeoff weight
 -- local ref_AIRCRAFT_SPAN = 5.0           -- m    - 5m wingspan
 local ref_TKOFF_ROTATE_SPD = 13.5       -- m/s  - takeoff rotation speed
-local ref_AIRSPEED_MIN = 14.0          -- m/s  - minimum airspeed
-local ref_AIRSPEED_CRUISE = 17.0          -- m/s - cruise airspeed
+local ref_AIRSPEED_MIN = 14             -- m/s  - minimum airspeed
+local ref_AIRSPEED_CRUISE = 15.0        -- m/s - cruise airspeed
 
 local is_armed_last = false
 local param_to_trigger_announce_STR_NAME = "SCR_USER1"
