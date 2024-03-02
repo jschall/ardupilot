@@ -24,8 +24,8 @@ local param_AIRCRAFT_SPAN_max = 6.0     -- m    (unused)
 local ref_AIRCRAFT_TOW = 13.8           -- kg   - takeoff weight
 -- local ref_AIRCRAFT_SPAN = 5.0           -- m    - 5m wingspan
 local ref_TKOFF_ROTATE_SPD = 13.5       -- m/s  - takeoff rotation speed
-local ref_ARSPD_FBW_MIN = 14.0          -- m/s  - minimum airspeed
-local ref_TRIM_ARSPD_CM = 1500          -- cm/s - cruise airspeed
+local ref_AIRSPEED_MIN = 14.0          -- m/s  - minimum airspeed
+local ref_AIRSPEED_CRUISE = 17.0          -- m/s - cruise airspeed
 
 local is_armed_last = false
 local param_to_trigger_announce_STR_NAME = "SCR_USER1"
@@ -86,8 +86,8 @@ function update()
             -- TODO: integrate param_AIRCRAFT_SPAN
             local scaler = math.sqrt(param_AIRCRAFT_TOW / ref_AIRCRAFT_TOW)
             set_param('TKOFF_ROTATE_SPD',   (scaler * ref_TKOFF_ROTATE_SPD) - 1)
-            set_param('ARSPD_FBW_MIN',      scaler * ref_ARSPD_FBW_MIN)
-            set_param('TRIM_ARSPD_CM',      scaler * ref_TRIM_ARSPD_CM)
+            set_param('AIRSPEED_MIN',      scaler * ref_AIRSPEED_MIN)
+            set_param('AIRSPEED_CRUISE',      scaler * ref_AIRSPEED_CRUISE)
         end
         param_AIRCRAFT_TOW_prev = param_AIRCRAFT_TOW
         param_AIRCRAFT_SPAN_prev = param_AIRCRAFT_SPAN
