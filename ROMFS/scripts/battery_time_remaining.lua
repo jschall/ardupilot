@@ -45,7 +45,7 @@ local SECONDS_MIN = 600 -- 10 mins
 
 local FAST_MODE_DURATION_MS = 2*60*1000
 local SLOW_MODE_DURATION_MS = 2*60*1000
-local INIT_DELAY_DURATION_MS = 600*1000
+local INIT_DELAY_DURATION_MS = 60*1000
 local fast_mode_ms = 0
 local slow_mode_ms = 0
 local init_delay_ms = 0
@@ -127,6 +127,8 @@ function update_battery_instance_1Hz(instance)
     battery:set_time_remaining_external(time_remaining_s_constrained, instance)
 
     -- gcs:send_text(MAV_SEVERITY.DEBUG, string.format('K1000: batt[%d] = %d, %s', instance+1, time_remaining_s[instance], disp_time(time_remaining_s[instance])))
+    logger:write('EEST','pinst,pfilt,batWhr,estSec','ffff','----','----',power_w, power_filtered_w[instance], whr_remaining, time_remaining_s[instance])
+
 end
 
 function disp_time(time)
