@@ -93,6 +93,15 @@ public:
         return _maxSinkRate;
     }
     
+    // true when in Bad descent condition caused by unachievable airspeed demand
+    bool uncommanded_altitude_loss(void) const {
+        return _flags.badDescent;
+    }
+
+    float get_altitude_error(void) const {
+        return _hgt_dem_in_prev - _height;
+    };
+
     // added to let SoaringContoller reset pitch integrator to zero
     void reset_pitch_I(void) {
         _integSEBdot = 0.0f;
