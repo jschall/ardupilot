@@ -2379,7 +2379,7 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         '''Test RangeFinder Basic Functionality'''
         self.context_push()
         self.progress("Making sure we don't ordinarily get RANGEFINDER")
-        self.assert_not_receive_message('RANGEFDINDER')
+        self.assert_not_receive_message('RANGEFINDER')
 
         self.set_analog_rangefinder_parameters()
 
@@ -2388,6 +2388,7 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         '''ensure rangefinder gives height-above-ground'''
         self.load_mission("plane-gripper-mission.txt") # borrow this
         self.set_parameter("RTL_AUTOLAND", 1)
+        self.set_parameter("SIM_TERRAIN", 0)
         self.set_current_waypoint(1)
         self.change_mode('AUTO')
         self.wait_ready_to_arm()
