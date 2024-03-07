@@ -37,17 +37,13 @@ local MAV_CMD_NAV_TAKEOFF_LOCAL=24
 local MAV_CMD_NAV_VTOL_TAKEOFF=84
 local MAV_CMD_NAV_VTOL_LAND=85
 
-local lpf_coef_default = 0.002
+local lpf_coef = 0.002
 local power_filtered_w = { }
 local time_remaining_s = { }
 local SECONDS_MAX = 12*3600 -- 12 hrs
 local SECONDS_MIN = 600 -- 10 mins
 
-local FAST_MODE_DURATION_MS = 2*60*1000
-local SLOW_MODE_DURATION_MS = 2*60*1000
 local INIT_DELAY_DURATION_MS = 60*1000
-local fast_mode_ms = 0
-local slow_mode_ms = 0
 local init_delay_ms = 0
 
 local is_armed_last = false
@@ -106,12 +102,10 @@ function update_battery_instance_1Hz(instance)
         -- fast_mode_ms = millis() -- start running in fast mode siliently
     end
     
-    local coef = get_coef(instance)
-
     -- apply simple 1st order FIR filter to current_amps
     -- This coef is expected to be very very small (like 0.001), to
     -- create a time-constant very very long (like a few minutes)
-    power_filtered_w[instance] = (power_filtered_w[instance] * (1.0-coef)) + (power_w * coef)
+    power_filtered_w[instance] = (power_filtered_w[instance] * (1.0-lpf_coef)) + (power_w * lpf_coef)
     if power_filtered_w[instance] == nil or power_filtered_w[instance] == 0.0 then
         -- divide-by-zero check. Best to just not update it and keep old value
         -- gcs:send_text(MAV_SEVERITY.DEBUG, string.format('K1000: DBZ'))
@@ -180,12 +174,6 @@ function stop_filtering()
         end
     end
     return result
-end
-
-function get_coef(instance)
-
-    return lpf_coef_default
-    
 end
 
 function update()
