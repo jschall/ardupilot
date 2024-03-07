@@ -69,6 +69,10 @@ MAV_MODE GCS_MAVLINK_Plane::base_mode() const
         // APM does in any mode, as that is defined as "system finds its own goal
         // positions", which APM does not currently do
         break;
+#if STALL_RECOVERY_ENABLED
+    case Mode::Number::STALLRECOVERY:
+        break;
+#endif
     case Mode::Number::INITIALISING:
         break;
     }

@@ -36,6 +36,11 @@ MAV_COLLISION_ACTION AP_Avoidance_Plane::handle_avoidance(const AP_Avoidance::Ob
         flightmode_prohibits_action = true;
     }
 #endif
+#if STALL_RECOVERY_ENABLED
+    if (plane.control_mode == &plane.mode_stallrecovery) {
+        flightmode_prohibits_action = true;
+    }
+#endif
     if (flightmode_prohibits_action) {
         actual_action = MAV_COLLISION_ACTION_NONE;
     }

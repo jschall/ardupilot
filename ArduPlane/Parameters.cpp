@@ -1000,6 +1000,12 @@ const AP_Param::Info Plane::var_info[] = {
     // @Path: mode_takeoff.cpp
     GOBJECT(mode_takeoff, "TKOFF_", ModeTakeoff),
 
+#if STALL_RECOVERY_ENABLED
+    // @Group: STALL_
+    // @Path: mode_stallrecovery.cpp
+    GOBJECT(mode_stallrecovery, "STALL_", ModeStallRecovery),
+#endif
+
     // @Group:
     // @Path: ../libraries/AP_Vehicle/AP_Vehicle.cpp
     PARAM_VEHICLE_INFO,
@@ -1281,6 +1287,15 @@ const AP_Param::GroupInfo ParametersG2::var_info[] = {
     // @Units: m
     // @User: Advanced
     AP_GROUPINFO("AIRCRAFT_SPAN", 57, ParametersG2, aircraft_span_m, 5.0f),
+
+#if STALL_DETECTION_ENABLED
+    // @Param: STALL_DETECT
+    // @DisplayName: Stall detection select
+    // @Description: Stall detection select type. Different aircraft stall in different ways. A detection is considered when all enabled option thresholds have been met
+    // @User: Advanced
+    // @Bitmask: 0:CantHoldAltitude,1:SinkRate*2Max,2:SinkRate*4Max,3:RollError20deg,4:RollError30deg,5:RollError45deg,6:PitchError10deg,7:PitchError20deg,8:PitchError20deg,9:PitchError30deg,10:PitchError40deg,11:AltError10m,12:AltError20m,13:AltError40m,14:AltError60m
+    AP_GROUPINFO("STALL_DETECT", 56, ParametersG2, stall_detection_bitmask, 0),
+#endif
 
     AP_GROUPEND
 };

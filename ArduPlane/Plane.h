@@ -96,6 +96,7 @@
 #include "GCS_Mavlink.h"
 #include "GCS_Plane.h"
 #include "quadplane.h"
+#include "stall_detection.h"
 #include <AP_Tuning/AP_Tuning_config.h>
 #if AP_TUNING_ENABLED
 #include "tuning.h"
@@ -144,6 +145,7 @@ public:
     friend class Tiltrotor;
     friend class SLT_Transition;
     friend class Tailsitter_Transition;
+    friend class StallDetection;
 
     friend class Mode;
     friend class ModeCircle;
@@ -170,6 +172,7 @@ public:
     friend class ModeQAutotune;
     friend class ModeTakeoff;
     friend class ModeThermal;
+    friend class ModeStallRecovery;
     friend class ModeLoiterAltQLand;
 
 #if AP_EXTERNAL_CONTROL_ENABLED
@@ -306,6 +309,10 @@ private:
 #if HAL_SOARING_ENABLED
     ModeThermal mode_thermal;
 #endif
+#if STALL_RECOVERY_ENABLED
+    ModeStallRecovery mode_stallrecovery;
+#endif
+
 
     // This is the state of the flight control system
     // There are multiple states defined such as MANUAL, FBW-A, AUTO
@@ -598,6 +605,10 @@ private:
         // length of time impact_detected has been true. Times out after a few seconds. Used to clip isFlyingProbability
         uint32_t impact_timer_ms;
     } crash_state;
+
+#if STALL_DETECTION_ENABLED
+    StallDetection stall_detection;
+#endif
 
     // this controls throttle suppression in auto modes
     bool throttle_suppressed;

@@ -9,6 +9,7 @@
 #include "quadplane.h"
 #include <AP_AHRS/AP_AHRS.h>
 #include <AP_Mission/AP_Mission.h>
+#include "stall_detection.h"
 
 class AC_PosControl;
 class AC_AttitudeControl_Multi;
@@ -53,6 +54,9 @@ public:
         THERMAL       = 24,
 #if HAL_QUADPLANE_ENABLED
         LOITER_ALT_QLAND = 25,
+#endif
+#if STALL_RECOVERY_ENABLED
+        STALLRECOVERY = 30,
 #endif
     };
 
@@ -831,3 +835,36 @@ protected:
 };
 
 #endif
+
+#if STALL_RECOVERY_ENABLED
+class ModeStallRecovery : public Mode
+{
+public:
+    Number mode_number() const override { return Number::STALLRECOVERY; }
+    const char *name() const override { return "STALL"; }
+    const char *name4() const override { return "STALL"; }
+
+    // methods that affect movement of the vehicle in this mode
+    void update() override;
+
+    // var_info for holding parameter information
+    static const struct AP_Param::GroupInfo var_info[];
+
+    AP_Int8 auto_recovery_enabled;
+
+protected:
+    bool _enter() override;
+    void _exit() override;
+
+private:
+    void set_servo_behavior();
+    void resume_previous_mode();
+
+    uint32_t start_ms;
+    bool in_first_phase;
+
+    AP_Int8 elevator1_percent;
+    AP_Float duration1_s;
+    AP_Float duration2_s;
+};
+#endif // STALL_RECOVERY_ENABLED

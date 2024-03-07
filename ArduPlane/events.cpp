@@ -95,6 +95,9 @@ void Plane::failsafe_short_on_event(enum failsafe_state fstype, ModeReason reaso
     case Mode::Number::QRTL:
     case Mode::Number::LOITER_ALT_QLAND:
 #endif
+#if STALL_RECOVERY_ENABLED
+    case Mode::Number::STALLRECOVERY:
+#endif
     case Mode::Number::INITIALISING:
         break;
     }
@@ -204,6 +207,9 @@ void Plane::failsafe_long_on_event(enum failsafe_state fstype, ModeReason reason
     case Mode::Number::QLAND:
     case Mode::Number::QRTL:
     case Mode::Number::LOITER_ALT_QLAND:
+#endif
+#if STALL_RECOVERY_ENABLED
+    case Mode::Number::STALLRECOVERY:
 #endif
     case Mode::Number::INITIALISING:
         break;

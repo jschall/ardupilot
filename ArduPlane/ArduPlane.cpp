@@ -386,6 +386,9 @@ void Plane::three_hz_loop()
 #if AP_FENCE_ENABLED
     fence_check();
 #endif
+#if STALL_DETECTION_ENABLED
+    stall_detection.update();
+#endif
 }
 
 void Plane::compass_save()

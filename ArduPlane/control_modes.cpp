@@ -88,6 +88,11 @@ Mode *Plane::mode_from_mode_num(const enum Mode::Number num)
         ret = &mode_thermal;
 #endif
         break;
+#if STALL_RECOVERY_ENABLED
+    case Mode::Number::STALLRECOVERY:
+        ret = &mode_stallrecovery;
+        break;
+#endif
 #if HAL_QUADPLANE_ENABLED
     case Mode::Number::LOITER_ALT_QLAND:
         ret = &mode_loiter_qland;

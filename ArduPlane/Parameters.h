@@ -357,6 +357,8 @@ public:
         k_param_acro_yaw_rate,
         k_param_takeoff_throttle_max_t,
         k_param_autotune_options,
+
+        k_param_mode_stallrecovery = 350,
     };
 
     AP_Int16 format_version;
@@ -594,6 +596,10 @@ public:
 
     AP_Float        aircraft_tow_kg;    // aircraft takeoff weight (mass). Used by LUA to tweak other parameters to better characterize the aircraft
     AP_Float        aircraft_span_m;    // aircraft wingspan. Used by LUA to tweak other parameters to better characterize the aircraft    
+
+#if STALL_DETECTION_ENABLED
+    AP_Int32 stall_detection_bitmask;
+#endif
 };
 
 extern const AP_Param::Info var_info[];
