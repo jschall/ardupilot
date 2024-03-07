@@ -5532,7 +5532,7 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
             self.GlideSlopeThresh,
             self.HIGH_LATENCY2,
             self.MidAirDisarmDisallowed,
-            #self.AerobaticsScripting,
+            # self.AerobaticsScripting,
             self.MANUAL_CONTROL,
             self.RunMissionScript,
             self.WindEstimates,
