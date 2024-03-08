@@ -31,6 +31,7 @@ void StallDetection::update(void)
 {
     if (!plane.arming.is_armed() ||
         !plane.is_flying() ||
+        plane.g2.stall_detection_bitmask == 0 ||
 #if STALL_RECOVERY_ENABLED
         plane.control_mode == &plane.mode_stallrecovery ||
 #endif
