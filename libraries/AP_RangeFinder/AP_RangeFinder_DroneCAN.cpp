@@ -87,15 +87,18 @@ void AP_RangeFinder_DroneCAN::update()
     if ((AP_HAL::millis() - _last_reading_ms) > 500) {
         //if data is older than 500ms, report NoData
         set_status(RangeFinder::Status::NoData);
+        state.signal_quality_pct = RangeFinder::SIGNAL_QUALITY_UNKNOWN;
     } else if (_status == RangeFinder::Status::Good && new_data) {
         //copy over states
         state.distance_m = _distance_cm * 0.01f;
         state.last_reading_ms = _last_reading_ms;
         update_status();
         new_data = false;
+        state.signal_quality_pct = RangeFinder::SIGNAL_QUALITY_MAX;
     } else if (_status != RangeFinder::Status::Good) {
         //handle additional states received by measurement handler
         set_status(_status);
+        state.signal_quality_pct = RangeFinder::SIGNAL_QUALITY_MIN;
     }
 }
 
