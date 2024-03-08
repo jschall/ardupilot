@@ -2512,7 +2512,7 @@ void AP_AHRS::_getCorrectedDeltaVelocityNED(Vector3f& ret, float& dt) const
 
 void AP_AHRS::set_failure_inconsistent_message(const char *estimator, const char *axis, float diff_rad, char *failure_msg, const uint8_t failure_msg_len) const
 {
-    hal.util->snprintf(failure_msg, failure_msg_len, "%s %s inconsistent %d deg. Wait or reboot", estimator, axis, (int)degrees(diff_rad));
+    hal.util->snprintf(failure_msg, failure_msg_len, "%s %s inconsistent %d deg", estimator, axis, (int)degrees(diff_rad));
 }
 
 // check all cores providing consistent attitudes for prearm checks
