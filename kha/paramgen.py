@@ -61,6 +61,8 @@ if args.selections is not None:
     argselections = args.selections[0].split(",")
 else:
     argselections = []
+    
+selout = []
 
 for option,selections in conf["options"].items():
     argsel = argselections[0] if argselections else None
@@ -72,9 +74,13 @@ for option,selections in conf["options"].items():
         argsel = ""
         if sel in selections.keys():
             params.update(dict(selections[sel]))
+            selout.append(sel)
             break
         else:
             print (sel, "is not a valid choice")
+
+if selout:
+    print("#",",".join(selout))
 
 if args.vehicle_file is not None:
     params_rounded = {}
