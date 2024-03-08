@@ -46,7 +46,7 @@ enum ioevents {
 
 // max number of consecutve protocol failures we accept before raising
 // an error
-#define IOMCU_MAX_REPEATED_FAILURES 20
+#define IOMCU_MAX_REPEATED_FAILURES 200
 
 #ifndef AP_IOMCU_FORCE_ENABLE_HEATER
 #define AP_IOMCU_FORCE_ENABLE_HEATER 0
