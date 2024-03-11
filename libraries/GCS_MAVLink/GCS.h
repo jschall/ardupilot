@@ -358,6 +358,7 @@ public:
     virtual void send_scaled_pressure3(); // allow sub to override this
     void send_simstate() const;
     void send_sim_state() const;
+    void send_hil_actuator_controls() const;
     void send_ahrs();
 #if AP_MAVLINK_BATTERY2_ENABLED
     void send_battery2();

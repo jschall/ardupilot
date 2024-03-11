@@ -194,12 +194,12 @@ Vector3f K1000::getForce(float inputAileron, float inputElevator, float inputRud
 
 void K1000::calculate_forces(const struct sitl_input &input, Vector3f &rot_accel)
 {
-    const float throttle =                   filtered_servo_range(input, 0);
-    const float aileron_port_radians =       filtered_servo_angle(input, 1)*0.5*(coefficient.deltaa_max+coefficient.deltaa_min);
-    const float aileron_starboard_radians =  filtered_servo_angle(input, 2)*0.5*(coefficient.deltaa_max+coefficient.deltaa_min);
-    const float elevator_port_radians =      filtered_servo_angle(input, 3)*coefficient.deltae_max;
-    const float elevator_starboard_radians = filtered_servo_angle(input, 4)*coefficient.deltae_max;
-    const float rudder_radians =             filtered_servo_angle(input, 5)*coefficient.deltar_max; 
+    const float throttle =                  (servo_outputs[0] + 1.0) / 2.0;
+    const float aileron_port_radians =       servo_outputs[1]*0.5*(coefficient.deltaa_max+coefficient.deltaa_min);
+    const float aileron_starboard_radians =  servo_outputs[2]*0.5*(coefficient.deltaa_max+coefficient.deltaa_min);
+    const float elevator_port_radians =      servo_outputs[3]*coefficient.deltae_max;
+    const float elevator_starboard_radians = servo_outputs[4]*coefficient.deltae_max;
+    const float rudder_radians =             servo_outputs[5]*coefficient.deltar_max;
 
     const float aileron_radians = (aileron_starboard_radians+aileron_port_radians)/2; // using average of stb and port deflection as aileron input for force & moment calcs
     const float elevator_radians = (elevator_starboard_radians+elevator_port_radians)/2; // using average of stb and port deflection as elevator input for force & moment calcs
@@ -273,6 +273,10 @@ void K1000::calculate_forces(const struct sitl_input &input, Vector3f &rot_accel
  */
 void K1000::update(const struct sitl_input &input)
 {
+    for (int i = 0; i < 16; i++) {
+        servo_outputs[i] = filtered_servo_angle(input, i);
+    }
+    
     Vector3f rot_accel;
 
     update_wind(input);

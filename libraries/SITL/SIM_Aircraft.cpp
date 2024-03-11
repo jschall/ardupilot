@@ -426,6 +426,8 @@ void Aircraft::fill_fdm(struct sitl_fdm &fdm)
         fdm.altitude  = smoothing.location.alt * 1.0e-2;
     }
 
+    memcpy(fdm.outputs, servo_outputs, sizeof(fdm.outputs));
+
 
     if (ahrs_orientation != nullptr) {
         enum Rotation imu_rotation = (enum Rotation)ahrs_orientation->get();

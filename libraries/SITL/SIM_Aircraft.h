@@ -262,6 +262,8 @@ protected:
 
     bool use_smoothing;
 
+    float servo_outputs[16] = {};
+
     float ground_height_difference() const;
 
     virtual bool on_ground() const;
@@ -337,7 +339,7 @@ private:
         Location location;
     } smoothing;
 
-    LowPassFilterFloat servo_filter[10];
+    LowPassFilterFloat servo_filter[16];
 
     Buzzer *buzzer;
     Sprayer *sprayer;

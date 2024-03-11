@@ -524,6 +524,18 @@ const AP_Param::GroupInfo SIM::var_info3[] = {
     // @Bitmask: 0:MAVLink,3:SageTechMXS
     AP_GROUPINFO("ADSB_TYPES",    52, SIM,  adsb_types, 1),
 
+    // @Param: SRV_FAIL_IND
+    // @DisplayName: Index of servo to fail
+    // @Description: Index of servo to fail, starting from 1. Set to zero for no failures.
+    // @User: Advanced
+     AP_GROUPINFO("SRV_FAIL_IND",  55, SIM, servo_fail_index, 0),
+
+    // @Param: SRV_FAIL_VAL
+    // @DisplayName: Value to fail servo at
+    // @Description: Value to fail servo at. -1.0 to 1.0.
+    // @User: Advanced
+     AP_GROUPINFO("SRV_FAIL_VAL",  56, SIM, servo_fail_value, 0),
+
 #ifdef SFML_JOYSTICK
     AP_SUBGROUPEXTENSION("",      63, SIM,  var_sfml_joystick),
 #endif // SFML_JOYSTICK
@@ -1236,6 +1248,16 @@ void SIM::sim_state_send(mavlink_channel_t chan) const
             state.speedD,
 	        (int32_t)(state.latitude*1.0e7),
             (int32_t)(state.longitude*1.0e7));
+}
+
+/* report SITL state via MAVLink SIM_STATE */
+void SIM::sim_actuator_controls_send(mavlink_channel_t chan) const
+{
+    mavlink_msg_hil_actuator_controls_send(chan,
+            AP_HAL::micros64(),
+            state.outputs,
+            0,
+            0);
 }
 
 #if HAL_LOGGING_ENABLED

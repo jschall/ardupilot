@@ -4401,6 +4401,16 @@ void GCS_MAVLINK::send_sim_state() const
     }
     sitl->sim_state_send(get_chan());
 }
+
+void GCS_MAVLINK::send_hil_actuator_controls() const
+{
+    SITL::SIM *sitl = AP::sitl();
+    if (sitl == nullptr) {
+        return;
+    }
+    sitl->sim_actuator_controls_send(get_chan());
+}
+
 #endif
 
 #if AP_BOOTLOADER_FLASHING_ENABLED
@@ -6100,6 +6110,12 @@ bool GCS_MAVLINK::try_send_message(const enum ap_message id)
         break;
 #endif
 
+    case MSG_HIL_ACTUATOR_CONTROLS:
+#if AP_SIM_ENABLED
+        CHECK_PAYLOAD_SIZE(HIL_ACTUATOR_CONTROLS);
+        send_hil_actuator_controls();
+#endif
+        break;
     case MSG_SYS_STATUS:
         CHECK_PAYLOAD_SIZE(SYS_STATUS);
         send_sys_status();

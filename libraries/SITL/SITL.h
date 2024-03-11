@@ -97,6 +97,7 @@ struct sitl_fdm {
     // AGL altitude, usually derived from the terrain database in simulation:
     float height_agl;
 
+    float outputs[16] = {};
 };
 
 // number of rc output channels
@@ -260,6 +261,9 @@ public:
     AP_Int8 sfml_joystick_axis[8];
 #endif
 
+    AP_Int8 servo_fail_index;
+    AP_Float servo_fail_value;
+
     // baro parameters
     class BaroParm {
     public:
@@ -421,6 +425,7 @@ public:
 
     void simstate_send(mavlink_channel_t chan) const;
     void sim_state_send(mavlink_channel_t chan) const;
+    void sim_actuator_controls_send(mavlink_channel_t chan) const;
 
     void Log_Write_SIMSTATE();
 

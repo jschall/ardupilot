@@ -385,6 +385,7 @@ void SITL_State::_fdm_input_local(void)
 
 #if HAL_GCS_ENABLED
     GCS::get_singleton()->send_message(MSG_SIM_STATE);
+    GCS::get_singleton()->send_message(MSG_HIL_ACTUATOR_CONTROLS);
 #endif
 
     // update simulation time
@@ -507,6 +508,13 @@ void SITL_State::_simulator_servos(struct sitl_input &input)
         input.servos[engine_fail] = ((input.servos[engine_fail]-1000) * engine_mul) + 1000;
     } else {
         input.servos[engine_fail] = static_cast<uint16_t>(((input.servos[engine_fail] - 1500) * engine_mul) + 1500);
+    }
+
+    uint8_t servo_fail_id  = _sitl ? _sitl->servo_fail_index.get() : 0;
+    float servo_fail_val   = _sitl ? _sitl->servo_fail_value.get() : 0;
+
+    if (servo_fail_id > 0 && servo_fail_id < 16) {
+        input.servos[servo_fail_id - 1] = 1500 + 500*servo_fail_val;
     }
 
     if (_vehicle == ArduPlane) {
