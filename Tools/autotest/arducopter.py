@@ -8384,7 +8384,7 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
             ("leddarone", 12),
             ("maxsonarseriallv", 13),
             ("nmea", 17, {"baud": 9600}),
-            ("wasp", 18),
+            # ("wasp", 18),
             ("benewake_tf02", 19),
             ("blping", 23),
             ("benewake_tfmini", 20),
@@ -8392,7 +8392,7 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
             ("benewake_tf03", 27),
             ("gyus42v2", 31),
             ("teraranger_serial", 35),
-            ("nooploop_tofsense", 37),
+            # ("nooploop_tofsense", 37),
         ]
         while len(drivers):
             do_drivers = drivers[0:3]

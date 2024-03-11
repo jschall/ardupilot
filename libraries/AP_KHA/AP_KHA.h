@@ -56,6 +56,11 @@ private:
 #if AP_KHA_GCS_PARAM_COUNT >= 1
         AP_Float gcs_param[AP_KHA_GCS_PARAM_COUNT];
 #endif
+        AP_Float endure_pwr;
+        AP_Float endure_aux_pwr;
+        AP_Float endure_arsp;
+        AP_Float endure_mass;
+        AP_Int8 battery_cell_count;
     } _params;
 
 };

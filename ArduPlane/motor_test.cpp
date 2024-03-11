@@ -119,7 +119,7 @@ MAV_RESULT QuadPlane::mavlink_motor_test_start(mavlink_channel_t chan, uint8_t m
 
     // Check Motor test is allowed
     char failure_msg[50] {};
-    if (!motors->motor_test_checks(ARRAY_SIZE(failure_msg), failure_msg)) {
+    if (motors != nullptr && !motors->motor_test_checks(ARRAY_SIZE(failure_msg), failure_msg)) {
         gcs().send_text(MAV_SEVERITY_CRITICAL,"Motor Test: %s", failure_msg);
         return MAV_RESULT_FAILED;
     }

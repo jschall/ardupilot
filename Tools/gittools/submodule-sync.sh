@@ -7,10 +7,24 @@ if [ -f "$THIS_SCRIPT_REL_PATH" ]; then
     echo "Deleting ardupilot/build"
     rm build -rf
 
-    echo "Deleting ardupilot/modules"
-    rm modules -rf
+    LIBCANARD_REL_PATH="modules/libcanard"
+    if [ -d "$LIBCANARD_REL_PATH" ]; then
+        echo "---------------------------------"
+        echo "Deleting $LIBCANARD_REL_PATH"
+        rm $LIBCANARD_REL_PATH -rf
+        # this sleep is to give a chance for the user to see that we did this.. just in case we care
+        sleep 2
+    fi
+
+    UAVCAN_REL_PATH="modules/uavcan"
+    if [ -d "$UAVCAN_REL_PATH" ]; then
+        echo "---------------------------------"
+        echo "Deleting $UAVCAN_REL_PATH"
+        rm $UAVCAN_REL_PATH -rf
+        # this sleep is to give a chance for the user to see that we did this.. just in case we care
+        sleep 2
+    fi
     echo "---------------------------------"
-    echo
 fi
 
 # this copes with moving origin remote to a new git organisation

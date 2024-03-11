@@ -59,6 +59,8 @@
 #include <AP_Relay/AP_Relay.h>
 #endif
 
+#include <AP_TemperatureSensor/AP_TemperatureSensor_DroneCAN.h>
+
 extern const AP_HAL::HAL& hal;
 
 // setup default pool size
@@ -163,6 +165,13 @@ const AP_Param::GroupInfo AP_DroneCAN::var_info[] = {
     AP_GROUPINFO("RLY_RT", 23, AP_DroneCAN, _relay.rate_hz, 0),
 #endif
 
+    // @Param: TLM_OF
+    // @DisplayName: ESC Telemetry Offset
+    // @Description: ESC Telemetry Offset
+    // @Range: -16 16
+    // @User: Advanced
+    AP_GROUPINFO("TLM_OF", 24, AP_DroneCAN, _esc_telemetry_offset, 0),
+
 #if AP_DRONECAN_SERIAL_ENABLED
     /*
       due to the parameter tree depth limitation we can't use a sub-table for the serial parameters
@@ -263,6 +272,7 @@ const AP_Param::GroupInfo AP_DroneCAN::var_info[] = {
 #endif // AP_DRONECAN_SERIAL_ENABLED
 
     // RLY_RT is index 23 but has to be above SER_EN so its not hidden
+    // TLM_OF is index 24 but has to be above SER_EN so its not hidden
 
     AP_GROUPEND
 };
@@ -386,6 +396,9 @@ void AP_DroneCAN::init(uint8_t driver_index, bool enable_filters)
 #endif
 #if HAL_MOUNT_XACTI_ENABLED
     AP_Mount_Xacti::subscribe_msgs(this);
+#endif
+#if AP_TEMPERATURE_SENSOR_DRONECAN_ENABLED
+    AP_TemperatureSensor_DroneCAN::subscribe_msgs(this);
 #endif
 
     act_out_array.set_timeout_ms(5);
@@ -1413,17 +1426,15 @@ void AP_DroneCAN::handle_vesc_rtdata(const CanardRxTransfer& transfer, const ves
 #if HAL_LOGGING_ENABLED
     AP::logger().WriteStreaming(
         "VESC",
-        "TimeUS,Id,Flt,TF1,TF2,TF3,TM,VI,Duty,CM,CI,Pos",
-        "s#-OOOOv-AAd",
-        "F--000000000",
-        "QHBfffffffff",
+        "TimeUS,Id,Flt,TEsc,TMot,VI,Duty,CM,CI,Pos",
+        "s#-OOv-AAd",
+        "F--0000000",
+        "QHBfffffff",
         AP_HAL::micros64(),
         1000*_driver_index + transfer.source_node_id,
         msg.fault_code,
-        msg.temp_mos_1,
-        msg.temp_mos_2,
-        msg.temp_mos_3,
-        msg.temp_motor_1,
+        msg.temp_mos_max,
+        msg.temp_motor_max,
         msg.volt_in,
         msg.duty,
         msg.curr_motor,
@@ -1439,21 +1450,16 @@ void AP_DroneCAN::handle_vesc_rtdata(const CanardRxTransfer& transfer, const ves
 void AP_DroneCAN::handle_ESC_status(const CanardRxTransfer& transfer, const uavcan_equipment_esc_Status& msg)
 {
 #if HAL_WITH_ESC_TELEM
-    const uint8_t esc_offset = constrain_int16(_esc_offset.get(), 0, DRONECAN_SRV_NUMBER);
-    const uint8_t esc_index = msg.esc_index + esc_offset;
-
-    if (!is_esc_data_index_valid(esc_index)) {
-        return;
-    }
-
+    const uint8_t index = msg.esc_index + _esc_telemetry_offset.get();
+ 
     TelemetryData t {
         .temperature_cdeg = int16_t((KELVIN_TO_C(msg.temperature)) * 100),
         .voltage = msg.voltage,
         .current = msg.current,
     };
 
-    update_rpm(esc_index, msg.rpm, msg.error_count);
-    update_telem_data(esc_index, t,
+    update_rpm(index, msg.rpm, msg.error_count);
+    update_telem_data(index, t,
         (isnan(msg.current) ? 0 : AP_ESC_Telem_Backend::TelemetryType::CURRENT)
             | (isnan(msg.voltage) ? 0 : AP_ESC_Telem_Backend::TelemetryType::VOLTAGE)
             | (isnan(msg.temperature) ? 0 : AP_ESC_Telem_Backend::TelemetryType::TEMPERATURE));

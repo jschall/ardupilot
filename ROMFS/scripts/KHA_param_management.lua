@@ -93,6 +93,7 @@ function update()
         param_AIRCRAFT_SPAN_prev = param_AIRCRAFT_SPAN
     end
 
+    vtol_self_configure_update()
 
     return update, 1000
 end
@@ -148,12 +149,34 @@ function init()
         gcs:send_text(MAV_SEVERITY.WARNING, "K1000: Fixed Wing Preflight Params Set")
     end
 
+    vtol_self_configure_init()
+
     return update, 1000
 end
 
 function announce()
     -- CMD will be checking for "K1000: (.*) Script Running"
     gcs:send_text(MAV_SEVERITY.INFO, "K1000: " .. THIS_SCRIPT_NAME .. " Script Running")
+end
+
+
+
+
+
+
+
+
+
+function vtol_self_configure_init()
+    if arming:is_armed() then
+        return
+    end
+end
+
+function vtol_self_configure_update()
+    if arming:is_armed() then
+        return
+    end
 end
 
 return init, (2000 + math.random(1,1000)) -- randomize init so we don't clog the GCS send

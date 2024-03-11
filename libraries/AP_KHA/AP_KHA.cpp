@@ -14,6 +14,15 @@
  */
 
 #include "AP_KHA.h"
+#include <AP_BattMonitor/AP_BattMonitor.h>
+
+#include "BatteryChemistryModel.h"
+
+static float soc_ocv_x[] = {0.0, 0.005063014925373088, 0.01613838805970147, 0.02905964179104481, 0.04382680597014932, 0.060439850746268675, 0.07705289552238803, 0.09920364179104468, 0.1268920298507462, 0.15642635820895523, 0.19334423880597018, 0.2357997910447761, 0.2708717910447762, 0.2967142985074628, 0.3244027164179104, 0.34839934328358213, 0.3779336417910447, 0.4037761791044776, 0.4388481492537314, 0.462844776119403, 0.4868414029850746, 0.5182216119402985, 0.5551394925373134, 0.5920573731343284, 0.6289752537313433, 0.6695849253731343, 0.7194240895522388, 0.7581878507462687, 0.7932598507462687, 0.8283318507462687, 0.8615579402985074, 0.9058594029850746, 0.9446231641791045, 0.9815410447761194, 1.0};
+
+static float soc_ocv_y[] = {2.5180000000000002, 2.6487000000000003, 2.75, 2.8668, 2.9681, 3.0693, 3.1550000000000002, 3.2406, 3.3107, 3.373, 3.4198, 3.4587, 3.4899, 3.5132, 3.5288, 3.5444, 3.5678, 3.5911, 3.6145, 3.6456, 3.6612, 3.7001, 3.7313, 3.7702, 3.8014, 3.8403, 3.8793, 3.9104, 3.9494000000000002, 3.9961, 4.027299999999999, 4.0584, 4.074, 4.1051, 4.158};
+
+static BatteryChemistryModelLinearInterpolated chemistry_model(soc_ocv_x, soc_ocv_y, sizeof(soc_ocv_x)/sizeof(soc_ocv_x[0]));
 
 #if AP_KHA_ENABLED
 
@@ -153,6 +162,31 @@ const AP_Param::GroupInfo AP_KHA::var_info[] = {
 #error "AP_KHA_GCS_PARAM_COUNT == 21 is too large"
 #endif
 
+    // @Param: ENDR_PWR
+    // @DisplayName: ENDR_PWR
+    // @Description: ENDR_PWR
+    AP_GROUPINFO("ENDR_PWR", 22, AP_KHA, _params.endure_pwr, 100),
+    
+    // @Param: ENDR_AUX_PWR
+    // @DisplayName: ENDR_AUX_PWR
+    // @Description: ENDR_AUX_PWR
+    AP_GROUPINFO("ENDR_AUX_PWR", 23, AP_KHA, _params.endure_aux_pwr, 20),
+
+    // @Param: ENDR_ARSP
+    // @DisplayName: ENDR_ARSP
+    // @Description: ENDR_ARSP
+    AP_GROUPINFO("ENDR_ARSP", 24, AP_KHA, _params.endure_arsp, 16),
+    
+    // @Param: ENDR_MASS
+    // @DisplayName: ENDR_MASS
+    // @Description: ENDR_MASS
+    AP_GROUPINFO("ENDR_MASS", 25, AP_KHA, _params.endure_mass, 18),
+    
+    // @Param: BATT_CELLS
+    // @DisplayName: BATT_CELLS
+    // @Description: BATT_CELLS
+    AP_GROUPINFO("BATT_CELLS", 26, AP_KHA, _params.battery_cell_count, 6),
+    
     AP_GROUPEND
 };
 
@@ -181,6 +215,22 @@ void AP_KHA::update()
         return;
     }
     
+    static uint32_t last_send_ms;
+    uint32_t tnow_ms = AP_HAL::millis();
+    if (tnow_ms-last_send_ms > 1000) {
+        float energy_J;
+        if (!AP::battery().energy_remaining_J(energy_J)) {
+            // Compute energy remaining from voltage
+            // This eliminates error due to coulomb counting drift, but does not account for
+            // the state of health of the battery or an incorrectly configured pack capacity
+            const float batt_temp = 25; // not currently modeled
+            const float SOC = chemistry_model.SOC_from_OCV(AP::battery().voltage_resting_estimate()/_params.battery_cell_count,batt_temp);
+            const float pack_capacity_coulombs = AP::battery().pack_capacity_mah() * 3.6; // convert mah to coulombs
+            energy_J = pack_capacity_coulombs * chemistry_model.OCV_from_SOC_integral(SOC,batt_temp) * _params.battery_cell_count;
+        }
+        gcs().send_named_float("BatERem", energy_J);
+        last_send_ms = tnow_ms;
+    }
 }
 
 void AP_KHA::handle_msg(GCS_MAVLINK &link, const mavlink_message_t &msg)

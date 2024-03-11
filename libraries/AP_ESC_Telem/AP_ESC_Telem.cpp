@@ -350,7 +350,7 @@ void AP_ESC_Telem::send_esc_telemetry_mavlink(uint8_t mav_chan)
                 continue;
             }
 
-            s.temperature[j] = _telem_data[esc_id].temperature_cdeg / 100;
+            s.temperature[j] = constrain_int16(_telem_data[esc_id].temperature_cdeg * 0.01f, 0, UINT8_MAX);
             s.voltage[j] = constrain_float(_telem_data[esc_id].voltage * 100.0f, 0, UINT16_MAX);
             s.current[j] = constrain_float(_telem_data[esc_id].current * 100.0f, 0, UINT16_MAX);
             s.totalcurrent[j] = constrain_float(_telem_data[esc_id].consumption_mah, 0, UINT16_MAX);

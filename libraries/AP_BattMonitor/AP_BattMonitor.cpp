@@ -771,6 +771,16 @@ bool AP_BattMonitor::capacity_remaining_pct(uint8_t &percentage, uint8_t instanc
     return false;
 }
 
+/// capacity_remaining_pct - returns true if the percentage is valid and writes to percentage argument
+bool AP_BattMonitor::energy_remaining_J(float &energy_J, uint8_t instance) const
+{
+    if (instance < _num_instances && drivers[instance] != nullptr) {
+        energy_J = state[instance].energy_remaining_wh*3600;
+        return state[instance].has_energy_remaining_wh;
+    }
+    return false;
+}
+
 /// time_remaining - returns remaining battery time
 bool AP_BattMonitor::time_remaining(uint32_t &seconds, uint8_t instance) const
 {

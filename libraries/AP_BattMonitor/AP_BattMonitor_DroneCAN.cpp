@@ -124,6 +124,8 @@ void AP_BattMonitor_DroneCAN::handle_battery_info(const uavcan_equipment_power_B
     if (msg.state_of_health_pct != UAVCAN_EQUIPMENT_POWER_BATTERYINFO_STATE_OF_HEALTH_UNKNOWN) {
         _interim_state.state_of_health_pct = msg.state_of_health_pct;
         _interim_state.has_state_of_health_pct = true;
+        _interim_state.energy_remaining_wh = msg.remaining_capacity_wh;
+        _interim_state.has_energy_remaining_wh = true;
     }
 }
 
@@ -297,6 +299,8 @@ void AP_BattMonitor_DroneCAN::read()
     _state.is_powering_off = _interim_state.is_powering_off;
     _state.state_of_health_pct = _interim_state.state_of_health_pct;
     _state.has_state_of_health_pct = _interim_state.has_state_of_health_pct;
+    _state.energy_remaining_wh = _interim_state.energy_remaining_wh;
+    _state.has_energy_remaining_wh = _interim_state.has_energy_remaining_wh;
     memcpy(_state.cell_voltages.cells, _interim_state.cell_voltages.cells, sizeof(_state.cell_voltages));
 
     _has_temperature = (AP_HAL::millis() - _state.temperature_time) <= AP_BATT_MONITOR_TIMEOUT;

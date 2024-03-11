@@ -1477,6 +1477,10 @@ if cmd_opts.frame == "plane-soaring-k1000":
     print("--KHA -- plane-soaring-k1000 aliased to K1000")
     cmd_opts.frame = "K1000"
 
+if cmd_opts.frame == "quadplane-k1000":
+    print("--KHA -- quadplane-k1000 aliased to K1000-VTOL")
+    cmd_opts.frame = "K1000-VTOL"
+
 frame_infos = vinfo.options_for_frame(cmd_opts.frame,
                                       cmd_opts.vehicle,
                                       cmd_opts)

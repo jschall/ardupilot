@@ -225,7 +225,7 @@ bool AC_WeatherVane::get_yaw_out(float &yaw_output, const int16_t pilot_yaw, con
     }
 
     // Slew output and apply gain
-    last_output = 0.98 * last_output + 0.02 * output * _gain;
+    last_output = 0.8 * last_output + 0.2 * output * _gain;
     yaw_output = last_output;
     return true;
 }

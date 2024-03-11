@@ -235,7 +235,7 @@ void K1000::calculate_forces(const struct sitl_input &input, Vector3f &rot_accel
         simple simulation of a launcher
     */
     
-    if (launch_triggered && !in_launch && !launch_used) {
+    if (launch_triggered && !in_launch && !launch_used && !vtol_fitted) {
         in_launch = true;
         launch_start_ms = AP_HAL::millis64();
     }

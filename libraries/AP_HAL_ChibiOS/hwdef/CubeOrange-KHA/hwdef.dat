@@ -3,6 +3,9 @@ include ../CubeOrange/hwdef.dat
 define AP_DRONECAN_VESC_FEEDBACK_ENABLED 1
 define AP_DRONECAN_VOLZ_FEEDBACK_ENABLED 1
 
+define AP_TEMPERATURE_SENSOR_ENABLED 1
+define AP_TEMPERATURE_SENSOR_DRONECAN_ENABLED 1
+
 define AP_PARAM_MAX_EMBEDDED_PARAM 16385
 
 # We're using 14 because it is the most MAVLink is able to send
@@ -15,3 +18,5 @@ ROMFS scripts/jump_tags_into_wind_landing.lua ROMFS/scripts/jump_tags_into_wind_
 ROMFS scripts/KHA_param_management.lua ROMFS/scripts/KHA_param_management.lua
 ROMFS scripts/land_selfabort.lua ROMFS/scripts/land_selfabort.lua
 ROMFS scripts/vtol_tactical_land.lua ROMFS/scripts/vtol_tactical_land.lua
+ROMFS params/fixedwing.parm ROMFS/params/fixedwing.parm
+ROMFS params/vtol.parm ROMFS/params/vtol.parm
