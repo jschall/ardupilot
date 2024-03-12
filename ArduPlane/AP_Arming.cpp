@@ -210,16 +210,6 @@ bool AP_Arming_Plane::quadplane_checks(bool display_failure)
         ret = false;
     }
 
-    /*
-      Q_ASSIST_SPEED really should be enabled for all quadplanes except tailsitters
-     */
-    if (check_enabled(ARMING_CHECK_PARAMETERS) &&
-        is_zero(plane.quadplane.assist_speed) &&
-        !plane.quadplane.tailsitter.enabled()) {
-        check_failed(display_failure,"Q_ASSIST_SPEED is not set");
-        ret = false;
-    }
-
     if ((plane.quadplane.tailsitter.enable > 0) && (plane.quadplane.q_fwd_thr_use != QuadPlane::FwdThrUse::OFF)) {
         check_failed(ARMING_CHECK_PARAMETERS, display_failure, "set Q_FWD_THR_USE to 0");
         ret = false;
