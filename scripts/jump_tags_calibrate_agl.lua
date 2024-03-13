@@ -49,6 +49,7 @@ end
 local MAV_SEVERITY = {EMERGENCY=0, ALERT=1, CRITICAL=2, ERROR=3, WARNING=4, NOTICE=5, INFO=6, DEBUG=7}
 
 local ROTATION_PITCH_270 = 25
+local RNDFND_STATUS = {NOT_CONNECTED=0, NO_DATA=1, OUT_OF_RANGE_LOW=2, OUT_OF_RANGE_HIGH=3, GOOD=4}
 
 local MISSION_TAG_MEASURE_AGL_START         = 400
 local MISSION_TAG_CALIBRATE_BARO            = 401
@@ -64,7 +65,7 @@ local THIS_SCRIPT_NAME = "Check AGL to calibrate Baro"
 
 
 function init_measurements()
-    if (not rangefinder:has_data_orient(ROTATION_PITCH_270)) then
+    if (rangefinder:status_orient(ROTATION_PITCH_270) ~= RNDFND_STATUS.GOOD) then
         gcs:send_text(MAV_SEVERITY.ERROR, string.format("K1000: AGL Rangefinder not ready"))
         agl_samples_count = -1
         return
@@ -86,6 +87,11 @@ end
 
 function sample_rangefinder_to_get_AGL()
     
+    if (rangefinder:status_orient(ROTATION_PITCH_270) ~= RNDFND_STATUS.GOOD) then
+        gcs:send_text(MAV_SEVERITY.ERROR, string.format("K1000: AGL Rangefinder not healthy"))
+        return
+    end
+
     -- we're actively sampling rangefinder distance to ground
     local distance_raw_m = rangefinder:distance_cm_orient(ROTATION_PITCH_270) * 0.01
 
