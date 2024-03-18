@@ -965,7 +965,7 @@
         "THR_MAX": 85.000000,
         "THR_MIN": 0.000000,
         "THR_PASS_STAB": 0.000000,
-        "THR_SLEWRATE": 50.000000,
+        "THR_SLEWRATE": 0.000000,
         "THR_SUPP_MAN": 0.000000,
         "TKOFF_ACCEL_CNT": 1.000000,
         "TKOFF_ALT": 5.000000,
@@ -1237,6 +1237,16 @@
         },
         "Forward ESC": {
             "CAN": {},
+            "CANRev": {
+                "CAN_D1_UC_ESC_RV": 1,
+                "SERVO1_TRIM": 1500,
+                "RC1_MIN": 1000,
+                "RC1_MAX": 2000,
+                "RC1_DZ": 60,
+                "USE_REV_THRUST": 3078,
+                "THR_MIN": -50
+                
+            },
             "PWM_Castle": {
                 "SERVO1_MAX":1800,
                 "SERVO1_MIN":1290,
