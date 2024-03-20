@@ -29,7 +29,7 @@ K1000::K1000(const char *frame_str) :
     ground_behavior = GROUND_BEHAVIOR_FWD_ONLY;
     lock_step_scheduled = true;
 
-    if (strstr(frame_str, "-VTOL")) {
+    if (strstr(frame_str, "-VTOL") || strstr(frame_str, "-vtol")) {
         vtol_fitted = true;
     }
 }
