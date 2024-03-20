@@ -70,7 +70,10 @@ for option,selections in conf["options"].items():
     while True:
         if not argsel:
             print ("type an option for %s (%s)" % (option,"|".join(selections.keys())))
-        sel = argsel or input()
+        try:
+            sel = argsel or input()
+        except KeyboardInterrupt:
+            sys.exit() # gracefully exit on ctrl-c type input
         argsel = ""
         if sel in selections.keys():
             params.update(dict(selections[sel]))
@@ -119,6 +122,7 @@ if args.vehicle_file is not None:
 if args.generate_file:
     with open(args.generate_file,"w") as f:
         f.write(format_params(params))
+        print("Params writen to %s" % args.generate_file)
 
 
 if args.generate_file is None and args.vehicle_file is None and args.dump_ignored is None:
