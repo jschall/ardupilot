@@ -38,7 +38,9 @@ def format_params(paramdict):
     ret = ""
     for name in sorted(paramdict.keys()):
         val = "%0.6f" % (paramdict[name],)
-        ret += "%s%s\n" % (name.ljust(17), val.rjust(20))
+        val = val.rjust(20)
+        val = val.replace(".000000", "") # TODO: args option
+        ret += "%s%s\n" % (name.ljust(17), val)
     return ret
 
 with open(configfile) as f:
