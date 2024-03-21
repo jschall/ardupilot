@@ -907,6 +907,11 @@ singleton AP_Filesystem method get_format_status uint8_t'skip_check
 singleton AP_Filesystem method get_format_status depends AP_FILESYSTEM_FORMAT_ENABLED
 singleton AP_Filesystem method crc32 boolean string uint32_t'Null
 
+include AP_TECS/AP_TECS.h depends APM_BUILD_TYPE(APM_BUILD_ArduPlane)
+singleton AP_TECS depends APM_BUILD_TYPE(APM_BUILD_ArduPlane)
+singleton AP_TECS rename tecs
+singleton AP_TECS method get_altitude_error float'skip_check
+
 include AP_RTC/AP_RTC.h depends AP_RTC_ENABLED
 include AP_RTC/AP_RTC_config.h
 singleton AP_RTC depends AP_RTC_ENABLED

@@ -94,7 +94,7 @@ function sample_rangefinder_to_get_AGL()
     local agl_corrected_for_attitude_m = distance_raw_m * ahrs_get_rotation_body_to_ned_c_z
 
     -- correct for nav errors where the vehicle is blown up/down by wind as it's measuring
-    agl_corrected_for_attitude_m = agl_corrected_for_attitude_m - vehicle:get_nav_altitude_error_m()
+    agl_corrected_for_attitude_m = agl_corrected_for_attitude_m - tecs:get_altitude_error()
 
     agl_samples_sum = agl_samples_sum + agl_corrected_for_attitude_m
     agl_samples_count = agl_samples_count + 1

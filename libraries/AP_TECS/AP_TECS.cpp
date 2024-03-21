@@ -1473,3 +1473,11 @@ void AP_TECS::update_pitch_throttle(int32_t hgt_dem_cm,
     }
 #endif
 }
+
+AP_TECS *AP_TECS::singleton;
+namespace AP {
+AP_TECS *tecs()
+{
+    return AP_TECS::get_singleton();
+}
+};

@@ -33,10 +33,18 @@ public:
         , _log_bitmask(log_bitmask)
     {
         AP_Param::setup_object_defaults(this, var_info);
+    #if CONFIG_HAL_BOARD == HAL_BOARD_SITL
+        if (singleton != nullptr) {
+            AP_HAL::panic("TECS must be singleton");
+        }
+    #endif
+        singleton = this;
     }
 
     /* Do not allow copies */
     CLASS_NO_COPY(AP_TECS);
+
+    static AP_TECS *get_singleton(void) { return singleton; }
 
     // Update of the estimated height and height rate internal state
     // Update of the inertial speed rate internal state
@@ -163,6 +171,9 @@ public:
     static const struct AP_Param::GroupInfo var_info[];
 
 private:
+
+    static AP_TECS *singleton;
+
     // Last time update_50Hz was called
     uint64_t _update_50hz_last_usec;
 
@@ -496,4 +507,9 @@ private:
 
     // current time constant
     float timeConstant(void) const;
+};
+
+
+namespace AP {
+    AP_TECS *tecs();
 };
