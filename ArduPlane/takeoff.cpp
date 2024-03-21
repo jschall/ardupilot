@@ -179,14 +179,24 @@ void Plane::takeoff_calc_roll(void)
  */
 void Plane::takeoff_calc_pitch(void)
 {
-    if (auto_state.highest_airspeed < g.takeoff_rotate_speed) {
-        // we have not reached rotate speed, use the specified
-        // takeoff run target pitch angle and stop the integrator from winding up
-        nav_pitch_cd = int32_t(100.0f * mode_takeoff.ground_pitch);
+    const bool using_vrotate = g.takeoff_rotate_speed > 0;
 
-        // Set the pitch integrator to give a specified percentage trim.
-        pitchController.set_I(mode_takeoff.rotate_elev * radians(45) / 100);
-        return;
+    if (using_vrotate) {
+        float aspeed;
+        const bool disarmed = !arming.is_armed_and_safety_off();
+        const bool airspeed_unavailable = !ahrs.using_airspeed_sensor() || !ahrs.airspeed_estimate(aspeed);
+        const bool below_vrotate = airspeed_unavailable || aspeed < g.takeoff_rotate_speed;
+        const bool achieved_groundspeed = (gps.status() >= AP_GPS::GPS_OK_FIX_3D) && (gps.ground_speed() >= 5);
+        
+        if (disarmed || below_vrotate || !achieved_groundspeed) {
+            // we have not reached rotate speed, use the specified
+            // takeoff run target pitch angle and stop the integrator from winding up
+            nav_pitch_cd = int32_t(100.0f * mode_takeoff.ground_pitch);
+
+            // Set the pitch integrator to give a specified percentage trim.
+            pitchController.set_I(mode_takeoff.rotate_elev * radians(45) / 100);
+            return;
+        }
     }
 
     if (ahrs.using_airspeed_sensor()) {
@@ -195,15 +205,9 @@ void Plane::takeoff_calc_pitch(void)
         if (nav_pitch_cd < takeoff_pitch_min_cd) {
             nav_pitch_cd = takeoff_pitch_min_cd;
         }
-    } else {
-        if (g.takeoff_rotate_speed > 0) {
-            // Rise off ground takeoff so delay rotation until ground speed indicates adequate airspeed
-            nav_pitch_cd = (gps.ground_speed() / (float)aparm.airspeed_cruise) * auto_state.takeoff_pitch_cd;
-            nav_pitch_cd = constrain_int32(nav_pitch_cd, 500, auto_state.takeoff_pitch_cd); 
-        } else {
-            // Doing hand or catapult launch so need at least 5 deg pitch to prevent initial height loss
-            nav_pitch_cd = MAX(auto_state.takeoff_pitch_cd, 500);
-        }
+    } else if (!using_vrotate) {
+        // Doing hand or catapult launch so need at least 5 deg pitch to prevent initial height loss
+        nav_pitch_cd = MAX(auto_state.takeoff_pitch_cd, 500);
     }
 
     if (aparm.stall_prevention != 0) {

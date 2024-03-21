@@ -566,10 +566,11 @@ bool Plane::verify_takeoff()
         if (auto_state.takeoff_speed_time_ms == 0 && 
             gps.status() >= AP_GPS::GPS_OK_FIX_3D && 
             gps.ground_speed() > min_gps_speed &&
-            hal.util->safety_switch_state() != AP_HAL::Util::SAFETY_DISARMED) {
+            arming.is_armed_and_safety_off()) {
             auto_state.takeoff_speed_time_ms = millis();
         }
         if (auto_state.takeoff_speed_time_ms != 0 &&
+            gps.status() >= AP_GPS::GPS_OK_FIX_3D && 
             millis() - auto_state.takeoff_speed_time_ms >= 2000) {
             // once we reach sufficient speed for good GPS course
             // estimation we save our current GPS ground course
@@ -577,7 +578,7 @@ bool Plane::verify_takeoff()
             // course. This keeps wings level until we are ready to
             // rotate, and also allows us to cope with arbitrary
             // compass errors for auto takeoff
-            const float takeoff_course_rad = ahrs.groundspeed_vector().angle() - steer_state.locked_course_err;
+            const float takeoff_course_rad = ToRad(gps.ground_course()) - steer_state.locked_course_err;
             steer_state.hold_course_cd = wrap_360_cd(degrees(takeoff_course_rad)*100);
 
             // when true, we will follow the recorded takeoff heading. We start with this.
