@@ -161,6 +161,9 @@ public:
 
     /// Return true if we have set a scale factor for a compass
     bool have_scale_factor(uint8_t i) const;
+    
+    // Return scale factor for this compass or 1.0 if not set
+    float get_scale_factor(uint8_t i) const;
 
     // compass calibrator interface
     void cal_update();
@@ -409,7 +412,7 @@ private:
       get mag field with the effects of offsets, diagonals and
       off-diagonals removed
     */
-    bool get_uncorrected_field(uint8_t instance, Vector3f &field) const;
+    bool compute_offsets(uint8_t instance, const Vector3f& truth_field, Vector3f &new_offsets) const;
     
 #if COMPASS_CAL_ENABLED
     //keep track of which calibrators have been saved
