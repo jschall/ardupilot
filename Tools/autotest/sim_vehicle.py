@@ -1476,7 +1476,7 @@ if cmd_opts.frame is None:
 if cmd_opts.frame == "plane-soaring-k1000" or cmd_opts.frame == "k1000":
     cmd_opts.frame = "K1000"
 
-if cmd_opts.frame == "quadplane-k1000" or cmd_opts.frame.lower() == "K1000-vtol" or cmd_opts.frame.lower() == "k1000-vtol":
+if cmd_opts.frame == "quadplane-k1000" or cmd_opts.frame.lower() == "k1000-vtol":
     cmd_opts.frame = "K1000-VTOL"
 
 frame_infos = vinfo.options_for_frame(cmd_opts.frame,
