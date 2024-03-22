@@ -18,14 +18,14 @@ local thr_start = param:get(THR_START_PARAM_NAME)
 local thr_end = param:get(THR_END_PARAM_NAME)
 local ceiling = param:get(CEILING_PARAM_NAME)
 local floor = param:get(FLOOR_PARAM_NAME)
-local curr_thr_pct = 0
+-- local curr_thr_pct = 0
 
 local MAV_SEVERITY = {EMERGENCY=0, ALERT=1, CRITICAL=2, ERROR=3, WARNING=4, NOTICE=5, INFO=6, DEBUG=7}
 local ROTATION_PITCH_270 = 25 -- down
 local RANGEFINDER_STATUS_GOOD = 4
 
-local LOG_FLAG_RANEGFINDER_OFFSET_ERROR     = (1 << 0)
-local LOG_FLAG_NAV_ALTITUDE_ERROR           = (1 << 1)
+-- local LOG_FLAG_RANEGFINDER_OFFSET_ERROR     = (1 << 0)
+-- local LOG_FLAG_NAV_ALTITUDE_ERROR           = (1 << 1)
 
 local is_armed_last = false
 local param_to_trigger_announce_STR_NAME = "SCR_USER1"
