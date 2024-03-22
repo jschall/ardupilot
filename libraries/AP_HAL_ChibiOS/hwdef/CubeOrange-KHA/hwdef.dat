@@ -8,6 +8,8 @@ define AP_TEMPERATURE_SENSOR_DRONECAN_ENABLED 1
 
 define AP_PARAM_MAX_EMBEDDED_PARAM 16385
 
+define HAL_ENABLE_THREAD_STATISTICS 1
+
 # We're using 14 because it is the most MAVLink is able to send
 define AP_BATT_MONITOR_MAX_INSTANCES 14
 
