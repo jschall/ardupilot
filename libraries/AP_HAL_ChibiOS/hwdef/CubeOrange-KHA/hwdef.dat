@@ -1,12 +1,21 @@
 include ../CubeOrange/hwdef.dat
 
+# we need to undef all of the ROMFS so that it drops the embedded file
+# io_firmware_dshot.bin which we'll never use. We still need to add back
+# in the normal iofirmware. This saves us 35KB of flash space.
+undef ROMFS
+ROMFS io_firmware.bin Tools/IO_Firmware/iofirmware_highpolh.bin
+undef HAL_WITH_IO_MCU_DSHOT
+define HAL_WITH_IO_MCU_DSHOT 0
+define HAL_WITH_IO_MCU_BIDIR_DSHOT 0
+
 define AP_DRONECAN_VESC_FEEDBACK_ENABLED 1
 define AP_DRONECAN_VOLZ_FEEDBACK_ENABLED 1
 
 define AP_TEMPERATURE_SENSOR_ENABLED 1
 define AP_TEMPERATURE_SENSOR_DRONECAN_ENABLED 1
 
-define AP_PARAM_MAX_EMBEDDED_PARAM 16385
+define AP_PARAM_MAX_EMBEDDED_PARAM 30000
 
 define HAL_ENABLE_THREAD_STATISTICS 1
 
