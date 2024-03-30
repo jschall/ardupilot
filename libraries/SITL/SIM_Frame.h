@@ -154,6 +154,7 @@ protected:
     // get air density in kg/m^3
     float get_air_density(float alt_amsl) const;
 
+public:
     struct Model model;
 
 private:
