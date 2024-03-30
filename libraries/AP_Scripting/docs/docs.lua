@@ -3395,6 +3395,15 @@ function stat_t_ud:size() end
 function stat_t_ud:is_directory() end
 
 -- desc
+---@class tecs
+tecs = {}
+
+-- get file size in bytes
+---@return number
+function tecs:get_altitude_error() end
+
+
+-- desc
 ---@class rtc
 rtc = {}
 
