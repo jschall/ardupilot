@@ -18,9 +18,8 @@
 
 #pragma once
 
-#include "SIM_Aircraft.h"
-#include "SIM_ICEngine.h"
-#include <Filter/LowPassFilter.h>
+#include "SIM_Plane.h"
+#include "SIM_Frame.h"
 
 namespace SITL {
 
@@ -91,9 +90,7 @@ protected:
         Vector3f CGOffset{-0.215, 0, -0.05};
     } coefficient;
     
-    bool vtol_fitted = false;
-
-    float mass = 15.0;
+    bool is_vtol() const { return frame != nullptr; }
 
     bool in_launch = false;
     bool launch_used = false;
@@ -107,6 +104,9 @@ protected:
     Vector3f getForce(float inputAileron, float inputElevator, float inputRudder) const;
     Vector3f getTorque(float inputAileron, float inputElevator, float inputRudder, float inputThrust, const Vector3f &force) const;
     void calculate_forces(const struct sitl_input &input, Vector3f &rot_accel);
+
+private:
+    Frame *frame;
 };
 
 } // namespace SITL

@@ -26,11 +26,27 @@ using namespace SITL;
 K1000::K1000(const char *frame_str) :
     Aircraft(frame_str)
 {
-    ground_behavior = GROUND_BEHAVIOR_FWD_ONLY;
+    mass = 15;
     lock_step_scheduled = true;
+    frame_height = 0.1f;
+    ground_behavior = GROUND_BEHAVIOR_FWD_ONLY; // fixed-wing behavior
 
-    if (strstr(frame_str, "-VTOL") || strstr(frame_str, "-vtol")) {
-        vtol_fitted = true;
+    if (strstr(frame_str, "-VTOL")) {
+
+        frame = Frame::find_frame("x");
+        if (frame == nullptr) {
+            printf("K1000-VTOL frame is null'\n");
+            exit(1);
+        }
+        
+        ground_behavior = GROUND_BEHAVIOR_NO_MOVEMENT;
+        mass *= 1.1; // add 10% mass for the pods
+
+        frame->motor_offset = 6;
+        frame->set_mass(mass);
+
+        // we use zero terminal velocity to let the plane model handle the drag
+        frame->init(frame_str, &battery);
     }
 }
 
@@ -235,7 +251,7 @@ void K1000::calculate_forces(const struct sitl_input &input, Vector3f &rot_accel
         simple simulation of a launcher
     */
     
-    if (launch_triggered && !in_launch && !launch_used && !vtol_fitted) {
+    if (launch_triggered && !in_launch && !launch_used && !is_vtol()) {
         in_launch = true;
         launch_start_ms = AP_HAL::millis64();
     }
@@ -277,12 +293,29 @@ void K1000::update(const struct sitl_input &input)
         servo_outputs[i] = filtered_servo_angle(input, i);
     }
     
-    Vector3f rot_accel;
-
+    // get wind vector setup
     update_wind(input);
-    
+
+    // first plane forces
+    Vector3f rot_accel;
     calculate_forces(input, rot_accel);
     
+    if (is_vtol()) {
+        // now quad forces
+        Vector3f quad_rot_accel;
+        Vector3f quad_accel_body;
+
+        motor_mask |= ((1U<<frame->num_motors)-1U) << frame->motor_offset;
+        frame->calculate_forces(*this, input, quad_rot_accel, quad_accel_body, rpm, false);
+
+        // estimate voltage and current
+        frame->current_and_voltage(battery_voltage, battery_current);
+        battery.set_current(battery_current);
+
+        rot_accel += quad_rot_accel;
+        accel_body += quad_accel_body;
+    }
+
     update_dynamics(rot_accel);
     update_external_payload(input);
 
