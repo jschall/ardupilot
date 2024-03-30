@@ -38,12 +38,16 @@ K1000::K1000(const char *frame_str) :
             printf("K1000-VTOL frame is null'\n");
             exit(1);
         }
-        
+
         ground_behavior = GROUND_BEHAVIOR_NO_MOVEMENT;
-        mass *= 1.1; // add 10% mass for the pods
+
+        frame->model.disc_area = 0.657; // JC says this is the disc area of the K1000
+        frame->model.diagonal_size = 1.5;
+        frame->model.mdrag_coef = 0.2; // stolen from Callisto.json
 
         frame->motor_offset = 6;
-        frame->set_mass(mass);
+        mass = 5;
+        frame->set_mass(5);
 
         // we use zero terminal velocity to let the plane model handle the drag
         frame->init(frame_str, &battery);
