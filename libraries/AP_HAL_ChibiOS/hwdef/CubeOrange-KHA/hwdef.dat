@@ -22,13 +22,14 @@ define HAL_ENABLE_THREAD_STATISTICS 1
 # We're using 14 because it is the most MAVLink is able to send
 define AP_BATT_MONITOR_MAX_INSTANCES 14
 
-ROMFS scripts/throttle_tests.lua ROMFS/scripts/throttle_tests.lua
-ROMFS scripts/battery_time_remaining.lua ROMFS/scripts/battery_time_remaining.lua
-ROMFS scripts/fw_loss_of_thrust.lua ROMFS/scripts/fw_loss_of_thrust.lua
-ROMFS scripts/jump_tags_calibrate_agl.lua ROMFS/scripts/jump_tags_calibrate_agl.lua
-ROMFS scripts/jump_tags_into_wind_landing.lua ROMFS/scripts/jump_tags_into_wind_landing.lua
-ROMFS scripts/KHA_param_management.lua ROMFS/scripts/KHA_param_management.lua
-ROMFS scripts/land_selfabort.lua ROMFS/scripts/land_selfabort.lua
-ROMFS scripts/vtol_tactical_land.lua ROMFS/scripts/vtol_tactical_land.lua
-ROMFS params/fixedwing.parm ROMFS/params/fixedwing.parm
-ROMFS params/vtol.parm ROMFS/params/vtol.parm
+
+ROMFS scripts/throttle_tests.lua scripts/throttle_tests.lua
+ROMFS scripts/battery_time_remaining.lua scripts/battery_time_remaining.lua
+ROMFS scripts/fw_loss_of_thrust.lua scripts/fw_loss_of_thrust.lua
+ROMFS scripts/jump_tags_calibrate_agl.lua scripts/jump_tags_calibrate_agl.lua
+ROMFS scripts/jump_tags_into_wind_landing.lua scripts/jump_tags_into_wind_landing.lua
+ROMFS scripts/KHA_param_management.lua scripts/KHA_param_management.lua
+ROMFS scripts/land_selfabort.lua scripts/land_selfabort.lua
+ROMFS scripts/vtol_tactical_land.lua scripts/vtol_tactical_land.lua
+ROMFS params/self_config_fixedwing.parm kha/params/self_config_fixedwing.parm
+ROMFS params/self_config_vtol.parm kha/params/self_config_vtol.parm

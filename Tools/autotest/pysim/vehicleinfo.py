@@ -316,11 +316,11 @@ class VehicleInfo(object):
             },
             "K1000": {
                 "waf_target": "bin/arduplane",
-                "default_params_filename": "../../kha/SITL_K1000.parm",
+                "default_params_filename": "../../kha/params/SITL_K1000.parm",
             },
             "K1000-VTOL": {
                 "waf_target": "bin/arduplane",
-                "default_params_filename": "../../kha/SITL_K1000-VTOL.parm",
+                "default_params_filename": "../../kha/params/SITL_K1000-VTOL.parm",
                 "model":"quadplane"
             },
             "gazebo-zephyr": {
