@@ -4341,7 +4341,7 @@ void GCS_MAVLINK::send_banner()
     send_text(MAV_SEVERITY_INFO, "%s-KHA (%s)", fwver.fw_short_string, fwver.fw_hash_str);
     // NOTE: Please follow the rules on semver.org when changing the KHA version string
 
-    send_text(MAV_SEVERITY_INFO, "KHA V2.1.0");
+    send_text(MAV_SEVERITY_INFO, "KHA V2.0.0");
 
     if (fwver.middleware_name && fwver.os_name) {
         send_text(MAV_SEVERITY_INFO, "%s: %s %s: %s",
