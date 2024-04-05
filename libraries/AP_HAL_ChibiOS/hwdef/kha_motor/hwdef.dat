@@ -1,0 +1,178 @@
+# MCU class and specific type
+MCU STM32H7xx STM32H743xx
+
+#################################
+# low-level CPU setup
+env OPTIMIZE -O2
+
+# crystal frequency
+OSCILLATOR_HZ 24000000
+
+
+# board ID for firmware load
+APJ_BOARD_ID 1321
+
+# Reserved programming pins 
+PA13 JTMS-SWDIO SWD
+PA14 JTCK-SWCLK SWD
+
+MAIN_STACK 0x2000
+PROCESS_STACK 0x6000
+
+#################################
+# Memory and Storage
+
+# Memory Map
+FLASH_SIZE_KB 2048
+FLASH_RESERVE_START_KB 128
+FLASH_RESERVE_END_KB 256
+
+
+# storage
+define HAL_STORAGE_SIZE 32768
+
+# use last 2 pages for flash storage
+# H743 has 16 pages of 128k each
+define STORAGE_FLASH_PAGE 14
+
+define AP_PARAM_MAX_EMBEDDED_PARAM 16385
+
+#################################
+# Communications
+# USART1 and I2C share the same pins
+PB6 USART1_TX USART1
+PB7 USART1_RX USART1
+
+
+# Now we define the pins that USB is connected on.
+PA11 OTG_FS_DM OTG1
+PA12 OTG_FS_DP OTG1
+
+# order of UARTs (and USB)
+SERIAL_ORDER OTG1 USART1
+#SERIAL_ORDER OTG1 USART1 OTG2
+
+# CAN setup
+PD0 CAN1_RX CAN1
+PD1 CAN1_TX CAN1
+
+PB12 CAN2_RX CAN2
+PB13 CAN2_TX CAN2
+
+#################################
+# Multi-purpose pins like SPI, I2C, GPIO, PWMs, LEDs, ADC
+
+# I2C
+PB10 I2C2_SCL I2C2
+PB11 I2C2_SDA I2C2
+
+# USART1 and I2C share the same pins
+#PB6 I2C1_SCL I2C1 ALT(1)
+#PB7 I2C1_SDA I2C1 ALT(1)
+
+I2C_ORDER I2C2
+
+
+# GPIOs
+PE7 BOARD_VERSION1 INPUT PULLUP GPIO(70)
+PE8 BOARD_VERSION2 INPUT PULLUP GPIO(71)
+PE9 BOARD_VERSION3 INPUT PULLUP GPIO(72)
+# PC6 RPM_INPUT INPUT PULLDOWN GPIO(1)
+PE14 RPM_INPUT INPUT PULLDOWN GPIO(1)
+PA4 OCF_MOTOR INPUT PULLUP GPIO(2)
+PC2 OCF_DIST INPUT PULLUP GPIO(3)
+
+
+# LEDs
+PE11 LED OUTPUT HIGH GPIO(4)
+PE12 LED_GREEN OUTPUT LOW GPIO(5)
+define HAL_LED_ON 1
+
+# SPI
+PA2 MAX31865_1_CS CS
+PA3 MAX31865_2_CS CS
+PA5 SPI1_SCK SPI1
+PA6 SPI1_MISO SPI1
+PA7 SPI1_MOSI SPI1
+
+SPIDEV max31865       SPI1 DEVID1  MAX31865_1_CS      MODE3 2*MHZ 2*MHZ
+SPIDEV max31865_2     SPI1 DEVID2  MAX31865_2_CS      MODE3 2*MHZ 2*MHZ
+
+
+#################################
+
+# ---------------------------------------------------------------------------------------------
+# AP_Periph - boiler-plate configurations that all HW AP-Periph need
+# ---------------------------------------------------------------------------------------------
+env AP_PERIPH 1
+define HAL_NO_MONITOR_THREAD
+define HAL_DISABLE_LOOP_DELAY
+define HAL_USE_RTC FALSE
+define DISABLE_SERIAL_ESC_COMM TRUE
+define NO_DATAFLASH TRUE
+define HAL_NO_RCIN_THREAD
+define HAL_BARO_ALLOW_INIT_NO_BARO
+
+define AP_SCRIPTING_ENABLED 0
+define HAL_GCS_ENABLED 0
+define HAL_ADSB_ENABLED 0
+define HAL_WITH_ESC_TELEM 1
+define HAL_PERIPH_ENABLE_RPM
+define RPM_MAX_INSTANCES 1
+
+#################################
+#Communications and debug
+define CAN_APP_NODE_NAME "kha.motor_board"
+
+# supports upto 8MBits/s
+CANFD_SUPPORTED 8
+
+#################################
+# AP_Periph - configurations specific to this App
+#################################
+
+#define HAL_PERIPH_ENABLE_SLCAN
+
+# listen for reboot command from uploader.py script
+# undefine to disable. Use -1 to allow on all ports, otherwise serial number index defined in SERIAL_ORDER starting at 0
+define HAL_PERIPH_LISTEN_FOR_SERIAL_UART_REBOOT_CMD_PORT 0
+define HAL_PERIPH_LISTEN_FOR_SERIAL_UART_REBOOT_NON_DEBUG
+#################################
+
+# don't share any DMA channels (there are enough for everyone)
+DMA_NOSHARE *
+
+########################################
+########################################
+#######################################################################
+# FEATURE: BATTERY MONITOR
+define HAL_PERIPH_ENABLE_BATTERY
+define AP_BATT_MONITOR_MAX_INSTANCES 3
+
+# ADC
+define HAL_USE_ADC TRUE
+define STM32_ADC_USE_ADC1 TRUE
+
+PA0 ADC_VIOUT_MOTOR_PARAM_PIN_16 ADC1 SCALE(1)
+PA1 ADC_VIOUT_MOTOR_REF_PARAM_PIN_17 ADC1 SCALE(1)
+PC0 ADC_VIOUT_DIST_PARAM_PIN_10 ADC1 SCALE(1)
+PC1 ADC_VIOUT_DIST_REF_PARAM_PIN_11 ADC1 SCALE(1)
+PC4 ADC_V_BATT_FILT_PARAM_PIN_4 ADC1 SCALE(1)
+
+PE13 TIM1_CH3 TIM1 PWM(1) GPIO(6)
+#PE14 TIM1_CH4 TIM1 PWM(2) GPIO(7)
+
+#######################################################################
+# FEATURE: Temp sensors
+define AP_TEMPERATURE_SENSOR_ENABLED 1
+define HAL_PERIPH_ENABLE_DEVICE_TEMPERATURE
+
+#######################################################################
+# FEATURE: PWM-out and ESC Telemetry
+define HAL_PERIPH_ENABLE_RC_OUT
+define AP_BATTERY_ESC_TELEM_OUTBOUND_ENABLED 1
+#define AP_PERIPH_SAFETY_SWITCH_ENABLED 0
+
+#######################################################################
+
+

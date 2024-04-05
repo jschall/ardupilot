@@ -1,0 +1,51 @@
+# hw definition file for processing by chibios_hwdef.py
+# for H743 bootloader
+
+# MCU class and specific type
+MCU STM32H7xx STM32H743xx
+
+# crystal frequency
+OSCILLATOR_HZ 24000000
+
+# board ID for firmware load
+APJ_BOARD_ID 1321
+
+# setup build for a peripheral firmware
+env AP_PERIPH 1
+
+define HAL_BOOTLOADER_TIMEOUT 1000
+
+# Memory Map
+FLASH_SIZE_KB 2048
+FLASH_RESERVE_START_KB 0
+FLASH_BOOTLOADER_LOAD_KB 128
+FLASH_RESERVE_END_KB 256
+
+PE12 LED_BOOTLOADER OUTPUT LOW
+PA15 LED_ACTIVITY OUTPUT LOW
+define HAL_LED_ON 1
+
+# order of UARTs (and USB)
+SERIAL_ORDER OTG1
+
+PA11 OTG_FS_DM OTG1
+PA12 OTG_FS_DP OTG1
+
+PA13 JTMS-SWDIO SWD
+PA14 JTCK-SWCLK SWD
+
+# CAN setup
+PD0 CAN1_RX CAN1
+PD1 CAN1_TX CAN1
+
+PB12 CAN2_RX CAN2
+PB13 CAN2_TX CAN2
+
+# use DNA
+define CAN_APP_NODE_NAME "kha.motor_board-bl"
+
+PA2 MAX31865_1_CS CS
+PA3 MAX31865_2_CS CS
+
+#########################################
+
