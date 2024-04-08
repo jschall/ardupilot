@@ -96,13 +96,23 @@ protected:
     float launch_accel = 1;
     float launch_time = 20;
     uint64_t launch_start_ms;
-    Matrix3f inertia_matrix = Matrix3f(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0); // inverse of the inertia matrix to save cost during runtime
+
+    Matrix3f inertia_matrix = Matrix3f(1.0, 0.0, 0.0,
+                                       0.0, 1.0, 0.0,
+                                       0.0, 0.0, 1.0);
+
+    Matrix3f vtol_inertia_matrix = Matrix3f(1.0, 0.0, 0.0,
+                                            0.0, 1.0, 0.0,
+                                            0.0, 0.0, 1.0);
+
+    // Calculated once at startup
+    Matrix3f inv_inertia_matrix;
 
     float liftCoeff(float alpha) const;
     float dragCoeff(float alpha) const;
     Vector3f getForce(float inputAileron, float inputElevator, float inputRudder) const;
     Vector3f getTorque(float inputAileron, float inputElevator, float inputRudder, float inputThrust, const Vector3f &force) const;
-    void calculate_forces(const struct sitl_input &input, Vector3f &rot_accel);
+    void calculate_forces(const struct sitl_input &input, Vector3f &moment, Vector3f &force);
 
 private:
     Frame *frame;

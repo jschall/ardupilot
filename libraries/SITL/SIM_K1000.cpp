@@ -44,13 +44,37 @@ K1000::K1000(const char *frame_str) :
         frame->model.disc_area = 0.657; // JC says this is the disc area of the K1000
         frame->model.diagonal_size = 1.5;
         frame->model.mdrag_coef = 0.2; // stolen from Callisto.json
+        frame->model.refVoltage = 32; // 8S at 4V/cell
+        frame->model.refCurrent = 187.5; //1500W/motor
+        frame->model.maxVoltage = 8*4.2;
+        frame->model.refBatRes = 0.024; // from datasheet
+        frame->model.battCapacityAh = 4;
+        frame->model.hoverThrOut = 0.30;
 
         frame->motor_offset = 6;
-        mass = 5;
-        frame->set_mass(5);
+
+        float vtol_subsystem_mass = 5.8;
+        mass = mass + vtol_subsystem_mass;
+
+        // We set the VTOL inertia to 1.0 so that we get actual moment out.
+        // Otherwise the multirotor sim will try to calculate accelerations, which CANNOT be simply
+        // added to the plane accelerations. Whereas the moments can be.
+        frame->model.mass = mass;
+        frame->set_mass(mass);
+        frame->set_inertia(1.0,1.0,1.0);
 
         // we use zero terminal velocity to let the plane model handle the drag
         frame->init(frame_str, &battery);
+
+        inertia_matrix = inertia_matrix + vtol_inertia_matrix;
+
+        motor_mask |= ((1U<<frame->num_motors)-1U) << frame->motor_offset;
+    }
+
+    // Calculate the inverse matrix to avoid doing this each timestep.
+    if (!inertia_matrix.inverse(inv_inertia_matrix)) {
+        printf("Failed to invert inertia matrix!");
+        exit(1);
     }
 }
 
@@ -212,7 +236,7 @@ Vector3f K1000::getForce(float inputAileron, float inputElevator, float inputRud
     return Vector3f(ax, ay, az);
 }
 
-void K1000::calculate_forces(const struct sitl_input &input, Vector3f &rot_accel)
+void K1000::calculate_forces(const struct sitl_input &input, Vector3f &moment, Vector3f &force)
 {
     const float throttle =                  (servo_outputs[0] + 1.0) / 2.0;
     const float aileron_port_radians =       servo_outputs[1]*0.5*(coefficient.deltaa_max+coefficient.deltaa_min);
@@ -247,8 +271,8 @@ void K1000::calculate_forces(const struct sitl_input &input, Vector3f &rot_accel
     angle_of_attack = atan2f(velocity_air_bf.z, velocity_air_bf.x);
     beta = atan2f(velocity_air_bf.y,velocity_air_bf.x);
 
-    Vector3f force = getForce(aileron_radians, elevator_radians, rudder_radians);
-    rot_accel = inertia_matrix*getTorque(aileron_radians, elevator_radians, rudder_radians, thrust, force);
+    force = getForce(aileron_radians, elevator_radians, rudder_radians);
+    moment = getTorque(aileron_radians, elevator_radians, rudder_radians, thrust, force);
 
 
     /*
@@ -270,16 +294,15 @@ void K1000::calculate_forces(const struct sitl_input &input, Vector3f &rot_accel
     motor_mask |= (1U<<2);
     rpm[2] = throttle * 7000;
 
-    accel_body = Vector3f(thrust, 0, 0) + force;
-    accel_body /= mass;
+    force += Vector3f(thrust, 0, 0);
 
     if (on_ground()) {
         // add some ground friction
         Vector3f vel_body = dcm.transposed() * velocity_ef;
-        accel_body.x -= MIN(2.5, 2.5 * vel_body.x * 3.0f);
+        force.x -= mass * MIN(2.5, 2.5 * vel_body.x * 3.0f);
 
         if (in_launch) {
-            accel_body.x = launch_accel;
+            force.x = mass * launch_accel;
         }
     }
 
@@ -295,29 +318,28 @@ void K1000::update(const struct sitl_input &input)
     for (int i = 0; i < 16; i++) {
         servo_outputs[i] = filtered_servo_angle(input, i);
     }
-    
+
     // get wind vector setup
     update_wind(input);
 
+    Vector3f fw_moment, fw_force, rot_accel, quad_moment, quad_force;
+
     // first plane forces
-    Vector3f rot_accel;
-    calculate_forces(input, rot_accel);
-    
+    calculate_forces(input, fw_moment, fw_force);
+
     if (is_vtol()) {
         // now quad forces
-        Vector3f quad_rot_accel;
-        Vector3f quad_accel_body;
+        frame->calculate_forces(*this, input, quad_moment, quad_force, rpm, false);
 
-        motor_mask |= ((1U<<frame->num_motors)-1U) << frame->motor_offset;
-        frame->calculate_forces(*this, input, quad_rot_accel, quad_accel_body, rpm, false);
-
+        float vtol_voltage, vtol_current;
         // estimate voltage and current
-        frame->current_and_voltage(battery_voltage, battery_current);
-        battery.set_current(battery_current);
-
-        rot_accel += quad_rot_accel;
-        accel_body += quad_accel_body;
+        frame->current_and_voltage(vtol_voltage, vtol_current);
     }
+    // These are currently accelerations. Reconstruct the forces.
+    quad_force *= mass;
+
+    accel_body = (fw_force + quad_force) / mass;
+    rot_accel = inv_inertia_matrix*(fw_moment + quad_moment);
 
     update_dynamics(rot_accel);
     update_external_payload(input);
