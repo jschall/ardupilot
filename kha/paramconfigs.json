@@ -1,6 +1,6 @@
 {
     "base": {
-        "ABORT_ENABLE": 1.000000,
+        "ABORT_ENABLE": 0.000000,
         "ABORT_PATH_ERROR": 3.000000,
         "ABORT_RNGF_ERROR": 5.000000,
         "ACRO_LOCKING": 0.000000,

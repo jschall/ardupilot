@@ -1,4 +1,4 @@
-ABORT_ENABLE                 1
+ABORT_ENABLE                 0
 ABORT_PATH_ERROR             3
 ABORT_RNGF_ERROR             5
 ACRO_LOCKING                 0
