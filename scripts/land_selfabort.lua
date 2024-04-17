@@ -29,7 +29,7 @@ end
 
 local param_rangefinder_error_threshold = bind_add_param("RNGF_ERROR",  1, 5.0)
 local param_path_error_threshold        = bind_add_param("PATH_ERROR",  2, 3.0)
-local param_is_enabled                  = bind_add_param("ENABLE"    ,  3, 1)
+local param_is_enabled                  = bind_add_param("ENABLE"    ,  3, 0)
 
 
 function check_self_abort_criteria()
