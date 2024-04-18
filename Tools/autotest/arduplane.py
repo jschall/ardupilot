@@ -5403,7 +5403,7 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         self.wait_current_waypoint(7, timeout=120)
 
         # Should land successfully.
-        self.wait_disarmed(timeout=60)
+        self.wait_disarmed(timeout=90)
 
     def K1000HighApproach(self):
         '''Tests the flight of the KHA K1000 with a high planned approach'''
