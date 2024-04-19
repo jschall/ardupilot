@@ -5371,6 +5371,7 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         self.set_parameters({
             "SIM_BARO_DRIFT": -0.02,
             "SIM_TERRAIN": 0,
+            "ABORT_ENABLE": 1,
         })
 
         self.set_current_waypoint(1)
