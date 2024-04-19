@@ -5570,4 +5570,5 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         return {
             "LandingDrift": "Flapping test. See https://github.com/ArduPilot/ardupilot/issues/20054",
             "InteractTest": "requires user interaction",
+            "SDCardWPTest": "fails waiting for text",
         }
