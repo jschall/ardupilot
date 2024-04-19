@@ -3960,6 +3960,7 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
             "quadplane-ice" : "needs ICE control channel for ignition",
             "quadplane-can" : "needs CAN periph",
             "K1000": "correctly fails due to no landing WP",
+            "K1000-VTOL": "correctly fails due to no landing WP",
         }
         for frame in sorted(vinfo_options["frames"].keys()):
             self.start_subtest("Testing frame (%s)" % str(frame))
