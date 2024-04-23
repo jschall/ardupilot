@@ -41,7 +41,9 @@ public:
           Motor *_motors) :
           name(_name),
           num_motors(_num_motors),
-          motors(_motors) {}
+          motors(_motors) {
+			  model = default_model;
+		  }
 
 #if AP_SIM_ENABLED
     // find a frame by name

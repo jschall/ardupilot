@@ -452,7 +452,6 @@ void Frame::parse_vector3(picojson::value val, const char* label, Vector3f &para
  */
 void Frame::init(const char *frame_str, Battery *_battery)
 {
-    model = default_model;
     battery = _battery;
 
 #if USE_PICOJSON
