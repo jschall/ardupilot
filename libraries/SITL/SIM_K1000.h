@@ -93,7 +93,6 @@ protected:
     bool is_vtol() const { return frame != nullptr; }
 
     bool in_launch = false;
-    bool launch_used = false;
     float launch_accel = 1;
     float launch_time = 20;
     uint64_t launch_start_ms;
