@@ -45,6 +45,12 @@ void AP_Periph_FW::can_battery_update(void)
 
         float current;
         if (battery_lib.current_amps(current, i)) {
+#if AP_KHA_ENABLED && KHA_PERIPH_DISTRO
+            if (!AP::kha().distro_current_calibration_in_progress()) {
+                // In normal operation, don't allow negative current.
+                current = MAX(0, current);
+            }
+#endif
             pkt.current = current;
         }
         float temperature;

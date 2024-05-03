@@ -47,6 +47,10 @@ public:
     MAV_RESULT handle_command_int_packet(const mavlink_command_int_t &packet, const mavlink_message_t &msg);
 #endif
 
+#if KHA_PERIPH_DISTRO
+    bool distro_current_calibration_in_progress() { return distro.batt_calibrtaion.get() != 0; }
+#endif
+
 
     // parameter list
     static const struct AP_Param::GroupInfo var_info[];
@@ -68,6 +72,12 @@ private:
         AP_Int8 battery_cell_count;
 
     } _params;
+
+#elif KHA_PERIPH_DISTRO
+    struct {
+        AP_Int32 batt_calibrtaion;
+    } distro;
+    void distro_calibrate_battery_currents();
 #endif
 
 };

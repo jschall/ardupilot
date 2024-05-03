@@ -6,6 +6,12 @@
 
 void AP_Periph_FW::handle_hardpoint_command(CanardInstance* canard_instance, CanardRxTransfer* transfer)
 {
+#if AP_KHA_ENABLED && KHA_PERIPH_DISTRO
+    if (AP::kha().distro_current_calibration_in_progress()) {
+        return;
+    }
+#endif
+
     uavcan_equipment_hardpoint_Command cmd {};
     if (uavcan_equipment_hardpoint_Command_decode(transfer, &cmd)) {
         // Failed to decode

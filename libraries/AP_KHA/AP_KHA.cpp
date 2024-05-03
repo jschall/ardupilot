@@ -186,7 +186,13 @@ const AP_Param::GroupInfo AP_KHA::var_info[] = {
     // @DisplayName: BATT_CELLS
     // @Description: BATT_CELLS
     AP_GROUPINFO("BATT_CELLS", 26, AP_KHA, _params.battery_cell_count, 6),
-    
+
+#elif KHA_PERIPH_DISTRO
+    // @Param: DISTRO_CAL
+    // @DisplayName: DISTRO_CAL
+    // @Description: DISTRO_CAL
+    AP_GROUPINFO("DISTRO_CAL", 2, AP_KHA, distro.batt_calibrtaion, 0),
+
 #endif
 
     AP_GROUPEND
@@ -209,7 +215,8 @@ void AP_KHA::init()
     if (!_params.enabled) {
         return;
     }
-
+#elif KHA_PERIPH_DISTRO
+    distro.batt_calibrtaion.set_and_save(0);
 #endif
 }
 
@@ -236,6 +243,9 @@ void AP_KHA::update()
         gcs().send_named_float("BatERem", energy_J);
         last_send_ms = tnow_ms;
     }
+
+#elif KHA_PERIPH_DISTRO
+    distro_calibrate_battery_currents();
 #endif
 
 }
@@ -287,6 +297,134 @@ MAV_RESULT AP_KHA::handle_command_int_packet(const mavlink_command_int_t &packet
     return result;
 }
 #endif // HAL_GCS_ENABLED
+
+#if KHA_PERIPH_DISTRO
+void AP_KHA::distro_calibrate_battery_currents()
+{
+    const uint32_t now_ms = AP_HAL::millis();
+    static int32_t update_interval_ms = 100;
+    static uint32_t last_update_ms = 0;
+    if (now_ms - last_update_ms < update_interval_ms) {
+        // run at 10 Hz
+        return;
+    }
+    last_update_ms = now_ms;
+    update_interval_ms = 100;
+
+    const uint32_t cal_param = distro.batt_calibrtaion.get();
+    static int32_t cal_param_prev = 0;
+    static uint32_t zero_cross_count = 0;
+    const uint16_t battery_index = (cal_param / 10) - 1;
+    const uint16_t expected_amps = cal_param % 10;
+
+    if (cal_param_prev != cal_param) {
+        // param changed, init
+        palWriteLine(HAL_GPIO_PIN_LED_BATT_CALIBRATE, !HAL_LED_ON);
+        zero_cross_count = 0;
+
+        if (cal_param_prev >= 10 && cal_param_prev <= 69) {
+            GCS_SEND_TEXT(0, "Cal STOP");
+        }
+
+        if (cal_param >= 10 && cal_param <= 69) {
+            // turn on the payload
+            hal.gpio->write(KHA_DISTRO_PAYLOAD_x_ENABLE_PIN_FIRST + battery_index, 1);
+            GCS_SEND_TEXT(0, "Current cal start on Batt%d, %uA", (int)battery_index + 1, (unsigned)expected_amps);
+
+            // 2s startup delay to ensure stable power
+            update_interval_ms = 2000;
+        }
+        cal_param_prev = cal_param;
+        return;
+    }
+
+    if (cal_param < 10 || cal_param >= 70) {
+        // out-of-range
+        return;
+    }
+
+
+    const AP_BattMonitor &batt = AP::battery();
+    float current_measured = -1;
+
+    if (!batt.healthy(battery_index) ||
+        batt.get_type(battery_index) != AP_BattMonitor::Type::ANALOG_VOLTAGE_AND_CURRENT ||
+        !batt.current_amps(current_measured, battery_index))
+    {
+        // library is not ready
+        // TODO: blink LED with error?
+        GCS_SEND_TEXT(0, "batt lib: %u, %u, %.3f", (unsigned)batt.healthy(), (unsigned)batt.get_type(), (double)current_measured);
+        return;
+    }
+
+    const char* param_str_offset[] = {  "BATT_AMP_OFFSET" ,
+                                        "BATT2_AMP_OFFSET",
+                                        "BATT3_AMP_OFFSET",
+                                        "BATT4_AMP_OFFSET",
+                                        "BATT5_AMP_OFFSET",
+                                        "BATT6_AMP_OFFSET",
+                                        "BATT8_AMP_OFFSET",
+                                        "BATT9_AMP_OFFSET",
+                                        "BATT9_AMP_OFFSET" };
+                                        
+    const char* param_str_scaler[] = {  "BATT_AMP_PERVLT" ,
+                                        "BATT2_AMP_PERVLT",
+                                        "BATT3_AMP_PERVLT",
+                                        "BATT4_AMP_PERVLT",
+                                        "BATT5_AMP_PERVLT",
+                                        "BATT6_AMP_PERVLT",
+                                        "BATT7_AMP_PERVLT",
+                                        "BATT8_AMP_PERVLT",
+                                        "BATT9_AMP_PERVLT" };
+
+
+    const char* param_str = (expected_amps == 0) ? param_str_offset[battery_index] : param_str_scaler[battery_index];
+
+    float param_value = 0;
+    if (!AP_Param::get(param_str, param_value)) {
+        // TODO: blink LED with error?
+        GCS_SEND_TEXT(0, "failed to get %s", param_str);
+        return;
+    }
+
+    // TODO: adjust param until current matches expected_amps and track if if we have to change directions on the param
+
+    static float current_lpf = 0;
+    const float LPF_coef = 0.95f; // higher means slower. Note, this runs at 10Hz
+    current_lpf = current_measured*(LPF_coef) + current_lpf*(1.0f-LPF_coef);
+
+    const float current_error = (current_lpf - expected_amps);
+    const bool current_error_positive = (current_error >= 0) ^ (expected_amps == 0);
+
+    // GCS_SEND_TEXT(0, "%.4f, %.4f, %.4f", (double)current_lpf, (double)current_error, (double)param_value);
+
+    const float change_pct = 0.0001f;
+    param_value *= (current_error_positive ? (1.0f - change_pct) : (1.0f + change_pct));
+
+    const float param_value_min = (expected_amps == 0) ? 1 : 10;
+    const float param_value_max = (expected_amps == 0) ? 2 : 13;
+    param_value = constrain_float(param_value, param_value_min, param_value_max);
+
+    AP_Param::set_by_name(param_str, param_value);
+
+    if (zero_cross_count < 10) {
+        // LED Toggle @10Hz
+        palToggleLine(HAL_GPIO_PIN_LED_BATT_CALIBRATE);
+        static bool current_error_positive_prev = false;
+        if (current_error_positive_prev != current_error_positive) {
+            current_error_positive_prev = current_error_positive;
+            zero_cross_count++;
+        }
+
+    } else {
+        // Done: LED SOLID ON
+        palWriteLine(HAL_GPIO_PIN_LED_BATT_CALIBRATE, HAL_LED_ON);
+        distro.batt_calibrtaion.set(0);
+        GCS_SEND_TEXT(0, "%s = %0.5f, %0.3fA", param_str, (double)param_value, (double)current_lpf);
+    }
+
+}
+#endif
 
 
 namespace AP {
