@@ -20,8 +20,11 @@ define AP_PARAM_MAX_EMBEDDED_PARAM 30000
 define HAL_ENABLE_THREAD_STATISTICS 1
 
 # We're using 14 because it is the most MAVLink is able to send
-define AP_BATT_MONITOR_MAX_INSTANCES 14
+define AP_BATT_MONITOR_MAX_INSTANCES 16
 
+define AP_RELAY_NUM_RELAYS 16
+define AP_MAVLINK_MSG_RELAY_STATUS_ENABLED 1
+define AP_KHA_GCS_PARAM_COUNT 20
 
 ROMFS scripts/throttle_tests.lua scripts/throttle_tests.lua
 ROMFS scripts/battery_time_remaining.lua scripts/battery_time_remaining.lua
