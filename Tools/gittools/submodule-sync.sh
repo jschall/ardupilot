@@ -37,9 +37,3 @@ git submodule sync --recursive
 
 git submodule update --recursive --force --init
 git submodule sync --recursive
-
-
-./waf configure --board CubeOrange-KHA
-echo "---------------------------------"
-echo "Configured CubeOrange-KHA"
-echo "---------------------------------"
