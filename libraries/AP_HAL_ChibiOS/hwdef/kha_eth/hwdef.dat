@@ -137,5 +137,9 @@ define HAL_PERIPH_LISTEN_FOR_SERIAL_UART_REBOOT_NON_DEBUG
 #################################
 
 define CAN_APP_NODE_NAME "kha.eth"
+define KHA_PERIPH_ETH 1
+
+# supports upto 8MBits/s
+CANFD_SUPPORTED 8
 
 AUTOBUILD_TARGETS None

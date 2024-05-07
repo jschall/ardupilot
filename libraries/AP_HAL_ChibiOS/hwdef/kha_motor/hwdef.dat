@@ -123,6 +123,7 @@ define RPM_MAX_INSTANCES 1
 #################################
 #Communications and debug
 define CAN_APP_NODE_NAME "kha.motor_board"
+define KHA_PERIPH_MOTOR 1
 
 # supports upto 8MBits/s
 CANFD_SUPPORTED 8
