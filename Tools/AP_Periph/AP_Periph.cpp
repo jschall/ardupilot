@@ -277,6 +277,10 @@ void AP_Periph_FW::init()
     nmea.init();
 #endif
 
+#if AP_KHA_ENABLED
+    kha.init();
+#endif
+
 #ifdef HAL_PERIPH_ENABLE_RPM
     rpm_sensor.init();
 #endif
@@ -501,6 +505,10 @@ void AP_Periph_FW::update()
         rpm_last_update_ms = now;
         rpm_sensor.update();
     }
+#endif
+
+#if AP_KHA_ENABLED
+    kha.update();
 #endif
 
 #if HAL_LOGGING_ENABLED

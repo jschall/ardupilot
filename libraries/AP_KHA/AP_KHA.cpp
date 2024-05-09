@@ -14,8 +14,9 @@
  */
 
 #include "AP_KHA.h"
-#include <AP_BattMonitor/AP_BattMonitor.h>
 
+#if AP_KHA_ENABLED
+#include <AP_BattMonitor/AP_BattMonitor.h>
 #include "BatteryChemistryModel.h"
 
 static float soc_ocv_x[] = {0.0, 0.005063014925373088, 0.01613838805970147, 0.02905964179104481, 0.04382680597014932, 0.060439850746268675, 0.07705289552238803, 0.09920364179104468, 0.1268920298507462, 0.15642635820895523, 0.19334423880597018, 0.2357997910447761, 0.2708717910447762, 0.2967142985074628, 0.3244027164179104, 0.34839934328358213, 0.3779336417910447, 0.4037761791044776, 0.4388481492537314, 0.462844776119403, 0.4868414029850746, 0.5182216119402985, 0.5551394925373134, 0.5920573731343284, 0.6289752537313433, 0.6695849253731343, 0.7194240895522388, 0.7581878507462687, 0.7932598507462687, 0.8283318507462687, 0.8615579402985074, 0.9058594029850746, 0.9446231641791045, 0.9815410447761194, 1.0};
@@ -24,8 +25,6 @@ static float soc_ocv_y[] = {2.5180000000000002, 2.6487000000000003, 2.75, 2.8668
 
 static BatteryChemistryModelLinearInterpolated chemistry_model(soc_ocv_x, soc_ocv_y, sizeof(soc_ocv_x)/sizeof(soc_ocv_x[0]));
 
-#if AP_KHA_ENABLED
-
 extern const AP_HAL::HAL& hal;
 
 AP_KHA *AP_KHA::_singleton;
@@ -33,6 +32,7 @@ AP_KHA *AP_KHA::_singleton;
 // table of user settable parameters
 const AP_Param::GroupInfo AP_KHA::var_info[] = {
 
+#ifndef HAL_BUILD_AP_PERIPH
     // @Param: ENABLE
     // @DisplayName: KHA Enable Features
     // @Description: KHA Enable Features
@@ -187,6 +187,8 @@ const AP_Param::GroupInfo AP_KHA::var_info[] = {
     // @Description: BATT_CELLS
     AP_GROUPINFO("BATT_CELLS", 26, AP_KHA, _params.battery_cell_count, 6),
     
+#endif
+
     AP_GROUPEND
 };
 
@@ -203,21 +205,24 @@ AP_KHA::AP_KHA()
 
 void AP_KHA::init()
 {
+#ifndef HAL_BUILD_AP_PERIPH
     if (!_params.enabled) {
         return;
     }
 
+#endif
 }
 
 void AP_KHA::update()
 {
+#ifndef HAL_BUILD_AP_PERIPH
     if (!_params.enabled) {
         return;
     }
     
     static uint32_t last_send_ms;
     uint32_t tnow_ms = AP_HAL::millis();
-    if (tnow_ms-last_send_ms > 1000) {
+    if (_params.battery_cell_count > 0 && tnow_ms-last_send_ms > 1000) {
         float energy_J;
         if (!AP::battery().energy_remaining_J(energy_J)) {
             // Compute energy remaining from voltage
@@ -231,8 +236,11 @@ void AP_KHA::update()
         gcs().send_named_float("BatERem", energy_J);
         last_send_ms = tnow_ms;
     }
+#endif
+
 }
 
+#if HAL_GCS_ENABLED
 void AP_KHA::handle_msg(GCS_MAVLINK &link, const mavlink_message_t &msg)
 {
     if (!_params.enabled) {
@@ -278,6 +286,7 @@ MAV_RESULT AP_KHA::handle_command_int_packet(const mavlink_command_int_t &packet
     
     return result;
 }
+#endif // HAL_GCS_ENABLED
 
 
 namespace AP {

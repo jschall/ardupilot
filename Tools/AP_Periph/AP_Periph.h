@@ -27,6 +27,7 @@
 #include <AP_HAL/CANIface.h>
 #include <AP_Stats/AP_Stats.h>
 #include <AP_RPM/AP_RPM.h>
+#include <AP_KHA/AP_KHA.h>
 #include <AP_SerialManager/AP_SerialManager.h>
 #include <AP_ESC_Telem/AP_ESC_Telem_config.h>
 #if HAL_WITH_ESC_TELEM
@@ -347,6 +348,10 @@ public:
     uint32_t rcin_last_sent_RCInput_ms;
     const char *rcin_rc_protocol;  // protocol currently being decoded
     Parameters_RCIN g_rcin;
+#endif
+
+#if AP_KHA_ENABLED
+    AP_KHA kha;
 #endif
 
 #ifdef HAL_PERIPH_ENABLE_BATTERY_BALANCE

@@ -661,6 +661,12 @@ const AP_Param::Info AP_Periph_FW::var_info[] = {
     GSCALAR(temperature_msg_rate, "TEMP_MSG_RATE", 0),
 #endif
 
+#if AP_KHA_ENABLED
+    // @Group: KHA_
+    // @Path: ../libraries/AP_KHA/AP_KHA.cpp
+    GOBJECT(kha, "KHA_", AP_KHA),
+#endif
+
     AP_VAREND
 };
 

@@ -41,9 +41,12 @@ public:
     void init();
     void update();
     
+#if HAL_GCS_ENABLED
     // parse mavlink messages
     void handle_msg(GCS_MAVLINK &link, const mavlink_message_t &msg);
     MAV_RESULT handle_command_int_packet(const mavlink_command_int_t &packet, const mavlink_message_t &msg);
+#endif
+
 
     // parameter list
     static const struct AP_Param::GroupInfo var_info[];
@@ -51,8 +54,10 @@ public:
 private:
     static AP_KHA *_singleton;
 
+#ifndef HAL_BUILD_AP_PERIPH
     struct {
         AP_Int8 enabled;
+
 #if AP_KHA_GCS_PARAM_COUNT >= 1
         AP_Float gcs_param[AP_KHA_GCS_PARAM_COUNT];
 #endif
@@ -61,7 +66,9 @@ private:
         AP_Float endure_arsp;
         AP_Float endure_mass;
         AP_Int8 battery_cell_count;
+
     } _params;
+#endif
 
 };
 
