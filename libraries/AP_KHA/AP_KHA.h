@@ -21,10 +21,6 @@
 #include <AP_Param/AP_Param.h>
 #include <GCS_MAVLink/GCS.h>
 
-#ifndef AP_KHA_GCS_PARAM_COUNT
-#define AP_KHA_GCS_PARAM_COUNT 20
-#endif
-
 
 class AP_KHA
 {
@@ -47,9 +43,7 @@ public:
     MAV_RESULT handle_command_int_packet(const mavlink_command_int_t &packet, const mavlink_message_t &msg);
 #endif
 
-#if KHA_PERIPH_DISTRO
     bool distro_current_calibration_in_progress() { return distro.batt_calibrtaion.get() != 0; }
-#endif
 
 
     // parameter list
@@ -58,7 +52,6 @@ public:
 private:
     static AP_KHA *_singleton;
 
-#ifndef HAL_BUILD_AP_PERIPH
     struct {
         AP_Int8 enabled;
 
@@ -73,12 +66,10 @@ private:
 
     } _params;
 
-#elif KHA_PERIPH_DISTRO
     struct {
         AP_Int32 batt_calibrtaion;
     } distro;
     void distro_calibrate_battery_currents();
-#endif
 
 };
 

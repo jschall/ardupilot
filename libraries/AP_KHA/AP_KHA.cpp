@@ -25,6 +25,10 @@ static float soc_ocv_y[] = {2.5180000000000002, 2.6487000000000003, 2.75, 2.8668
 
 static BatteryChemistryModelLinearInterpolated chemistry_model(soc_ocv_x, soc_ocv_y, sizeof(soc_ocv_x)/sizeof(soc_ocv_x[0]));
 
+#if KHA_PERIPH_DISTRO
+#include <hal.h>
+#endif
+
 extern const AP_HAL::HAL& hal;
 
 AP_KHA *AP_KHA::_singleton;
@@ -211,18 +215,19 @@ AP_KHA::AP_KHA()
 
 void AP_KHA::init()
 {
-#ifndef HAL_BUILD_AP_PERIPH
+#ifdef HAL_BUILD_AP_PERIPH
+    _params.enabled.set(1);
+#endif
+
+    distro.batt_calibrtaion.set_and_save(0);
+
     if (!_params.enabled) {
         return;
     }
-#elif KHA_PERIPH_DISTRO
-    distro.batt_calibrtaion.set_and_save(0);
-#endif
 }
 
 void AP_KHA::update()
 {
-#ifndef HAL_BUILD_AP_PERIPH
     if (!_params.enabled) {
         return;
     }
@@ -240,14 +245,15 @@ void AP_KHA::update()
             const float pack_capacity_coulombs = AP::battery().pack_capacity_mah() * 3.6; // convert mah to coulombs
             energy_J = pack_capacity_coulombs * chemistry_model.OCV_from_SOC_integral(SOC,batt_temp) * _params.battery_cell_count;
         }
+#if HAL_GCS_ENABLED
         gcs().send_named_float("BatERem", energy_J);
+#endif
         last_send_ms = tnow_ms;
     }
 
-#elif KHA_PERIPH_DISTRO
+#if KHA_PERIPH_DISTRO
     distro_calibrate_battery_currents();
 #endif
-
 }
 
 #if HAL_GCS_ENABLED
@@ -298,11 +304,11 @@ MAV_RESULT AP_KHA::handle_command_int_packet(const mavlink_command_int_t &packet
 }
 #endif // HAL_GCS_ENABLED
 
-#if KHA_PERIPH_DISTRO
 void AP_KHA::distro_calibrate_battery_currents()
 {
+#if KHA_PERIPH_DISTRO
     const uint32_t now_ms = AP_HAL::millis();
-    static int32_t update_interval_ms = 100;
+    static uint32_t update_interval_ms = 100;
     static uint32_t last_update_ms = 0;
     if (now_ms - last_update_ms < update_interval_ms) {
         // run at 10 Hz
@@ -311,7 +317,7 @@ void AP_KHA::distro_calibrate_battery_currents()
     last_update_ms = now_ms;
     update_interval_ms = 100;
 
-    const uint32_t cal_param = distro.batt_calibrtaion.get();
+    const int32_t cal_param = distro.batt_calibrtaion.get();
     static int32_t cal_param_prev = 0;
     static uint32_t zero_cross_count = 0;
     const uint16_t battery_index = (cal_param / 10) - 1;
@@ -319,18 +325,21 @@ void AP_KHA::distro_calibrate_battery_currents()
 
     if (cal_param_prev != cal_param) {
         // param changed, init
+#ifdef HAL_GPIO_PIN_LED_BATT_CALIBRATE
         palWriteLine(HAL_GPIO_PIN_LED_BATT_CALIBRATE, !HAL_LED_ON);
+#endif
         zero_cross_count = 0;
 
         if (cal_param_prev >= 10 && cal_param_prev <= 69) {
-            GCS_SEND_TEXT(0, "Cal STOP");
+            GCS_SEND_TEXT(MAV_SEVERITY_INFO, "Cal STOP");
         }
 
         if (cal_param >= 10 && cal_param <= 69) {
             // turn on the payload
+#ifdef KHA_DISTRO_PAYLOAD_x_ENABLE_PIN_FIRST
             hal.gpio->write(KHA_DISTRO_PAYLOAD_x_ENABLE_PIN_FIRST + battery_index, 1);
-            GCS_SEND_TEXT(0, "Current cal start on Batt%d, %uA", (int)battery_index + 1, (unsigned)expected_amps);
-
+#endif
+            GCS_SEND_TEXT(MAV_SEVERITY_INFO, "Current cal start on Batt%d, %uA", (int)battery_index + 1, (unsigned)expected_amps);
             // 2s startup delay to ensure stable power
             update_interval_ms = 2000;
         }
@@ -353,7 +362,7 @@ void AP_KHA::distro_calibrate_battery_currents()
     {
         // library is not ready
         // TODO: blink LED with error?
-        GCS_SEND_TEXT(0, "batt lib: %u, %u, %.3f", (unsigned)batt.healthy(), (unsigned)batt.get_type(), (double)current_measured);
+        GCS_SEND_TEXT(MAV_SEVERITY_INFO, "batt lib: %u, %u, %.3f", (unsigned)batt.healthy(), (unsigned)batt.get_type(), (double)current_measured);
         return;
     }
 
@@ -383,7 +392,7 @@ void AP_KHA::distro_calibrate_battery_currents()
     float param_value = 0;
     if (!AP_Param::get(param_str, param_value)) {
         // TODO: blink LED with error?
-        GCS_SEND_TEXT(0, "failed to get %s", param_str);
+        GCS_SEND_TEXT(MAV_SEVERITY_INFO, "failed to get %s", param_str);
         return;
     }
 
@@ -396,7 +405,7 @@ void AP_KHA::distro_calibrate_battery_currents()
     const float current_error = (current_lpf - expected_amps);
     const bool current_error_positive = (current_error >= 0) ^ (expected_amps == 0);
 
-    // GCS_SEND_TEXT(0, "%.4f, %.4f, %.4f", (double)current_lpf, (double)current_error, (double)param_value);
+    // GCS_SEND_TEXT(MAV_SEVERITY_INFO, "%.4f, %.4f, %.4f", (double)current_lpf, (double)current_error, (double)param_value);
 
     const float change_pct = 0.0001f;
     param_value *= (current_error_positive ? (1.0f - change_pct) : (1.0f + change_pct));
@@ -409,7 +418,9 @@ void AP_KHA::distro_calibrate_battery_currents()
 
     if (zero_cross_count < 10) {
         // LED Toggle @10Hz
+#ifdef HAL_GPIO_PIN_LED_BATT_CALIBRATE
         palToggleLine(HAL_GPIO_PIN_LED_BATT_CALIBRATE);
+#endif
         static bool current_error_positive_prev = false;
         if (current_error_positive_prev != current_error_positive) {
             current_error_positive_prev = current_error_positive;
@@ -418,13 +429,14 @@ void AP_KHA::distro_calibrate_battery_currents()
 
     } else {
         // Done: LED SOLID ON
+#ifdef HAL_GPIO_PIN_LED_BATT_CALIBRATE
         palWriteLine(HAL_GPIO_PIN_LED_BATT_CALIBRATE, HAL_LED_ON);
-        distro.batt_calibrtaion.set(0);
-        GCS_SEND_TEXT(0, "%s = %0.5f, %0.3fA", param_str, (double)param_value, (double)current_lpf);
-    }
-
-}
 #endif
+        distro.batt_calibrtaion.set(0);
+        GCS_SEND_TEXT(MAV_SEVERITY_INFO, "%s = %0.5f, %0.3fA", param_str, (double)param_value, (double)current_lpf);
+    }
+#endif
+}
 
 
 namespace AP {
