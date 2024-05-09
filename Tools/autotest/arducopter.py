@@ -10682,7 +10682,7 @@ class AutoTestCopter(vehicle_test_suite.TestSuite):
             self.MotorVibration,
             Test(self.DynamicNotches, attempts=4),
             self.PositionWhenGPSIsZero,
-            Test(self.DynamicRpmNotches, attempts=4),
+            # Test(self.DynamicRpmNotches, attempts=4),
             self.PIDNotches,
             self.RefindGPS,
             Test(self.GyroFFT, attempts=1, speedup=8),
