@@ -26,7 +26,7 @@
         "ARMING_ACCTHRESH": 0.750000,
         "ARMING_CHECK": 1.000000,
         "ARMING_MAGTHRESH": 100.000000,
-        "ARMING_MIS_ITEMS": 22.000000,
+        "ARMING_MIS_ITEMS": 0,
         "ARMING_OPTIONS": 0.000000,
         "ARMING_REQUIRE": 1.000000,
         "ARMING_RUDDER": 0.000000,
@@ -1009,7 +1009,6 @@
     "options": {
         "Configuration": {
             "Fixed": {
-                "ARMING_MIS_ITEMS":13.000000,
                 "CAN_D2_UC_ESC_BM":0.000000,
                 "FLTMODE3":5.000000,
                 "FLTMODE4":5.000000,

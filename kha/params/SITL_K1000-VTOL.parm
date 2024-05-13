@@ -25,7 +25,7 @@ ALT_OFFSET                   0
 ARMING_ACCTHRESH             0.750000
 ARMING_CHECK                 1
 ARMING_MAGTHRESH           100
-ARMING_MIS_ITEMS            22
+ARMING_MIS_ITEMS             0
 ARMING_OPTIONS               0
 ARMING_REQUIRE               1
 ARMING_RUDDER                0

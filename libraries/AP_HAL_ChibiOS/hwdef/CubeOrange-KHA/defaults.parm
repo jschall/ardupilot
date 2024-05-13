@@ -18,7 +18,7 @@ RTL_ALTITUDE,200 # [m] target alt in RTL mode
 ALT_OFFSET,0
 ARMING_ACCTHRESH,0.75
 ARMING_CHECK,1 # check all
-ARMING_MIS_ITEMS,13 # takeoff, do_land_start, land
+ARMING_MIS_ITEMS,0
 ARMING_REQUIRE,1
 ARMING_RUDDER,0
 ARSPD_AUTOCAL,0 # only for calibration flight

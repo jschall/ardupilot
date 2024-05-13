@@ -2,7 +2,7 @@ AHRS_EKF_TYPE,3
 AHRS_ORIENTATION,0
 AHRS_WIND_MAX,25 # pushed higher to reduce false positive triggering
 RTL_ALTITUDE,200 # [m] target alt in RTL mode
-ARMING_MIS_ITEMS,13 # takeoff, do_land_start, land
+ARMING_MIS_ITEMS,0
 ARMING_RUDDER,0
 AIRSPEED_CRUISE,17
 AIRSPEED_MAX,25
