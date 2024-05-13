@@ -6812,7 +6812,7 @@ Brakes have negligible effect (with=%0.2fm without=%0.2fm delta=%0.2fm)
             self.MAV_CMD_DO_FENCE_ENABLE,
             self.MAV_CMD_BATTERY_RESET,
             self.NetworkingWebServer,
-            self.NetworkingWebServerPPP,
+            # self.NetworkingWebServerPPP,
         ])
         return ret
 
