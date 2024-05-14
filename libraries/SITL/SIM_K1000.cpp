@@ -306,8 +306,11 @@ void K1000::calculate_forces(const struct sitl_input &input, Vector3f &moment, V
         }
     }
 
-    // add some noise
-    add_noise(fabsf(throttle));
+    if (throttle > 0) {
+        // add some rotational motor noise
+        force.y += rand_normal(0, 1) * throttle * 100;
+        force.z += rand_normal(0, 1) * throttle * 100;
+    }
 }
     
 /*
