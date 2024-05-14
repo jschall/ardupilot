@@ -191,6 +191,11 @@ const AP_Param::GroupInfo AP_KHA::var_info[] = {
     // @Description: BATT_CELLS
     AP_GROUPINFO("BATT_CELLS", 26, AP_KHA, _params.battery_cell_count, 6),
 
+    // @Param: THR_LOSS_FIX
+    // @DisplayName: THR_LOSS_FIX
+    // @Description: THR_LOSS_FIX
+    AP_GROUPINFO("THR_LOSS_FIX", 27, AP_KHA, _params.script_throttle_loss_fix, 0),
+
 #elif KHA_PERIPH_DISTRO
     // @Param: DISTRO_CAL
     // @DisplayName: DISTRO_CAL

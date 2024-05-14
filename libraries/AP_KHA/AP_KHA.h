@@ -63,6 +63,7 @@ private:
         AP_Float endure_arsp;
         AP_Float endure_mass;
         AP_Int8 battery_cell_count;
+        AP_Int32 script_throttle_loss_fix;
 
     } _params;
 
