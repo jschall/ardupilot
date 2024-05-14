@@ -5471,6 +5471,11 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         self.progress("Takeoff")
         self.takeoff(alt=target_alt, mode="TAKEOFF", timeout=120)
         self.change_mode("GUIDED")
+        self.run_cmd_int(
+            mavutil.mavlink.MAV_CMD_GUIDED_CHANGE_ALTITUDE,
+            p7=target_alt,    # alt
+            frame=mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT,
+        )
 
         self.progress("Killing the motor, waiting for warn-only retry logic")
         self.set_parameters({
@@ -5491,7 +5496,7 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         except NotAchievedException:
             raise NotAchievedException('Throttle held off when should be warn only behavior')
 
-        self.wait_altitude(target_alt, target_alt+1, relative=True, timeout=60)
+        self.wait_altitude(target_alt-2, target_alt+2, relative=True, timeout=60)
 
         self.progress("Kill the motor and check the esc restart procedure")
         self.set_parameters({
