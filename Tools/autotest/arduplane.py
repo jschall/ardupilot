@@ -5470,6 +5470,7 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         target_alt = 50
         self.progress("Takeoff")
         self.takeoff(alt=target_alt, mode="TAKEOFF", timeout=120)
+        self.change_mode("GUIDED")
 
         self.progress("Killing the motor, waiting for warn-only retry logic")
         self.set_parameters({
@@ -5482,7 +5483,15 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
 
         self.progress("Re-enabling the motor and climb back to target alt")
         self.set_parameter("SIM_ENGINE_MUL", 1)
-        self.wait_altitude(target_alt, target_alt+1, relative=True)
+
+        minpwm = self.get_parameter("SERVO1_MIN")
+
+        try:
+            self.wait_servo_channel_value(channel=1, value=minpwm+10, timeout=5, comparator=operator.gt)
+        except NotAchievedException:
+            raise NotAchievedException('Throttle held off when should be warn only behavior')
+
+        self.wait_altitude(target_alt, target_alt+1, relative=True, timeout=60)
 
         self.progress("Kill the motor and check the esc restart procedure")
         self.set_parameters({
@@ -5493,14 +5502,25 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
 
         # even though we've re-enabled it, the procedure will hold the throttle low for several seconds
         self.set_parameter("SIM_ENGINE_MUL", 1)
-        self.delay_sim_time(3)
-        if self.get_servo_channel_value(1) > self.get_parameter("SERVO1_MIN") :
-            raise NotAchievedException("Throttle is not held off during the ESC timeout")
-        self.delay_sim_time(15)
-        if self.get_servo_channel_value(1) < 1500 :
-            raise NotAchievedException("Throttle did not resume after the ESC timeout")
 
-        self.wait_altitude(target_alt, target_alt+1, relative=True)
+        target_alt = 200
+        self.run_cmd_int(
+            mavutil.mavlink.MAV_CMD_GUIDED_CHANGE_ALTITUDE,
+            p7=target_alt,    # alt
+            frame=mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT,
+        )
+
+        try:
+            self.wait_servo_channel_value(channel=1, value=minpwm+10, timeout=5, comparator=operator.lt)
+        except NotAchievedException:
+            raise NotAchievedException("Throttle is not held off during the ESC timeout")
+
+        self.delay_sim_time(15)
+
+        try:
+            self.wait_servo_channel_value(channel=1, value=minpwm+10, timeout=5, comparator=operator.gt)
+        except NotAchievedException:
+            raise NotAchievedException("Throttle did not resume after the ESC timeout")
 
         self.progress("K1000 Throttle Loss Script test Done")
         self.reset_SITL_commandline()
