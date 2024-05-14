@@ -5454,6 +5454,57 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
         # Should land successfully.
         self.wait_disarmed(timeout=600)
 
+    def K1000ThrottleLossScript(self):
+        '''Tests the throttle loss script'''
+
+        self.start_subtest('K1000 Throttle Loss Script')
+
+        self.customise_SITL_commandline(
+            ['--home', '39.16124,-122.13187,23.0,0.0'],
+            model="K1000",
+            defaults_filepath=self.model_defaults_filepath("K1000"),
+            wipe=True)
+
+        self.set_parameter("ARMING_MIS_ITEMS", 0) # TODO: remove this
+
+        target_alt = 50
+        self.progress("Takeoff")
+        self.takeoff(alt=target_alt, mode="TAKEOFF", timeout=120)
+
+        self.progress("Killing the motor, waiting for warn-only retry logic")
+        self.set_parameters({
+            "KHA_THR_LOSS_FIX": 0,
+            "SIM_ENGINE_MUL": 0,
+        })
+        self.wait_statustext("K1000: Loss of Thrust Detected")
+        self.wait_statustext("K1000: Loss of Thrust Detected")
+        self.wait_statustext("K1000: Loss of Thrust Detected")
+
+        self.progress("Re-enabling the motor and climb back to target alt")
+        self.set_parameter("SIM_ENGINE_MUL", 1)
+        self.wait_altitude(target_alt, target_alt+1, relative=True)
+
+        self.progress("Kill the motor and check the esc restart procedure")
+        self.set_parameters({
+            "KHA_THR_LOSS_FIX": 1,
+            "SIM_ENGINE_MUL": 0,
+        })
+        self.wait_statustext("K1000: Resetting propulsion system")
+
+        # even though we've re-enabled it, the procedure will hold the throttle low for several seconds
+        self.set_parameter("SIM_ENGINE_MUL", 1)
+        self.delay_sim_time(3)
+        if self.get_servo_channel_value(1) > self.get_parameter("SERVO1_MIN") :
+            raise NotAchievedException("Throttle is not held off during the ESC timeout")
+        self.delay_sim_time(15)
+        if self.get_servo_channel_value(1) < 1500 :
+            raise NotAchievedException("Throttle did not resume after the ESC timeout")
+
+        self.wait_altitude(target_alt, target_alt+1, relative=True)
+
+        self.progress("K1000 Throttle Loss Script test Done")
+        self.reset_SITL_commandline()
+
     def tests(self):
         '''return list of all tests'''
         ret = super(AutoTestPlane, self).tests()
@@ -5564,6 +5615,7 @@ class AutoTestPlane(vehicle_test_suite.TestSuite):
             self.K1000Test,
             self.K1000BaroDrift,
             self.K1000HighApproach,
+            self.K1000ThrottleLossScript,
         ])
         return ret
 
