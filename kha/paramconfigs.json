@@ -1353,9 +1353,6 @@
                 "SIM_VIB_FREQ_X": 200,
                 "SIM_VIB_FREQ_Y": 200,
                 "SIM_VIB_FREQ_Z": 200,
-                "SIM_ACC1_RND": 1.25,
-                "SIM_ACC2_RND": 1.25,
-                "SIM_ACC3_RND": 1.25
             }
         }
     },

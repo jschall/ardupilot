@@ -1066,9 +1066,6 @@ SERVO_ROB_POSMAX          4095
 SERVO_ROB_POSMIN             0
 SERVO_SBUS_RATE             50
 SERVO_VOLZ_MASK              0
-SIM_ACC1_RND                 1.250000
-SIM_ACC2_RND                 1.250000
-SIM_ACC3_RND                 1.250000
 SIM_BATT_CAP_AH             53.599998
 SIM_BATT_VOLTAGE            25.200001
 SIM_INS_THR_MIN              0.100000
