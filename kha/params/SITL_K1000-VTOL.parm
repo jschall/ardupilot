@@ -216,7 +216,7 @@ DSPOILR_RUD_RATE           100
 EAHRS_TYPE                   0
 EFI_TYPE                     0
 EK2_ENABLE                   0
-EK3_ABIAS_P_NSE              0.003000
+EK3_ABIAS_P_NSE              0.02
 EK3_ACC_BIAS_LIM             1
 EK3_ACC_P_NSE                0.350000
 EK3_AFFINITY                 0
@@ -295,7 +295,7 @@ EK3_VIS_VERR_MAX             0.900000
 EK3_VIS_VERR_MIN             0.100000
 EK3_WENC_VERR                0.100000
 EK3_WIND_PSCALE              1
-EK3_WIND_P_NSE               0.050000
+EK3_WIND_P_NSE               0.1
 EK3_YAW_I_GATE             300
 EK3_YAW_M_NSE                0.500000
 ESC_TLM_MAV_OFS              0
@@ -376,7 +376,7 @@ GPS_MB2_TYPE                 0
 GPS_MIN_DGPS               100
 GPS_MIN_ELEV              -100
 GPS_NAVFILTER                8
-GPS_POS1_X                  -0.265000
+GPS_POS1_X                   0
 GPS_POS1_Y                   0
 GPS_POS1_Z                   0
 GPS_POS2_X                   0
@@ -1199,7 +1199,7 @@ THR_PASS_STAB                0
 THR_SLEWRATE                 0
 THR_SUPP_MAN                 0
 TKOFF_ACCEL_CNT              1
-TKOFF_ALT                    5
+TKOFF_ALT                   30
 TKOFF_DIST                 200
 TKOFF_FLAP_PCNT              0
 TKOFF_GND_PITCH             -7
