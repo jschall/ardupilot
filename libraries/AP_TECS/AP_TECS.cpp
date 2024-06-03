@@ -1063,12 +1063,15 @@ void AP_TECS::_update_pitch(void)
 
     // Rate limit the pitch demand to comply with specified vertical
     // acceleration limit
-    float ptchRateIncr = _DT * _vertAccLim / _TAS_state;
+    
+    if (_vertAccLim > 0) {
+        float ptchRateIncr = _DT * _vertAccLim / _TAS_state;
 
-    if ((_pitch_dem - _last_pitch_dem) > ptchRateIncr) {
-        _pitch_dem = _last_pitch_dem + ptchRateIncr;
-    } else if ((_pitch_dem - _last_pitch_dem) < -ptchRateIncr) {
-        _pitch_dem = _last_pitch_dem - ptchRateIncr;
+        if ((_pitch_dem - _last_pitch_dem) > ptchRateIncr) {
+            _pitch_dem = _last_pitch_dem + ptchRateIncr;
+        } else if ((_pitch_dem - _last_pitch_dem) < -ptchRateIncr) {
+            _pitch_dem = _last_pitch_dem - ptchRateIncr;
+        }
     }
 
     _last_pitch_dem = _pitch_dem;
