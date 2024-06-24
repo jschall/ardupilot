@@ -745,7 +745,12 @@ void AP_TECS::_update_throttle_with_airspeed(void)
     } else {
         // Calculate gain scaler from specific energy error to throttle
         // (_STEdot_max - _STEdot_min) / (_THRmaxf - _THRminf) is the derivative of STEdot wrt throttle measured across the max allowed throttle range.
-        const float K_STE2Thr = 1 / (timeConstant() * (_STEdot_max - _STEdot_min) / (_THRmaxf - _THRminf));
+        
+        // Use the parameter values rather than the limits to keep gain constant
+        const float STEdot_max_nominal = _maxClimbRate * GRAVITY_MSS;
+        const float STEdot_min_nominal = -_minSinkRate * GRAVITY_MSS;
+
+        const float K_STE2Thr = 1 / (timeConstant() * (STEdot_max_nominal - STEdot_min_nominal) / (_THRmaxf - _THRminf));
 
         // Calculate feed-forward throttle
         const float nomThr = aparm.throttle_cruise * 0.01f;
