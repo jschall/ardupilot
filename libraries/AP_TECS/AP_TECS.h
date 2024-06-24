@@ -196,6 +196,7 @@ private:
     AP_Int32 _options;
     AP_Float _flare_holdoff_hgt;
     AP_Float _hgt_dem_tconst;
+    AP_Float _landVertAcc;
 
     enum {
         OPTION_GLIDER_ONLY=(1<<0),
@@ -277,15 +278,11 @@ private:
     // height demands
     float _hgt_dem_in_raw;      // height demand input from autopilot before any modification (m)
     float _hgt_dem_in;          // height demand input from autopilot after unachievable climb or descent limiting (m)
-    float _hgt_dem_in_prev;     // previous value of _hgt_dem_in (m)
     float _hgt_dem_lpf;         // height demand after application of low pass filtering (m)
-    float _flare_hgt_dem_adj;   // height rate demand duirng flare adjusted for height tracking offset at flare entry (m)
-    float _flare_hgt_dem_ideal; // height we want to fly at during flare (m)
     float _hgt_dem;             // height demand sent to control loops (m)
     float _hgt_dem_prev;        // _hgt_dem from previous frame (m)
 
     // height rate demands
-    float _hgt_dem_rate_ltd;    // height demand after application of the rate limiter (m)
     float _hgt_rate_dem;        // height rate demand sent to control loops
 
     // offset applied to height demand post takeoff to compensate for height demand filter lag
@@ -384,10 +381,7 @@ private:
     float _SKEdot;
 
     // variables used for precision landing pitch control
-    float _hgt_at_start_of_flare;
-    float _hgt_rate_at_flare_entry;
     float _hgt_afe;
-    float _pitch_min_at_flare_entry;
 
     // used to scale max climb and sink limits to match vehicle ability
     float _max_climb_scaler;
