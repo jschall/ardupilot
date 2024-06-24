@@ -14,7 +14,7 @@ public:
     CLASS_NO_COPY(AP_PitchController);
 
     float get_rate_out(float desired_rate, float scaler);
-    float get_servo_out(int32_t angle_err, float scaler, bool disable_integrator, bool ground_mode);
+    float get_servo_out(int32_t angle_err, float scaler, bool disable_integrator, bool ground_mode, float feedforward_rate = 0);
 
     // setup a one loop FF scale multiplier. This replaces any previous scale applied
     // so should only be used when only one source of scaling is needed
@@ -68,5 +68,5 @@ private:
     AP_PIDInfo _pid_info;
 
     float _get_rate_out(float desired_rate, float scaler, bool disable_integrator, float aspeed, bool ground_mode);
-    float _get_coordination_rate_offset(float &aspeed, bool &inverted) const;
+    float _get_coordination_rate_offset(float &aspeed, bool &inverted, float &feedforward_rate_degs) const;
 };

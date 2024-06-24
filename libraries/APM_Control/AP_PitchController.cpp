@@ -270,7 +270,7 @@ float AP_PitchController::get_rate_out(float desired_rate, float scaler)
   Also returns the inverted flag and the estimated airspeed in m/s for
   use by the rest of the pitch controller
  */
-float AP_PitchController::_get_coordination_rate_offset(float &aspeed, bool &inverted) const
+float AP_PitchController::_get_coordination_rate_offset(float &aspeed, bool &inverted, float &feedforward_rate_degs) const
 {
     float rate_offset;
     float bank_angle = AP::ahrs().get_roll();
@@ -301,7 +301,7 @@ float AP_PitchController::_get_coordination_rate_offset(float &aspeed, bool &inv
     if (inverted) {
         rate_offset = -rate_offset;
     }
-    return rate_offset;
+    return rate_offset+feedforward_rate_degs/cosf(bank_angle);
 }
 
 // Function returns an equivalent elevator deflection in centi-degrees in the range from -4500 to 4500
@@ -313,7 +313,7 @@ float AP_PitchController::_get_coordination_rate_offset(float &aspeed, bool &inv
 // 4) minimum FBW airspeed (metres/sec)
 // 5) maximum FBW airspeed (metres/sec)
 //
-float AP_PitchController::get_servo_out(int32_t angle_err, float scaler, bool disable_integrator, bool ground_mode)
+float AP_PitchController::get_servo_out(int32_t angle_err, float scaler, bool disable_integrator, bool ground_mode, float feedforward_rate_degs)
 {
     // Calculate offset to pitch rate demand required to maintain pitch angle whilst banking
     // Calculate ideal turn rate from bank angle and airspeed assuming a level coordinated turn
@@ -326,7 +326,7 @@ float AP_PitchController::get_servo_out(int32_t angle_err, float scaler, bool di
         gains.tau.set(0.05f);
     }
 
-    rate_offset = _get_coordination_rate_offset(aspeed, inverted);
+    rate_offset = _get_coordination_rate_offset(aspeed, inverted, feedforward_rate_degs);
 
     // Calculate the desired pitch rate (deg/sec) from the angle error
     angle_err_deg = angle_err * 0.01;
