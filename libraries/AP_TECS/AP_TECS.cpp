@@ -991,8 +991,8 @@ void AP_TECS::_update_pitch(void)
 
     // track demanded height using the specified time constant
     float SEBdot_dem = _hgt_rate_dem * GRAVITY_MSS * SPE_weighting + SEB_error / timeConstant();
-    const float SEBdot_dem_min = - _maxSinkRate * GRAVITY_MSS;
-    const float SEBdot_dem_max = _maxClimbRate * GRAVITY_MSS;
+    const float SEBdot_dem_min = - _sink_rate_limit * GRAVITY_MSS;
+    const float SEBdot_dem_max = _climb_rate_limit * GRAVITY_MSS;
     if (SEBdot_dem < SEBdot_dem_min) {
         SEBdot_dem = SEBdot_dem_min;
         _SEBdot_dem_clip = clipStatus::MIN;
@@ -1208,7 +1208,7 @@ void AP_TECS::_update_STE_rate_lim(void)
     // This is a trivial calculation at the moment but will get bigger once we start adding altitude effects
     _STEdot_max = _climb_rate_limit * GRAVITY_MSS;
     _STEdot_min = - _minSinkRate * GRAVITY_MSS;
-    _STEdot_neg_max = - _maxSinkRate * GRAVITY_MSS;
+    _STEdot_neg_max = - _sink_rate_limit * GRAVITY_MSS;
 }
 
 
