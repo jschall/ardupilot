@@ -86,7 +86,8 @@ public:
         // Reserving Serial Protocol 47 for SerialProtocol_IQ
         SerialProtocol_PPP = 48,
         SerialProtocol_IBUS_Telem = 49,                // i-BUS telemetry data, ie via sensor port of FS-iA6B
-        SerialProtocol_IOMCU = 50,                     // IOMCU 
+        SerialProtocol_IOMCU = 50,                     // IOMCU
+        SerialProtocol_COBS_ETH = 51,                  // COBS-over-serial Ethernet bridge
         SerialProtocol_NumProtocols                    // must be the last value
     };
 
