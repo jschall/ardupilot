@@ -16,6 +16,10 @@ extern const AP_HAL::HAL& hal;
 #if AP_NETWORKING_BACKEND_CHIBIOS
 #include "AP_Networking_ChibiOS.h"
 #include <hal_mii.h>
+#include "AP_Networking_Hub.h"
+#include "AP_Networking_Port_lwIP.h"
+#include "AP_Networking_Port_Ethernet.h"
+#include "AP_Networking_Port_COBS.h"
 #endif
 
 #include <lwipopts.h>
@@ -23,6 +27,7 @@ extern const AP_HAL::HAL& hal;
 
 
 #include <AP_HAL/utility/Socket.h>
+#include <AP_Vehicle/AP_Vehicle_Type.h>
 
 #if AP_NETWORKING_BACKEND_PPP
 #include "AP_Networking_PPP.h"
@@ -40,6 +45,16 @@ const AP_Param::GroupInfo AP_Networking::var_info[] = {
     // @RebootRequired: True
     // @User: Advanced
     AP_GROUPINFO_FLAGS("ENABLE",  1, AP_Networking, param.enabled, 0, AP_PARAM_FLAG_ENABLE),
+
+#if AP_NETWORKING_BACKEND_HUB_PORT_LWIP
+    // @Param: IP_ENABLE
+    // @DisplayName: Enable IP stack
+    // @Description: Enable/Disable the TCP/IP (lwIP) stack. When disabled, the system still bridges Ethernet and UART at Layer 2.
+    // @Values: 0:Disable,1:Enable
+    // @RebootRequired: True
+    // @User: Advanced
+    AP_GROUPINFO("IP_ENABLE",  13, AP_Networking, param.ip_enabled, 1),
+#endif
 
 #if AP_NETWORKING_CONTROLS_HOST_IP_SETTINGS_ENABLED
     // @Group: IPADDR
@@ -67,11 +82,13 @@ const AP_Param::GroupInfo AP_Networking::var_info[] = {
     // @Group: GWADDR
     // @Path: AP_Networking_address.cpp
     AP_SUBGROUPINFO(param.gwaddr, "GWADDR", 5,  AP_Networking, AP_Networking_IPV4),
+#endif // AP_NETWORKING_CONTROLS_HOST_IP_SETTINGS_ENABLED
 
+#if AP_NETWORKING_CONTROLS_HOST_MAC_SETTINGS_ENABLED
     // @Group: MACADDR
     // @Path: AP_Networking_macaddr.cpp
     AP_SUBGROUPINFO(param.macaddr, "MACADDR", 6,  AP_Networking, AP_Networking_MAC),
-#endif // AP_NETWORKING_CONTROLS_HOST_IP_SETTINGS_ENABLED
+#endif // AP_NETWORKING_CONTROLS_HOST_MAC_SETTINGS_ENABLED
 
 #if AP_NETWORKING_TESTS_ENABLED
     // @Param: TESTS
@@ -127,7 +144,7 @@ void AP_Networking::init()
         return;
     }
 
-#if AP_NETWORKING_CONTROLS_HOST_IP_SETTINGS_ENABLED
+#if AP_NETWORKING_CONTROLS_HOST_MAC_SETTINGS_ENABLED
     // set default MAC Address as lower 3 bytes of the CRC of the UID
     uint8_t uid[50];
     uint8_t uid_len = sizeof(uid);
@@ -176,6 +193,79 @@ void AP_Networking::init()
         GCS_SEND_TEXT(MAV_SEVERITY_INFO, "NET: backend failed");
         return;
     }
+
+    // Create hub and ports before backend init on ChibiOS so lwIP connects to hub
+#if AP_NETWORKING_BACKEND_HUB
+    if (hub == nullptr) {
+        hub = NEW_NOTHROW AP_Networking_Hub();
+    }
+    if (hub != nullptr) {
+        // Ethernet port (may fail if MAC not present)
+#if AP_NETWORKING_BACKEND_HUB_PORT_ETHERNET
+        if (port_eth == nullptr) {
+            uint8_t macaddr_tmp[6] {};
+#if AP_NETWORKING_CONTROLS_HOST_MAC_SETTINGS_ENABLED
+            param.macaddr.get_address(macaddr_tmp);
+#endif
+            port_eth = NEW_NOTHROW AP_Networking_Port_Ethernet(*this, hub, macaddr_tmp);
+            if (port_eth != nullptr) {
+                if (port_eth->init()) {
+                    UNUSED_RESULT(hub->register_port(port_eth));
+                } else {
+                    GCS_SEND_TEXT(MAV_SEVERITY_WARNING, "NET: Ethernet port init failed");
+                    delete port_eth;
+                    port_eth = nullptr;
+                }
+            }
+        }
+#endif // AP_NETWORKING_BACKEND_HUB_PORT_ETHERNET
+
+#if AP_NETWORKING_BACKEND_HUB_PORT_LWIP
+        // lwIP port (only created if IP stack is enabled)
+        if (param.ip_enabled && port_lwip == nullptr) {
+            port_lwip = NEW_NOTHROW AP_Networking_Port_lwIP(hub);
+            if (port_lwip != nullptr) {
+                if (port_lwip->init()) {
+                    UNUSED_RESULT(hub->register_port(port_lwip));
+                } else {
+                    GCS_SEND_TEXT(MAV_SEVERITY_WARNING, "NET: lwIP port init failed");
+                    delete port_lwip;
+                    port_lwip = nullptr;
+                }
+            }
+        }
+#endif // AP_NETWORKING_BACKEND_HUB_PORT_LWIP
+
+        // Create COBS_ETH ports for any SERIALn configured with that protocol
+        num_cobs_ports = 0;
+#if AP_NETWORKING_BACKEND_HUB_PORT_COBS
+        for (uint8_t inst = 0; inst < MAX_COBS_ETH_PORTS; inst++) {
+            if (!AP::serialmanager().have_serial(AP_SerialManager::SerialProtocol_COBS_ETH, inst)) {
+                continue;
+            }
+            auto *uart = AP::serialmanager().find_serial(AP_SerialManager::SerialProtocol_COBS_ETH, inst);
+            const uint32_t baud = AP::serialmanager().find_baudrate(AP_SerialManager::SerialProtocol_COBS_ETH, inst);
+            if (uart == nullptr || baud == 0) {
+                continue;
+            }
+            auto *p = NEW_NOTHROW AP_Networking_Port_COBS(hub, uart, baud);
+            if (p == nullptr) {
+                continue;
+            }
+            if (!p->init()) {
+                delete p;
+                continue;
+            }
+            if (hub->register_port(p) < 0) {
+                GCS_SEND_TEXT(MAV_SEVERITY_WARNING, "NET: hub full, COBS skipped");
+                delete p;
+                continue;
+            }
+            cobs_ports[num_cobs_ports++] = p;
+        }
+#endif // AP_NETWORKING_BACKEND_HUB_PORT_COBS
+    }
+#endif // AP_NETWORKING_BACKEND_HUB
 
     if (!backend->init()) {
         GCS_SEND_TEXT(MAV_SEVERITY_INFO, "NET: backend init failed");
@@ -250,6 +340,14 @@ void AP_Networking::update()
     if (!is_healthy()) {
         return;
     }
+
+#if AP_NETWORKING_BACKEND_HUB
+    // update hub/ports
+    if (hub != nullptr) {
+        hub->update();
+    }
+#endif // AP_NETWORKING_BACKEND_HUB
+
     backend->update();
     announce_address_changes();
 }
@@ -453,6 +551,17 @@ int ap_networking_printf(const char *fmt, ...)
     va_start(ap, fmt);
     vdprintf(fd, fmt, ap);
     va_end(ap);
+#elif defined(HAL_PERIPH_ENABLE_NETWORKING)
+    // Use can_printf for AP_Periph to send logs over CAN
+    extern void can_printf(const char *fmt, ...);
+    va_list ap;
+    va_start(ap, fmt);
+    char buf[256];
+    int n = hal.util->vsnprintf(buf, sizeof(buf), fmt, ap);
+    va_end(ap);
+    if (n > 0 && n < (int)sizeof(buf)) {
+        can_printf("%s", buf);
+    }
 #else
     va_list ap;
     va_start(ap, fmt);

@@ -4,12 +4,24 @@
 
 #if AP_NETWORKING_BACKEND_CHIBIOS
 #include "AP_Networking_Backend.h"
+#include <stddef.h>
 
 class AP_Networking_ChibiOS : public AP_Networking_Backend
 {
 public:
     friend class BL_Network;
     using AP_Networking_Backend::AP_Networking_Backend;
+
+    // Switch interface callbacks for integrating an external Layer-2 switch
+    using rx_get_frame_f = bool (*)(uint8_t *buf, size_t *len, size_t max_len);
+    using tx_send_frame_f = bool (*)(const uint8_t *frame, size_t len);
+
+    // Register/unregister switch interface; when active, lwIP RX/TX route via these
+    static void set_switch_interface(rx_get_frame_f rx_cb, tx_send_frame_f tx_cb);
+    static bool switch_interface_active();
+
+    // Allocate MAC DMA buffers (called by Port_Ethernet and BL_Network)
+    static bool allocate_buffers();
 
     /* Do not allow copies */
     CLASS_NO_COPY(AP_Networking_ChibiOS);
@@ -18,7 +30,6 @@ public:
     void update() override;
 
 private:
-    static bool allocate_buffers(void);
     void thread(void);
     static void link_up_cb(void*);
     static void link_down_cb(void*);

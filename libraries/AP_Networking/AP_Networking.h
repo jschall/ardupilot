@@ -12,6 +12,12 @@
 #include <AP_SerialManager/AP_SerialManager.h>
 #include <AP_HAL/utility/RingBuffer.h>
 
+// forward declarations for hub/ports
+class AP_Networking_Hub;
+class AP_Networking_Port_lwIP;
+class AP_Networking_Port_Ethernet;
+class AP_Networking_Port_COBS;
+
 /*
   Note! all uint32_t IPv4 addresses are in host byte order
 */
@@ -57,6 +63,9 @@ public:
     {
         return param.enabled && backend != nullptr;
     }
+
+    // returns true if lwIP stack is enabled by parameter
+    bool get_ip_enabled() const { return param.ip_enabled; }
 
     // returns true if DHCP is enabled
     bool get_dhcp_enabled() const
@@ -198,13 +207,16 @@ private:
         AP_Networking_IPV4 ipaddr{AP_NETWORKING_DEFAULT_STATIC_IP_ADDR};
         AP_Int8 netmask;    // bits to mask. example: (16 == 255.255.0.0) and (24 == 255.255.255.0)
         AP_Networking_IPV4 gwaddr{AP_NETWORKING_DEFAULT_STATIC_GW_ADDR};
-        AP_Networking_MAC macaddr{AP_NETWORKING_DEFAULT_MAC_ADDR};
 #if AP_NETWORKING_DHCP_AVAILABLE
         AP_Int8 dhcp;
 #endif
 #endif
+#if AP_NETWORKING_CONTROLS_HOST_MAC_SETTINGS_ENABLED
+        AP_Networking_MAC macaddr{AP_NETWORKING_DEFAULT_MAC_ADDR};
+#endif
 
         AP_Int8 enabled;
+        AP_Int8 ip_enabled; // enable/disable IP stack (lwIP)
         AP_Int32 options;
 
 #if AP_NETWORKING_TESTS_ENABLED
@@ -247,6 +259,8 @@ private:
         NetworkPortType type;
         AP_Networking_IPV4 ip {"0.0.0.0"};
         AP_Int32 port;
+        uint32_t ip_prev;
+        int32_t port_prev;
         SocketAPM *sock;
         SocketAPM *listen_sock;
 
@@ -357,6 +371,25 @@ private:
     bool sendfile_thread_started;
 
     void ports_init(void);
+
+#if AP_NETWORKING_BACKEND_HUB
+public:
+    // Debug accessors for AP_Periph stats logging
+    AP_Networking_Hub *get_hub() const { return hub; }
+    AP_Networking_Port_lwIP *get_port_lwip() const { return port_lwip; }
+    AP_Networking_Port_Ethernet *get_port_eth() const { return port_eth; }
+    uint8_t get_num_cobs_ports() const { return num_cobs_ports; }
+    AP_Networking_Port_COBS *get_cobs_port(uint8_t i) const { return (i < num_cobs_ports) ? cobs_ports[i] : nullptr; }
+
+private:
+    // Networking hub and ports (ChibiOS)
+    AP_Networking_Hub *hub = nullptr;
+    AP_Networking_Port_lwIP *port_lwip = nullptr;
+    AP_Networking_Port_Ethernet *port_eth = nullptr;
+    static constexpr uint8_t MAX_COBS_ETH_PORTS = 4;
+    AP_Networking_Port_COBS *cobs_ports[MAX_COBS_ETH_PORTS] {};
+    uint8_t num_cobs_ports = 0;
+#endif // AP_NETWORKING_BACKEND_HUB
 };
 
 namespace AP
