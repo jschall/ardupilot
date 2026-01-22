@@ -74,12 +74,15 @@ private:
     void set_promiscuous_mode();
 
     // RX/TX thread functions
-    void process_rx();
     void rx_thread();
     void tx_thread();
+    bool process_one_rx_descriptor(sysinterval_t timeout);
+
+    // RX frame buffer (used only from rx_thread context)
+    static constexpr size_t MAX_FRAME = 1522;
+    uint8_t rx_framebuf[MAX_FRAME];
 
     // TX queue (single reader: tx_thread, multiple writers: deliver_frame)
-    static constexpr size_t MAX_FRAME = 1522;
     static constexpr size_t TX_QUEUE_SIZE = 16 * (MAX_FRAME + 2);
     ByteBuffer *tx_queue = nullptr;
     HAL_Semaphore tx_mutex;          // guards writers

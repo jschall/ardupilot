@@ -79,48 +79,33 @@ void AP_Networking_Port_Ethernet::update()
     // nothing required; threads handle RX/TX
 }
 
-void AP_Networking_Port_Ethernet::process_rx()
+bool AP_Networking_Port_Ethernet::process_one_rx_descriptor(sysinterval_t timeout)
 {
-    while (true) {
-        MACReceiveDescriptor rd;
-        if (macWaitReceiveDescriptor(&ETHD1, &rd, TIME_IMMEDIATE) != MSG_OK) {
-            return;
-        }
-        const size_t len = (size_t)rd.size;
-        if (len == 0 || len > AP_Networking_Hub::MAX_ETH_FRAME) {
-            macReleaseReceiveDescriptorX(&rd);
-            rx_errors++;
-            continue;
-        }
-        static uint8_t framebuf[AP_Networking_Hub::MAX_ETH_FRAME];
-        macReadReceiveDescriptor(&rd, framebuf, len);
-        macReleaseReceiveDescriptorX(&rd);
-        hub->route_frame(this, framebuf, len);
-        rx_count++;
+    MACReceiveDescriptor rd;
+    if (macWaitReceiveDescriptor(&ETHD1, &rd, timeout) != MSG_OK) {
+        return false;
     }
+    const size_t len = (size_t)rd.size;
+    if (len == 0 || len > MAX_FRAME) {
+        macReleaseReceiveDescriptorX(&rd);
+        rx_errors++;
+        return true;
+    }
+    macReadReceiveDescriptor(&rd, rx_framebuf, len);
+    macReleaseReceiveDescriptorX(&rd);
+    hub->route_frame(this, rx_framebuf, len);
+    rx_count++;
+    return true;
 }
 
 void AP_Networking_Port_Ethernet::rx_thread()
 {
-    // Block on descriptors; process immediately
     while (true) {
-        MACReceiveDescriptor rd;
-        if (macWaitReceiveDescriptor(&ETHD1, &rd, TIME_INFINITE) != MSG_OK) {
+        if (!process_one_rx_descriptor(TIME_INFINITE)) {
             continue;
         }
-        const size_t len = (size_t)rd.size;
-        if (len == 0 || len > AP_Networking_Hub::MAX_ETH_FRAME) {
-            macReleaseReceiveDescriptorX(&rd);
-            rx_errors++;
-            continue;
+        while (process_one_rx_descriptor(TIME_IMMEDIATE)) {
         }
-        static uint8_t framebuf[AP_Networking_Hub::MAX_ETH_FRAME];
-        macReadReceiveDescriptor(&rd, framebuf, len);
-        macReleaseReceiveDescriptorX(&rd);
-        hub->route_frame(this, framebuf, len);
-        rx_count++;
-        // drain any remaining descriptors quickly
-        process_rx();
     }
 }
 

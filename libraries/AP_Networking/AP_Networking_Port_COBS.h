@@ -104,6 +104,7 @@ private:
 
     void process_rx();  // read UART, COBS-decode, route to hub
     void drain_tx();    // write from tx_buffer to UART
+    bool handle_decoded_frame(size_t frame_len);  // validate CRC and route frame
 
     uint32_t rx_count;
     uint32_t tx_count;
