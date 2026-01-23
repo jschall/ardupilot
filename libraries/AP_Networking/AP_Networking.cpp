@@ -200,14 +200,10 @@ void AP_Networking::init()
         hub = NEW_NOTHROW AP_Networking_Hub();
     }
     if (hub != nullptr) {
-        // Ethernet port (may fail if MAC not present)
+        // Ethernet port - hooks into ChibiOS backend
 #if AP_NETWORKING_BACKEND_HUB_PORT_ETHERNET
         if (port_eth == nullptr) {
-            uint8_t macaddr_tmp[6] {};
-#if AP_NETWORKING_CONTROLS_HOST_MAC_SETTINGS_ENABLED
-            param.macaddr.get_address(macaddr_tmp);
-#endif
-            port_eth = NEW_NOTHROW AP_Networking_Port_Ethernet(*this, hub, macaddr_tmp);
+            port_eth = NEW_NOTHROW AP_Networking_Port_Ethernet(hub);
             if (port_eth != nullptr) {
                 if (port_eth->init()) {
                     UNUSED_RESULT(hub->register_port(port_eth));

@@ -5,81 +5,41 @@
 #if AP_NETWORKING_BACKEND_HUB_PORT_LWIP
 
 #include "AP_Networking_Hub.h"
-#include <AP_Common/AP_Common.h>
-#include <AP_HAL/utility/RingBuffer.h>
-#include <AP_HAL/Semaphores.h>
-#include <hal.h>
 
 /*
-  lwIP port that bridges frames between lwIP and hub
+  lwIP port for hub.
+  Hooks into ChibiOS backend's lwIP TX to route frames through hub.
+  Receives frames from hub via inject_frame_to_lwip.
 */
 class AP_Networking_Port_lwIP : public AP_Networking_HubPort
 {
 public:
-    AP_Networking_Port_lwIP(AP_Networking_Hub *hub_in);
-    ~AP_Networking_Port_lwIP();
+    AP_Networking_Port_lwIP(AP_Networking_Hub *hub_in) : hub(hub_in) {}
 
     CLASS_NO_COPY(AP_Networking_Port_lwIP);
 
     bool init();
-    void update() override;
+    void update() override {}
 
     // AP_Networking_HubPort interface
     void deliver_frame(const uint8_t *frame, size_t len) override;
-    bool can_receive() const override;
-    const char *get_name() const override
-    {
-        return "lwIP";
-    }
-    // lwIP virtual port is considered up while enabled/initialized
-    bool is_link_up() const override
-    {
-        return true;
-    }
-
-    // Called by lwIP low_level_input
-    bool get_frame(uint8_t *buf, size_t *len, size_t max_len);
-
-    // Called by lwIP low_level_output
-    void send_frame(const uint8_t *frame, size_t len);
-
-    // Event source to signal frames are available to lwIP thread
-    event_source_t *get_event_source()
-    {
-        return &frame_available_event;
-    }
+    bool can_receive() const override { return true; }
+    const char *get_name() const override { return "lwIP"; }
+    bool is_link_up() const override { return true; }  // lwIP is always "up"
 
     // Statistics
-    uint32_t get_rx_count() const
-    {
-        return rx_count;
-    }
-    uint32_t get_tx_count() const
-    {
-        return tx_count;
-    }
-    uint32_t get_rx_errors() const
-    {
-        return rx_errors;
-    }
-    uint32_t get_tx_errors() const
-    {
-        return tx_errors;
-    }
+    uint32_t get_rx_count() const { return rx_count; }
+    uint32_t get_tx_count() const { return tx_count; }
+    uint32_t get_rx_errors() const { return rx_errors; }
+    uint32_t get_tx_errors() const { return tx_errors; }
 
 private:
     AP_Networking_Hub *hub;
 
-    // Frame queue for lwIP
-    static constexpr size_t MAX_FRAME = 1522;
-    static constexpr size_t RX_QUEUE_SIZE = 16 * MAX_FRAME + 32; // include space for length headers
-    ByteBuffer *rx_queue;
-    HAL_Semaphore rx_sem;
+    // TX hook callback - called by ChibiOS backend when lwIP sends a frame
+    static void tx_hook(const uint8_t *frame, size_t len);
 
-    // Event source for signaling frame availability to lwIP thread
-    event_source_t frame_available_event;
-
-    void signal_frame_available();
+    static AP_Networking_Port_lwIP *singleton;
 
     uint32_t rx_count;
     uint32_t tx_count;
@@ -88,5 +48,3 @@ private:
 };
 
 #endif // AP_NETWORKING_BACKEND_HUB_PORT_LWIP
-
-
