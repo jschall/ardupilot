@@ -25,18 +25,37 @@ extern const AP_HAL::HAL& hal;
 #include <hal_mii.h>
 #endif
 
+#if AP_NETWORKING_BACKEND_HUB_PORT_LWIP
 #include "AP_Networking_Port_lwIP.h"
+#endif
+#if AP_NETWORKING_BACKEND_HUB_PORT_ETHERNET
 #include "AP_Networking_Port_Ethernet.h"
+#endif
+#if AP_NETWORKING_BACKEND_HUB_PORT_COBS
 #include "AP_Networking_Port_COBS.h"
+#endif
 
 #define LWIP_SEND_TIMEOUT_MS 50
 #define LWIP_NETIF_MTU       1500
 #define LWIP_LINK_POLL_INTERVAL TIME_S2I(5)
-#define FAST_COBS_POLL_INTERVAL TIME_MS2I(1)
-#define FAST_COBS_TIMER_ID       8
 
 #define PERIODIC_TIMER_ID       1
+#define FRAME_RECEIVED_ID       2
+
+#if AP_NETWORKING_BACKEND_HUB_PORT_LWIP
 #define LWIP_PORT_FRAME_ID      4
+#endif
+#if AP_NETWORKING_BACKEND_HUB_PORT_COBS
+#define FAST_COBS_POLL_INTERVAL TIME_MS2I(1)
+#define FAST_COBS_TIMER_ID       8
+#endif
+
+#if !AP_NETWORKING_BACKEND_HUB_PORT_ETHERNET
+// Original upstream code path: ChibiOS backend owns the MAC directly
+#ifndef STM32_ETH_BUFFERS_EXTERN
+#error "Must use external ethernet buffers"
+#endif
+#endif // !AP_NETWORKING_BACKEND_HUB_PORT_ETHERNET
 
 #ifdef STM32_ETH_BUFFERS_EXTERN
 /*
@@ -110,11 +129,11 @@ bool AP_Networking_ChibiOS::allocate_buffers()
 #else // !STM32_ETH_BUFFERS_EXTERN
 bool AP_Networking_ChibiOS::allocate_buffers()
 {
-    // External ethernet buffers required but not available
     return false;
 }
 #endif // STM32_ETH_BUFFERS_EXTERN
 
+#if AP_NETWORKING_BACKEND_HUB_PORT_LWIP
 /*
   Process a received frame buffer and deliver to lwIP.
   Allocates a pbuf, copies data, and dispatches IP/ARP frames to netif.
@@ -176,6 +195,7 @@ bool AP_Networking_ChibiOS::switch_interface_active()
 {
     return (s_switch_rx_cb != nullptr) && (s_switch_tx_cb != nullptr);
 }
+#endif // AP_NETWORKING_BACKEND_HUB_PORT_LWIP
 
 /*
   initialise ChibiOS network backend using LWIP
@@ -184,11 +204,35 @@ bool AP_Networking_ChibiOS::init()
 {
 #ifdef HAL_GPIO_ETH_ENABLE
     hal.gpio->pinMode(HAL_GPIO_ETH_ENABLE, HAL_GPIO_OUTPUT);
+#if !AP_NETWORKING_BACKEND_HUB_PORT_ETHERNET
+    hal.gpio->write(HAL_GPIO_ETH_ENABLE, frontend.param.enabled ? 1 : 0);
+#else
     hal.gpio->write(HAL_GPIO_ETH_ENABLE, 0); // reset
     hal.scheduler->delay(25);
     hal.gpio->write(HAL_GPIO_ETH_ENABLE, frontend.param.enabled ? 1 : 0);
     hal.scheduler->delay(10);
 #endif
+#endif
+
+#if !AP_NETWORKING_BACKEND_HUB_PORT_ETHERNET
+    // Original path: ChibiOS backend initializes MAC directly
+    if (!allocate_buffers()) {
+        GCS_SEND_TEXT(MAV_SEVERITY_ERROR, "NET: Failed to allocate buffers");
+        return false;
+    }
+
+    if (!macInit()) {
+        GCS_SEND_TEXT(MAV_SEVERITY_ERROR, "NET: macInit failed");
+        return false;
+    }
+
+#if LWIP_IGMP
+    if (ETH != nullptr) {
+        // enable "permit multicast" so we can receive multicast packets
+        ETH->MACPFR |= ETH_MACPFR_PM;
+    }
+#endif
+#endif // !AP_NETWORKING_BACKEND_HUB_PORT_ETHERNET
 
     thisif = NEW_NOTHROW netif;
     if (thisif == nullptr) {
@@ -223,6 +267,7 @@ void AP_Networking_ChibiOS::link_down_cb(void *p)
     }
 #endif
 }
+
 
 #if AP_NETWORKING_CAPTURE_ENABLED
 /*
@@ -288,7 +333,33 @@ int8_t AP_Networking_ChibiOS::low_level_output(struct netif *netif, struct pbuf 
     capture_pbuf(p);
 #endif
 
-    // copy pbuf chain into contiguous frame buffer and send via lwIP port or switch
+#if !AP_NETWORKING_BACKEND_HUB_PORT_ETHERNET
+    // Original path: transmit directly via MAC
+    struct pbuf *q;
+    MACTransmitDescriptor td;
+
+    if (macWaitTransmitDescriptor(&ETHD1, &td, TIME_MS2I(LWIP_SEND_TIMEOUT_MS)) != MSG_OK) {
+        return ERR_TIMEOUT;
+    }
+
+#if ETH_PAD_SIZE
+    pbuf_header(p, -ETH_PAD_SIZE);        /* drop the padding word */
+#endif
+
+    /* Iterates through the pbuf chain. */
+    for(q = p; q != NULL; q = q->next) {
+        macWriteTransmitDescriptor(&td, (uint8_t *)q->payload, (size_t)q->len);
+    }
+    macReleaseTransmitDescriptorX(&td);
+
+#if ETH_PAD_SIZE
+    pbuf_header(p, ETH_PAD_SIZE);         /* reclaim the padding word */
+#endif
+
+    return ERR_OK;
+
+#else // AP_NETWORKING_BACKEND_HUB_PORT_ETHERNET
+    // Hub path: copy pbuf chain into contiguous frame buffer and send via lwIP port or switch
     static uint8_t framebuf[1522];
     size_t ofs = 0;
 #if ETH_PAD_SIZE
@@ -308,17 +379,76 @@ int8_t AP_Networking_ChibiOS::low_level_output(struct netif *netif, struct pbuf 
 #if ETH_PAD_SIZE
     pbuf_header(p, ETH_PAD_SIZE);         /* reclaim the padding word */
 #endif
+#if AP_NETWORKING_BACKEND_HUB_PORT_LWIP
     if (s_switch_tx_cb != nullptr) {
         return s_switch_tx_cb(framebuf, ofs) ? ERR_OK : ERR_IF;
     }
-#if AP_NETWORKING_BACKEND_HUB_PORT_LWIP
     if (AP::network().port_lwip != nullptr) {
         AP::network().port_lwip->send_frame(framebuf, ofs);
         return ERR_OK;
     }
 #endif
     return ERR_IF;
+#endif // AP_NETWORKING_BACKEND_HUB_PORT_ETHERNET
 }
+
+#if !AP_NETWORKING_BACKEND_HUB_PORT_ETHERNET
+/*
+ * Receives a frame.
+ * Allocates a pbuf and transfers the bytes of the incoming
+ * packet from the interface into the pbuf.
+ *
+ * @param netif the lwip network interface structure for this ethernetif
+ * @return a pbuf filled with the received packet (including MAC header)
+ *         NULL on memory error
+ */
+bool AP_Networking_ChibiOS::low_level_input(struct netif *netif, struct pbuf **pbuf)
+{
+    MACReceiveDescriptor rd;
+    struct pbuf *q;
+    u16_t len;
+
+    (void)netif;
+
+    if (macWaitReceiveDescriptor(&ETHD1, &rd, TIME_IMMEDIATE) != MSG_OK) {
+        return false;
+    }
+
+    len = (u16_t)rd.size;
+
+#if ETH_PAD_SIZE
+    len += ETH_PAD_SIZE;        /* allow room for Ethernet padding */
+#endif
+
+    /* We allocate a pbuf chain of pbufs from the pool. */
+    *pbuf = pbuf_alloc(PBUF_RAW, len, PBUF_POOL);
+
+    if (*pbuf != nullptr) {
+#if ETH_PAD_SIZE
+        pbuf_header(*pbuf, -ETH_PAD_SIZE); /* drop the padding word */
+#endif
+
+        /* Iterates through the pbuf chain. */
+        for(q = *pbuf; q != NULL; q = q->next) {
+            macReadReceiveDescriptor(&rd, (uint8_t *)q->payload, (size_t)q->len);
+        }
+        macReleaseReceiveDescriptorX(&rd);
+
+#if ETH_PAD_SIZE
+        pbuf_header(*pbuf, ETH_PAD_SIZE); /* reclaim the padding word */
+#endif
+
+#if AP_NETWORKING_CAPTURE_ENABLED
+        capture_pbuf(*pbuf);
+#endif
+
+    } else {
+        macReleaseReceiveDescriptorX(&rd);     // Drop packet
+    }
+  
+    return true;
+}
+#endif // !AP_NETWORKING_BACKEND_HUB_PORT_ETHERNET
 
 int8_t AP_Networking_ChibiOS::ethernetif_init(struct netif *netif)
 {
@@ -395,11 +525,8 @@ void AP_Networking_ChibiOS::thread()
         hal.scheduler->delay_microseconds(1000);
     }
 
-    /* start tcpip thread if lwIP is enabled */
-    const bool ip_enabled = frontend.param.ip_enabled && AP_NETWORKING_BACKEND_HUB_PORT_LWIP;
-    if (ip_enabled) {
-        tcpip_init(NULL, NULL);
-    }
+    /* start tcpip thread */
+    tcpip_init(NULL, NULL);
 
 #if AP_NETWORKING_CONTROLS_HOST_MAC_SETTINGS_ENABLED
     frontend.param.macaddr.get_address(thisif->hwaddr);
@@ -409,22 +536,26 @@ void AP_Networking_ChibiOS::thread()
         ip4_addr_t ip, gateway, netmask;
     } addr {};
 
-    if (ip_enabled && !frontend.get_dhcp_enabled()) {
+    if (!frontend.get_dhcp_enabled()) {
         addr.ip.addr = htonl(frontend.get_ip_param());
         addr.gateway.addr = htonl(frontend.get_gateway_param());
         addr.netmask.addr = htonl(frontend.get_netmask_param());
     }
 
-    if (ip_enabled) {
-        /* Add interface. */
-        auto result = netifapi_netif_add(thisif, &addr.ip, &addr.netmask, &addr.gateway, NULL, ethernetif_init, tcpip_input);
-        if (result != ERR_OK) {
-            AP_HAL::panic("Failed to initialise netif");
-        }
+#if !AP_NETWORKING_BACKEND_HUB_PORT_ETHERNET
+    // Original path: start MAC from ChibiOS backend
+    const MACConfig mac_config = {thisif->hwaddr};
+    macStart(&ETHD1, &mac_config);
+#endif
 
-        netifapi_netif_set_default(thisif);
-        netifapi_netif_set_up(thisif);
+    /* Add interface. */
+    auto result = netifapi_netif_add(thisif, &addr.ip, &addr.netmask, &addr.gateway, NULL, ethernetif_init, tcpip_input);
+    if (result != ERR_OK) {
+        AP_HAL::panic("Failed to initialise netif");
     }
+
+    netifapi_netif_set_default(thisif);
+    netifapi_netif_set_up(thisif);
 
 #ifdef NEEDS_KSZ9896C_ERRATA
     apply_errata_for_mac_KSZ9896C();
@@ -432,51 +563,76 @@ void AP_Networking_ChibiOS::thread()
 
     /* Setup event sources.*/
     event_timer_t evt;
-    event_timer_t evt_fast;
-    event_listener_t el0, el_fast;
+    event_listener_t el0;
     
     evtObjectInit(&evt, LWIP_LINK_POLL_INTERVAL);
     evtStart(&evt);
     chEvtRegisterMask(&evt.et_es, &el0, PERIODIC_TIMER_ID);
+
+#if !AP_NETWORKING_BACKEND_HUB_PORT_ETHERNET
+    // Original path: register for MAC RX events
+    event_listener_t el1;
+    chEvtRegisterMaskWithFlags(macGetEventSource(&ETHD1), &el1,
+                               FRAME_RECEIVED_ID, MAC_FLAGS_RX);
+    chEvtAddEvents(PERIODIC_TIMER_ID | FRAME_RECEIVED_ID);
+#else
+    // Hub path: register for lwIP port and COBS events
 #if AP_NETWORKING_BACKEND_HUB_PORT_LWIP
     event_listener_t el2;
     if (AP::network().port_lwip != nullptr) {
         chEvtRegisterMask(AP::network().port_lwip->get_event_source(), &el2, LWIP_PORT_FRAME_ID);
     }
 #endif
-    // fast poll for COBS ports to reduce latency
+#if AP_NETWORKING_BACKEND_HUB_PORT_COBS
+    event_timer_t evt_fast;
+    event_listener_t el_fast;
     evtObjectInit(&evt_fast, FAST_COBS_POLL_INTERVAL);
     evtStart(&evt_fast);
     chEvtRegisterMask(&evt_fast.et_es, &el_fast, FAST_COBS_TIMER_ID);
-    chEvtAddEvents(PERIODIC_TIMER_ID | LWIP_PORT_FRAME_ID | FAST_COBS_TIMER_ID);
+#endif
+    chEvtAddEvents(PERIODIC_TIMER_ID
+#if AP_NETWORKING_BACKEND_HUB_PORT_LWIP
+                   | LWIP_PORT_FRAME_ID
+#endif
+#if AP_NETWORKING_BACKEND_HUB_PORT_COBS
+                   | FAST_COBS_TIMER_ID
+#endif
+                   );
+#endif // !AP_NETWORKING_BACKEND_HUB_PORT_ETHERNET
 
     while (true) {
+#if AP_NETWORKING_CAPTURE_ENABLED
+        eventmask_t mask = chEvtWaitAnyTimeout(ALL_EVENTS, chTimeMS2I(1000));
+#else
         eventmask_t mask = chEvtWaitAny(ALL_EVENTS);
-        static uint8_t rx_frame_buf[1522];
+#endif
 
         if (mask & PERIODIC_TIMER_ID) {
-            // Link policy: lwIP is considered link-up when at least 2 hub ports are up.
-            // Since the lwIP port itself always reports link-up, this means lwIP is
-            // connected to at least one physical port (Ethernet or COBS) with active link.
-            if (ip_enabled) {
-                uint8_t up_count = 0;
+#if !AP_NETWORKING_BACKEND_HUB_PORT_ETHERNET
+            // Original path: poll MAC link status directly
+            bool current_link_status = macPollLinkStatus(&ETHD1);
+#else
+            // Hub path: lwIP is considered link-up when at least 2 hub ports are up.
+            uint8_t up_count = 0;
 #if AP_NETWORKING_BACKEND_HUB
-                if (AP::network().get_hub() != nullptr) {
-                    up_count = AP::network().get_hub()->get_num_ports_link_up();
+            if (AP::network().get_hub() != nullptr) {
+                up_count = AP::network().get_hub()->get_num_ports_link_up();
+            }
+#endif
+            const bool current_link_status = (up_count >= 2);
+#endif // !AP_NETWORKING_BACKEND_HUB_PORT_ETHERNET
+
+            if (current_link_status != netif_is_link_up(thisif)) {
+                if (current_link_status) {
+                    tcpip_callback_with_block((tcpip_callback_fn) netif_set_link_up, thisif, 0);
+                    tcpip_callback_with_block(link_up_cb, this, 0);
                 }
-#endif // AP_NETWORKING_BACKEND_HUB
-                const bool current_link_status = (up_count >= 2);
-                if (current_link_status != netif_is_link_up(thisif)) {
-                    if (current_link_status) {
-                        tcpip_callback_with_block((tcpip_callback_fn) netif_set_link_up, thisif, 0);
-                        tcpip_callback_with_block(link_up_cb, this, 0);
-                    }
-                    else {
-                        tcpip_callback_with_block((tcpip_callback_fn) netif_set_link_down, thisif, 0);
-                        tcpip_callback_with_block(link_down_cb, this, 0);
-                    }
+                else {
+                    tcpip_callback_with_block((tcpip_callback_fn) netif_set_link_down, thisif, 0);
+                    tcpip_callback_with_block(link_down_cb, this, 0);
                 }
             }
+
 #if AP_NETWORKING_CAPTURE_ENABLED
             if (frontend.option_is_set(AP_Networking::OPTION::CAPTURE_PACKETS)) {
                 start_capture();
@@ -486,6 +642,32 @@ void AP_Networking_ChibiOS::thread()
 #endif
         }
 
+#if !AP_NETWORKING_BACKEND_HUB_PORT_ETHERNET
+        // Original path: receive frames directly from MAC
+        if (mask & FRAME_RECEIVED_ID) {
+            struct pbuf *p;
+            while (low_level_input(thisif, &p)) {
+                if (p != NULL) {
+                    struct eth_hdr *ethhdr = (struct eth_hdr *)p->payload;
+                    switch (htons(ethhdr->type)) {
+                        /* IP or ARP packet? */
+                    case ETHTYPE_IP:
+                    case ETHTYPE_ARP:
+                        /* full packet send to tcpip_thread to process */
+                        if (thisif->input(p, thisif) == ERR_OK) {
+                            break;
+                        }
+                        /* Falls through */
+                    default:
+                        pbuf_free(p);
+                    }
+                }
+            }
+        }
+#else
+        // Hub path: receive frames from lwIP port or switch interface
+#if AP_NETWORKING_BACKEND_HUB_PORT_LWIP
+        static uint8_t rx_frame_buf[1522];
         if (mask & LWIP_PORT_FRAME_ID) {
             size_t len = 0;
             // Prefer switch RX callback if registered; otherwise use lwIP port queue
@@ -494,16 +676,16 @@ void AP_Networking_ChibiOS::thread()
                     process_frame_to_lwip(rx_frame_buf, len, thisif);
                 }
             } else {
-#if AP_NETWORKING_BACKEND_HUB_PORT_LWIP
                 while (AP::network().port_lwip != nullptr &&
                        AP::network().port_lwip->get_frame(rx_frame_buf, &len, sizeof(rx_frame_buf))) {
                     process_frame_to_lwip(rx_frame_buf, len, thisif);
                 }
-#endif // AP_NETWORKING_BACKEND_HUB_PORT_LWIP
             }
         }
-        if (mask & FAST_COBS_TIMER_ID) {
+#endif // AP_NETWORKING_BACKEND_HUB_PORT_LWIP
+
 #if AP_NETWORKING_BACKEND_HUB_PORT_COBS
+        if (mask & FAST_COBS_TIMER_ID) {
             const uint8_t n_cobs = AP::network().get_num_cobs_ports();
             for (uint8_t i = 0; i < n_cobs; i++) {
                 auto *p = AP::network().get_cobs_port(i);
@@ -511,23 +693,20 @@ void AP_Networking_ChibiOS::thread()
                     p->update();
                 }
             }
-#endif // AP_NETWORKING_BACKEND_HUB_PORT_COBS
 
-            // After processing COBS, check if lwIP port has frames queued
-            // This avoids waiting for the next event cycle
-            if (mask & LWIP_PORT_FRAME_ID) {
-                // Already processed above
 #if AP_NETWORKING_BACKEND_HUB_PORT_LWIP
-            } else if (AP::network().port_lwip != nullptr) {
-                // Check if frames are queued and process them immediately
+            // After processing COBS, check if lwIP port has frames queued
+            if (!(mask & LWIP_PORT_FRAME_ID) && AP::network().port_lwip != nullptr) {
                 size_t len = 0;
                 while ((s_switch_rx_cb != nullptr && s_switch_rx_cb(rx_frame_buf, &len, sizeof(rx_frame_buf))) ||
                        (s_switch_rx_cb == nullptr && AP::network().port_lwip->get_frame(rx_frame_buf, &len, sizeof(rx_frame_buf)))) {
                     process_frame_to_lwip(rx_frame_buf, len, thisif);
                 }
-#endif // AP_NETWORKING_BACKEND_HUB_PORT_LWIP
             }
+#endif // AP_NETWORKING_BACKEND_HUB_PORT_LWIP
         }
+#endif // AP_NETWORKING_BACKEND_HUB_PORT_COBS
+#endif // !AP_NETWORKING_BACKEND_HUB_PORT_ETHERNET
     }
 }
 
@@ -634,4 +813,3 @@ void AP_Networking_ChibiOS::update()
 }
 
 #endif // AP_NETWORKING_BACKEND_CHIBIOS
-

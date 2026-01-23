@@ -12,6 +12,7 @@ public:
     friend class BL_Network;
     using AP_Networking_Backend::AP_Networking_Backend;
 
+#if AP_NETWORKING_BACKEND_HUB_PORT_LWIP
     // Switch interface callbacks for integrating an external Layer-2 switch
     using rx_get_frame_f = bool (*)(uint8_t *buf, size_t *len, size_t max_len);
     using tx_send_frame_f = bool (*)(const uint8_t *frame, size_t len);
@@ -19,6 +20,7 @@ public:
     // Register/unregister switch interface; when active, lwIP RX/TX route via these
     static void set_switch_interface(rx_get_frame_f rx_cb, tx_send_frame_f tx_cb);
     static bool switch_interface_active();
+#endif
 
     // Allocate MAC DMA buffers (called by Port_Ethernet and BL_Network)
     static bool allocate_buffers();
@@ -35,7 +37,9 @@ private:
     static void link_down_cb(void*);
     static int8_t ethernetif_init(struct netif *netif);
     static int8_t low_level_output(struct netif *netif, struct pbuf *p);
+#if !AP_NETWORKING_BACKEND_HUB_PORT_ETHERNET
     static bool low_level_input(struct netif *netif, struct pbuf **pbuf);
+#endif
 #if AP_NETWORKING_CAPTURE_ENABLED
     void start_capture(void);
     void stop_capture(void);
@@ -54,4 +58,3 @@ private:
 };
 
 #endif // AP_NETWORKING_BACKEND_CHIBIOS
-
