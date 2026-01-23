@@ -247,7 +247,7 @@ void Networking_Periph::update(void)
                        (unsigned long)eth->get_tx_count(),
                        (unsigned long)eth->get_rx_errors(),
                        (unsigned long)eth->get_tx_errors(),
-                       eth->poll_link_status() ? 1U : 0U);
+                       eth->is_link_up() ? 1U : 0U);
         }
 #endif // AP_NETWORKING_BACKEND_HUB_PORT_ETHERNET
 
