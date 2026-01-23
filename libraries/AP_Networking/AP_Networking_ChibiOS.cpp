@@ -5,6 +5,7 @@
 
 #include "AP_Networking_ChibiOS.h"
 #include <GCS_MAVLink/GCS.h>
+#include <AP_Filesystem/AP_Filesystem.h>
 
 #include <lwip/udp.h>
 #include <lwip/ip_addr.h>
@@ -106,6 +107,12 @@ bool AP_Networking_ChibiOS::allocate_buffers()
     }
     return true;
 }
+#else // !STM32_ETH_BUFFERS_EXTERN
+bool AP_Networking_ChibiOS::allocate_buffers()
+{
+    // External ethernet buffers required but not available
+    return false;
+}
 #endif // STM32_ETH_BUFFERS_EXTERN
 
 /*
@@ -117,6 +124,9 @@ static void process_frame_to_lwip(const uint8_t *buf, size_t len, struct netif *
     if (len == 0) {
         return;
     }
+#if AP_NETWORKING_CAPTURE_ENABLED
+    AP_Networking_ChibiOS::capture_frame(buf, len);
+#endif
     struct pbuf *p = pbuf_alloc(PBUF_RAW, len, PBUF_POOL);
     if (p == nullptr) {
         return;
@@ -214,6 +224,47 @@ void AP_Networking_ChibiOS::link_down_cb(void *p)
 #endif
 }
 
+#if AP_NETWORKING_CAPTURE_ENABLED
+/*
+  capture all data in a pbuf chain
+ */
+void AP_Networking_ChibiOS::capture_pbuf(struct pbuf *p)
+{
+    auto *front = AP_Networking::singleton;
+    if (!front->option_is_set(AP_Networking::OPTION::CAPTURE_PACKETS)) {
+        return;
+    }
+    auto &driver = *(AP_Networking_ChibiOS*)front->backend;
+    WITH_SEMAPHORE(driver.capture.sem);
+    if (driver.capture.fd == -1) {
+        return;
+    }
+    driver.capture_header(driver.capture.fd, p->tot_len);
+    auto &fs = AP::FS();
+    for (auto *pp = p; pp != nullptr; pp = pp->next) {
+        fs.write(driver.capture.fd, (const uint8_t *)pp->payload, pp->len);
+    }
+}
+
+/*
+  capture a contiguous frame buffer
+ */
+void AP_Networking_ChibiOS::capture_frame(const uint8_t *buf, size_t len)
+{
+    auto *front = AP_Networking::singleton;
+    if (!front->option_is_set(AP_Networking::OPTION::CAPTURE_PACKETS)) {
+        return;
+    }
+    auto &driver = *(AP_Networking_ChibiOS*)front->backend;
+    WITH_SEMAPHORE(driver.capture.sem);
+    if (driver.capture.fd == -1) {
+        return;
+    }
+    driver.capture_header(driver.capture.fd, len);
+    AP::FS().write(driver.capture.fd, buf, len);
+}
+#endif // AP_NETWORKING_CAPTURE_ENABLED
+
 /*
  * This function does the actual transmission of the packet. The packet is
  * contained in the pbuf that is passed to the function. This pbuf
@@ -232,6 +283,11 @@ void AP_Networking_ChibiOS::link_down_cb(void *p)
 int8_t AP_Networking_ChibiOS::low_level_output(struct netif *netif, struct pbuf *p)
 {
     (void)netif;
+
+#if AP_NETWORKING_CAPTURE_ENABLED
+    capture_pbuf(p);
+#endif
+
     // copy pbuf chain into contiguous frame buffer and send via lwIP port or switch
     static uint8_t framebuf[1522];
     size_t ofs = 0;
@@ -288,6 +344,47 @@ int8_t AP_Networking_ChibiOS::ethernetif_init(struct netif *netif)
 
     return ERR_OK;
 }
+
+#if AP_NETWORKING_CAPTURE_ENABLED
+// start a pcap network capture
+void AP_Networking_ChibiOS::start_capture(void)
+{
+    if (capture.fd != -1) {
+        // called at 1Hz, flush the file
+        AP::FS().fsync(capture.fd);
+        return;
+    }
+    const struct pcap_hdr {
+        uint32_t magic_number;   // 0xa1b2c3d4
+        uint16_t version_major;  // 2
+        uint16_t version_minor;  // 4
+        int32_t  thiszone;       // GMT to local correction
+        uint32_t sigfigs;        // accuracy of timestamps
+        uint32_t snaplen;        // max length of captured packets, in octets
+        uint32_t network;        // data link type (1 for Ethernet)
+    } hdr = {
+        0xa1b2c3d4, 2, 4, 0, 0, 1500, 1
+    };
+    const char *fname = "eth0.cap";
+    WITH_SEMAPHORE(capture.sem);
+    auto &fs = AP::FS();
+    capture.fd = fs.open(fname, O_WRONLY|O_CREAT|O_TRUNC);
+    if (capture.fd != -1) {
+        fs.write(capture.fd, (const void *)&hdr, sizeof(hdr));
+        GCS_SEND_TEXT(MAV_SEVERITY_INFO, "Capturing to %s", fname);
+    }
+}
+
+// stop a pcap network capture
+void AP_Networking_ChibiOS::stop_capture(void)
+{
+    int fd = capture.fd;
+    if (fd != -1) {
+        capture.fd = -1;
+        AP::FS().close(fd);
+    }
+}
+#endif // AP_NETWORKING_CAPTURE_ENABLED
 
 /*
   networking thread
@@ -380,6 +477,13 @@ void AP_Networking_ChibiOS::thread()
                     }
                 }
             }
+#if AP_NETWORKING_CAPTURE_ENABLED
+            if (frontend.option_is_set(AP_Networking::OPTION::CAPTURE_PACKETS)) {
+                start_capture();
+            } else {
+                stop_capture();
+            }
+#endif
         }
 
         if (mask & LWIP_PORT_FRAME_ID) {

@@ -40,6 +40,7 @@ private:
     void start_capture(void);
     void stop_capture(void);
     static void capture_pbuf(struct pbuf *p);
+    static void capture_frame(const uint8_t *buf, size_t len);
     struct {
         HAL_Semaphore sem;
         int fd = -1;
