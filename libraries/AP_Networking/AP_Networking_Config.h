@@ -88,10 +88,12 @@
 #endif
 
 #ifndef AP_NETWORKING_BACKEND_SWITCHPORT_LWIP
-// lwIP switchport - for MAC gateway clients, NOT enabled on SITL by default
+// lwIP switchport - enabled when switch has Ethernet (replaces old ChibiOS backend)
+// or for MAC gateway clients. NOT enabled on SITL by default
 // (SITL uses native sockets by default for compatibility)
 #define AP_NETWORKING_BACKEND_SWITCHPORT_LWIP \
-    (AP_NETWORKING_LWIP_AVAILABLE && AP_NETWORKING_BACKEND_IS_MAC_GATEWAY_CLIENT)
+    (AP_NETWORKING_LWIP_AVAILABLE && \
+     (AP_NETWORKING_BACKEND_IS_MAC_GATEWAY_CLIENT || AP_NETWORKING_BACKEND_SWITCHPORT_ETHERNET))
 #endif
 
 #ifndef AP_NETWORKING_BACKEND_SWITCHPORT_MAVLINK_COBS

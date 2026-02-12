@@ -392,9 +392,18 @@ void AP_Networking::init()
  */
 void AP_Networking::announce_address_changes()
 {
-    const auto &as = backend->activeSettings;
+    uint32_t last_change_ms = 0;
 
-    if (as.last_change_ms == 0 || as.last_change_ms == announce_ms) {
+    if (backend != nullptr) {
+        last_change_ms = backend->activeSettings.last_change_ms;
+    }
+#if AP_NETWORKING_BACKEND_SWITCHPORT_LWIP
+    else if (port_lwip != nullptr) {
+        last_change_ms = port_lwip->get_last_change_ms();
+    }
+#endif
+
+    if (last_change_ms == 0 || last_change_ms == announce_ms) {
         // nothing changed and we've already printed it at least once. Nothing to do.
         return;
     }
@@ -406,7 +415,7 @@ void AP_Networking::announce_address_changes()
     GCS_SEND_TEXT(MAV_SEVERITY_INFO, "NET: Gateway %s", SocketAPM::inet_addr_to_str(get_gateway_active(), ipstr, sizeof(ipstr)));
 #endif
 
-    announce_ms = as.last_change_ms;
+    announce_ms = last_change_ms;
 }
 
 /*
@@ -417,7 +426,14 @@ void AP_Networking::update()
     if (!is_healthy()) {
         return;
     }
-    backend->update();
+    if (backend != nullptr) {
+        backend->update();
+    }
+#if AP_NETWORKING_BACKEND_SWITCH
+    if (hub != nullptr) {
+        hub->update();
+    }
+#endif
 #if AP_NETWORKING_CAPTURE_ENABLED
     // Manage per-port-type packet captures based on NET_CAPMASK
 #if AP_NETWORKING_BACKEND_SWITCHPORT_LWIP
@@ -520,18 +536,42 @@ bool AP_Networking::convert_str_to_macaddr(const char *mac_str, uint8_t addr[6])
 // returns the 32bit value of the active IP address that is currently in use
 uint32_t AP_Networking::get_ip_active() const
 {
-    return backend?backend->activeSettings.ip:0;
+    if (backend != nullptr) {
+        return backend->activeSettings.ip;
+    }
+#if AP_NETWORKING_BACKEND_SWITCHPORT_LWIP
+    if (port_lwip != nullptr) {
+        return port_lwip->get_active_ip();
+    }
+#endif
+    return 0;
 }
 
 // returns the 32bit value of the active Netmask that is currently in use
 uint32_t AP_Networking::get_netmask_active() const
 {
-    return backend?backend->activeSettings.nm:0;
+    if (backend != nullptr) {
+        return backend->activeSettings.nm;
+    }
+#if AP_NETWORKING_BACKEND_SWITCHPORT_LWIP
+    if (port_lwip != nullptr) {
+        return port_lwip->get_active_netmask();
+    }
+#endif
+    return 0;
 }
 
 uint32_t AP_Networking::get_gateway_active() const
 {
-    return backend?backend->activeSettings.gw:0;
+    if (backend != nullptr) {
+        return backend->activeSettings.gw;
+    }
+#if AP_NETWORKING_BACKEND_SWITCHPORT_LWIP
+    if (port_lwip != nullptr) {
+        return port_lwip->get_active_gateway();
+    }
+#endif
+    return 0;
 }
 
 /*
