@@ -51,6 +51,7 @@ public:
     uint32_t get_active_ip() const;
     uint32_t get_active_netmask() const;
     uint32_t get_active_gateway() const;
+    uint32_t get_last_change_ms() const { return activeSettings.last_change_ms; }
 
 private:
     AP_Networking_Switch *hub;
