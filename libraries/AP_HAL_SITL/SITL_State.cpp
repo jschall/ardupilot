@@ -36,7 +36,7 @@ using namespace HALSITL;
  */
 void SITL_State::_sitl_setup()
 {
-#if !defined(__CYGWIN__) && !defined(__CYGWIN64__)
+#if !defined(__CYGWIN__) && !defined(__CYGWIN64__) && !defined(__EMSCRIPTEN__)
     _parent_pid = getppid();
 #endif
 
@@ -88,9 +88,11 @@ void SITL_State::_fdm_input_step(void)
     _fdm_input_local();
 
     /* make sure we die if our parent dies */
+#ifndef __EMSCRIPTEN__
     if (kill(_parent_pid, 0) != 0) {
         exit(1);
     }
+#endif
 
     if (_scheduler->interrupts_are_blocked() || _sitl == nullptr) {
         return;
@@ -422,6 +424,10 @@ void SITL_State::set_height_agl(void)
  */
 void SITL_State::multicast_state_open(void)
 {
+#ifdef __EMSCRIPTEN__
+    // multicast sockets not supported in browser
+    return;
+#else
     struct sockaddr_in sockaddr {};
     int ret;
 
@@ -477,7 +483,10 @@ void SITL_State::multicast_state_open(void)
         fprintf(stderr, "udp servo connect failed\n");
         exit(1);
     }
+#endif // __EMSCRIPTEN__
+#ifndef __EMSCRIPTEN__
     ::printf("multicast initialised\n");
+#endif
 }
 
 /*
@@ -485,6 +494,9 @@ void SITL_State::multicast_state_open(void)
  */
 void SITL_State::multicast_state_send(void)
 {
+#ifdef __EMSCRIPTEN__
+    return;
+#else
     if (_sitl == nullptr) {
         return;
     }
@@ -495,6 +507,7 @@ void SITL_State::multicast_state_send(void)
     send(mc_out_fd, (void*)&sfdm, sizeof(sfdm), 0);
 
     check_servo_input();
+#endif
 }
 
 /*

@@ -304,10 +304,6 @@ size_t UARTDriver::_write(const uint8_t *buffer, size_t size)
  */
 void UARTDriver::_tcp_start_connection(uint16_t port, bool wait_for_connection)
 {
-    int one=1;
-    int ret;
-    struct sockaddr_in _listen_sockaddr {};
-
     if (_connected) {
         return;
     }
@@ -322,6 +318,15 @@ void UARTDriver::_tcp_start_connection(uint16_t port, bool wait_for_connection)
         _fd = 1;
         return;
     }
+
+#ifdef __EMSCRIPTEN__
+    // TCP sockets not supported in browser
+    return;
+#endif
+
+    int one=1;
+    int ret;
+    struct sockaddr_in _listen_sockaddr {};
 
     if (_fd != -1) {
         close(_fd);
@@ -402,6 +407,9 @@ void UARTDriver::_tcp_start_connection(uint16_t port, bool wait_for_connection)
  */
 void UARTDriver::_tcp_start_client(const char *address, uint16_t port)
 {
+#ifdef __EMSCRIPTEN__
+    return;
+#endif
 
     if (_connected) {
         return;
@@ -472,6 +480,9 @@ void UARTDriver::_tcp_start_client(const char *address, uint16_t port)
  */
 void UARTDriver::_udp_start_client(const char *address, uint16_t port)
 {
+#ifdef __EMSCRIPTEN__
+    return;
+#endif
     struct sockaddr_in sockaddr;
     int ret;
 
@@ -529,6 +540,9 @@ void UARTDriver::_udp_start_client(const char *address, uint16_t port)
  */
 void UARTDriver::_udp_start_multicast(const char *address, uint16_t port)
 {
+#ifdef __EMSCRIPTEN__
+    return;
+#endif
     if (_connected) {
         return;
     }

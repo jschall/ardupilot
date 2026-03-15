@@ -991,6 +991,131 @@ class SITLBoard(Board):
             fun(bld)
         super().pre_build(bld)
 
+class sitl_emscripten(SITLBoard):
+
+    def __init__(self):
+        super().__init__()
+        self.with_can = False
+        self.with_littlefs = False
+
+    EMSCRIPTEN_VERSION = 'latest'
+
+    def _setup_emsdk(self, cfg):
+        '''Bootstrap emsdk from the submodule if needed, return upstream dir'''
+        import subprocess
+        emsdk_dir = os.path.join(cfg.srcnode.abspath(), 'modules', 'emsdk')
+        emsdk = os.path.join(emsdk_dir, 'emsdk')
+
+        if not os.path.isfile(emsdk):
+            cfg.fatal('emsdk submodule not found. Run: git submodule update --init modules/emsdk')
+
+        upstream_dir = os.path.join(emsdk_dir, 'upstream', 'emscripten')
+        emcc = os.path.join(upstream_dir, 'emcc')
+        if not os.path.isfile(emcc):
+            cfg.msg('Installing emsdk', self.EMSCRIPTEN_VERSION)
+            subprocess.check_call([emsdk, 'install', self.EMSCRIPTEN_VERSION],
+                                  cwd=emsdk_dir)
+            subprocess.check_call([emsdk, 'activate', self.EMSCRIPTEN_VERSION],
+                                  cwd=emsdk_dir)
+
+        return upstream_dir
+
+    def configure_toolchain(self, cfg):
+        upstream_dir = self._setup_emsdk(cfg)
+        emcc_path = os.path.join(upstream_dir, 'emcc')
+        emxx_path = os.path.join(upstream_dir, 'em++')
+        emar_path = os.path.join(upstream_dir, 'emar')
+
+        cfg.env.CC = [emcc_path]
+        cfg.env.CXX = [emxx_path]
+        cfg.env.AR = [emar_path]
+        cfg.msg('Using emcc', emcc_path)
+
+        cfg.env.CC_NAME = 'clang'
+        cfg.env.CXX_NAME = 'clang'
+        cfg.env.COMPILER_CC = 'clang'
+        cfg.env.COMPILER_CXX = 'clang++'
+        cfg.env.AR_NAME = 'emar'
+        cfg.env.ARFLAGS = ['rcs']
+        cfg.env.LINK_CXX = cfg.env.CXX
+        cfg.env.LINK_CC = cfg.env.CC
+        # Set compilation flag templates (normally set by gxx_common_flags)
+        v = cfg.env
+        v.CXX_SRC_F = []
+        v.CXX_TGT_F = ['-c', '-o']
+        v.CC_SRC_F = []
+        v.CC_TGT_F = ['-c', '-o']
+        v.CXXLNK_SRC_F = []
+        v.CXXLNK_TGT_F = ['-o']
+        v.CCLNK_SRC_F = []
+        v.CCLNK_TGT_F = ['-o']
+        v.CPPPATH_ST = '-I%s'
+        v.DEFINES_ST = '-D%s'
+        v.LIB_ST = '-l%s'
+        v.LIBPATH_ST = '-L%s'
+        v.STLIB_ST = '-l%s'
+        v.STLIBPATH_ST = '-L%s'
+        v.RPATH_ST = '-Wl,-rpath,%s'
+        v.cxxprogram_PATTERN = '%s.html'
+        v.cprogram_PATTERN = '%s.html'
+        v.cxxstlib_PATTERN = 'lib%s.a'
+        v.cstlib_PATTERN = 'lib%s.a'
+        # Get version info
+        cfg.get_cc_version(cfg.env.CC, clang=True)
+
+    def configure_env(self, cfg, env):
+        # Emscripten provides clock_gettime natively, skip librt check
+        original_check_librt = cfg.check_librt
+        cfg.check_librt = lambda env: True
+        super().configure_env(cfg, env)
+        cfg.check_librt = original_check_librt
+
+        env.CXXFLAGS += [
+            '-DAP_NETWORKING_ENABLED=0',
+            '-DHAL_NUM_CAN_IFACES=0',
+            '-DAP_SCRIPTING_ENABLED=0',
+            '-pthread',
+        ]
+        env.CFLAGS += [
+            '-pthread',
+        ]
+        env.LINKFLAGS = [f for f in env.LINKFLAGS if f not in [
+            '-Wl,--wrap,malloc',
+            '-Wl,--gc-sections',
+        ]]
+        emscripten_dir = os.path.join(env.SRCROOT,
+                                      'libraries/AP_HAL_SITL/emscripten')
+        shell_html = os.path.join(emscripten_dir, 'shell.html')
+        library_js = os.path.join(emscripten_dir, 'library_sitl.js')
+        env.LINKFLAGS += [
+            '-pthread',
+            '-sASYNCIFY',
+            '-sASYNCIFY_STACK_SIZE=65536',
+            '-sALLOW_MEMORY_GROWTH',
+            '-sINITIAL_MEMORY=67108864',
+            '-sFORCE_FILESYSTEM=1',
+            '-sNO_EXIT_RUNTIME=1',
+            '-sENVIRONMENT=web,worker',
+            '-sEXPORTED_RUNTIME_METHODS=callMain',
+            '-lwebsocket.js',
+            '-sPTHREAD_POOL_SIZE=8',
+            '--shell-file', shell_html,
+            '--js-library', library_js,
+        ]
+
+        # Remove flags incompatible with Emscripten
+        for flag_list in [env.CXXFLAGS, env.CFLAGS]:
+            to_remove = [f for f in flag_list if f.startswith('-m32')]
+            for f in to_remove:
+                flag_list.remove(f)
+
+        # Emscripten provides these, don't link separately
+        env.LIB = [l for l in env.LIB if l not in ['rt', 'dl']]
+
+    def get_name(self):
+        return 'sitl_emscripten'
+
+
 class esp32(Board):
     abstract = True
     toolchain = 'xtensa-esp32-elf'

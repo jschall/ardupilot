@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>ArduPilot SITL - Browser</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; }
+        #header { background: #16213e; padding: 12px 20px; display: flex; align-items: center; gap: 12px; }
+        #header h1 { font-size: 18px; color: #0f0; }
+        #header .status { font-size: 13px; color: #888; }
+        #main { display: flex; height: calc(100vh - 48px); }
+        #console-panel { flex: 1; display: flex; flex-direction: column; }
+        #output {
+            flex: 1; background: #0d1117; padding: 10px; overflow-y: auto;
+            font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 13px;
+            line-height: 1.4; white-space: pre-wrap; word-break: break-all;
+        }
+        #progress { padding: 10px; background: #16213e; text-align: center; }
+        #progress-bar { width: 100%; height: 4px; background: #333; border-radius: 2px; overflow: hidden; }
+        #progress-fill { height: 100%; background: #0f0; width: 0%; transition: width 0.3s; }
+        .err { color: #ff6b6b; }
+        .warn { color: #ffd93d; }
+        .info { color: #6bcb77; }
+        canvas { display: none; }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1>ArduPilot SITL</h1>
+        <span class="status" id="status">Loading...</span>
+    </div>
+    <div id="main">
+        <div id="console-panel">
+            <div id="progress">
+                <div id="progress-bar"><div id="progress-fill"></div></div>
+            </div>
+            <div id="output"></div>
+        </div>
+    </div>
+    <canvas id="canvas" class="emscripten"></canvas>
+
+    <script>
+        var statusEl = document.getElementById('status');
+        var outputEl = document.getElementById('output');
+        var progressFill = document.getElementById('progress-fill');
+
+        function addOutput(text, cls) {
+            var span = document.createElement('span');
+            if (cls) span.className = cls;
+            span.textContent = text + '\n';
+            outputEl.appendChild(span);
+            outputEl.scrollTop = outputEl.scrollHeight;
+        }
+
+        var Module = {
+            arguments: ['-M', 'quad', '--home', '35.3606,-149.1652,584,353', '--speedup', '1'],
+            preRun: [],
+            postRun: [],
+            print: function(text) {
+                console.log(text);
+                addOutput(text, 'info');
+            },
+            printErr: function(text) {
+                console.error(text);
+                if (text.toLowerCase().includes('error') || text.toLowerCase().includes('panic')) {
+                    addOutput(text, 'err');
+                } else if (text.toLowerCase().includes('warn')) {
+                    addOutput(text, 'warn');
+                } else {
+                    addOutput(text);
+                }
+            },
+            canvas: document.getElementById('canvas'),
+            setStatus: function(text) {
+                statusEl.textContent = text || 'Ready';
+                var m = text.match(/(\d+(\.\d+)?)\//);
+                if (m) {
+                    var pct = (parseFloat(m[1]) / parseFloat(text.split('/')[1])) * 100;
+                    progressFill.style.width = Math.min(pct, 100) + '%';
+                }
+                if (!text || text === '') {
+                    progressFill.style.width = '100%';
+                    document.getElementById('progress').style.display = 'none';
+                    statusEl.textContent = 'Running';
+                    statusEl.style.color = '#0f0';
+                }
+            },
+            onRuntimeInitialized: function() {
+                addOutput('ArduPilot WASM runtime initialized', 'info');
+            },
+            totalDependencies: 0,
+            monitorRunDependencies: function(left) {
+                this.totalDependencies = Math.max(this.totalDependencies, left);
+                Module.setStatus(left ? 'Loading... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : '');
+            }
+        };
+        Module.setStatus('Downloading...');
+        window.onerror = function(e) {
+            Module.setStatus('Error: ' + e);
+            addOutput('Exception: ' + e, 'err');
+        };
+    </script>
+    {{{ SCRIPT }}}
+</body>
+</html>

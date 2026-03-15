@@ -9,6 +9,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 #include "AP_HAL_SITL.h"
 #include "AP_HAL_SITL_Namespace.h"
@@ -274,12 +277,16 @@ void HAL_SITL::run(int argc, char * const argv[], Callbacks* callbacks) const
     }
 #endif
 
+#ifndef __EMSCRIPTEN__
     bool using_watchdog = AP_BoardConfig::watchdog_enabled();
     if (using_watchdog) {
         signal(SIGALRM, sig_alrm);
         alarm(2);
     }
     setup_signal_handlers();
+#else
+    bool using_watchdog = false;
+#endif
 
     uint32_t last_watchdog_save = AP_HAL::millis();
     uint8_t fill_count = 0;
@@ -305,19 +312,30 @@ void HAL_SITL::run(int argc, char * const argv[], Callbacks* callbacks) const
             watchdog_save((uint32_t *)&utilInstance.persistent_data, (sizeof(utilInstance.persistent_data)+3)/4);
         }
 
+#ifndef __EMSCRIPTEN__
         if (using_watchdog) {
             // note that this only works for a speedup of 1
             alarm(2);
         }
+#else
+        // yield to browser event loop
+        emscripten_sleep(1);
+#endif
     }
 
+#ifndef __EMSCRIPTEN__
     actually_reboot();
+#endif
 }
 
 void HAL_SITL::actually_reboot()
 {
+#ifdef __EMSCRIPTEN__
+    AP_HAL::panic("PANIC: REBOOT not supported in browser");
+#else
     execv(new_argv[0], new_argv);
     AP_HAL::panic("PANIC: REBOOT FAILED: %s", strerror(errno));
+#endif
 }
 
 static HAL_SITL hal_sitl_inst;

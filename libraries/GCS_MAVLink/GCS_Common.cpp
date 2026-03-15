@@ -2529,6 +2529,9 @@ void GCS::send_textv(MAV_SEVERITY severity, const char *fmt, va_list arg_list, m
         // protect the "text" member with _statustext_sem
         WITH_SEMAPHORE(_statustext_queue.semaphore());
         hal.util->vsnprintf(statustext_printf_buffer, sizeof(statustext_printf_buffer), fmt, arg_list);
+#ifdef __EMSCRIPTEN__
+        fprintf(stderr, "[GCS] %s\n", statustext_printf_buffer);
+#endif
         memcpy(first_piece_of_text, statustext_printf_buffer, ARRAY_SIZE(first_piece_of_text)-1);
 
         // filter destination ports to only allow active ports.

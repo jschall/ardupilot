@@ -51,6 +51,12 @@
 #define CALL_PREFIX(x) ::x
 #endif
 
+#ifdef __EMSCRIPTEN__
+static inline int _emscripten_setsockopt_noop(int, int, int, const void*, socklen_t) { return 0; }
+#undef setsockopt
+#define setsockopt _emscripten_setsockopt_noop
+#endif
+
 #ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
 #endif
